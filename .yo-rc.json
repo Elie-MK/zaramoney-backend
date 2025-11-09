@@ -1,0 +1,33 @@
+{
+  "generator-jhipster": {
+    "applicationType": "monolith",
+    "authenticationType": "jwt",
+    "baseName": "zaramoneybackend",
+    "buildTool": "maven",
+    "cacheProvider": "ehcache",
+    "clientFramework": "no",
+    "clientTestFrameworks": null,
+    "clientTheme": null,
+    "creationTimestamp": 1762697584814,
+    "databaseType": "sql",
+    "devDatabaseType": "postgresql",
+    "enableHibernateCache": true,
+    "enableTranslation": false,
+    "entities": [],
+    "feignClient": null,
+    "jhipsterVersion": "8.11.0",
+    "jwtSecretKey": "NzdmOWVhNjg4NzkxNTc3Yjg3NzM0NmIxMjgwYjFkMTM1ZWRlYmYzZmRjZWE3YzIwZWY0YTMwMWViZGE1M2I4NjM5NTQ5YTRiNzk4MmMxYWY5YTgxODAxOTJmMDlhMzQzNDcyYzkxZTAwM2FhNzNjN2ZjMjhkYTNhYmFlZDhhNzA=",
+    "microfrontend": null,
+    "microfrontends": [],
+    "nativeLanguage": "en",
+    "packageName": "com.zekodnix.zaramoney",
+    "prodDatabaseType": "postgresql",
+    "reactive": false,
+    "serverPort": null,
+    "serviceDiscoveryType": null,
+    "skipClient": true,
+    "syncUserWithIdp": null,
+    "testFrameworks": [],
+    "withAdminUi": null
+  }
+}
