@@ -221,6 +221,16 @@
             <artifactId>ehcache</artifactId>
             <classifier>jakarta</classifier>
         </dependency>
+      <dependency>
+        <groupId>org.projectlombok</groupId>
+        <artifactId>lombok</artifactId>
+        <version>1.18.42</version>
+      </dependency>
+      <dependency>
+        <groupId>com.cloudinary</groupId>
+        <artifactId>cloudinary-http45</artifactId>
+        <version>1.39.0</version>
+      </dependency>
         <dependency>
             <groupId>org.glassfish.jaxb</groupId>
             <artifactId>jaxb-runtime</artifactId>
