@@ -1,0 +1,19 @@
+entity UserDetailsAccount {
+  phoneNumber String required
+  facePicture String required
+  IdCardPicture String required
+  country String required
+  address String required
+  isAgent Boolean required
+  accountNumber String required
+  accountBalance BigDecimal required
+}
+
+relationship OneToOne {
+  UserDetailsAccount{userLogin(login)} to User with builtInEntity
+}
+
+paginate * with pagination
+dto * with mapstruct except User
+service * with serviceClass except User
+filter all
