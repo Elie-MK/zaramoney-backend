@@ -1,3 +1,66 @@
+
+/////////////////////////////////////////////////////////////
+// ENUMS
+/////////////////////////////////////////////////////////////
+
+enum TransactionType {
+  DEPOSIT, WITHDRAWAL, TRANSFER
+}
+enum TransactionStatus {
+  PENDING, COMPLETED, FAILED
+}
+
+enum FraudStatus {
+  CLEAN, SUSPICIOUS, BLOCKED
+}
+
+
+/////////////////////////////////////////////////////////////
+// ENTITIES
+/////////////////////////////////////////////////////////////
+
+entity TransactionRecord {
+  transactionType TransactionType required
+
+  sendAmount BigDecimal required min(1.00)
+  receiveAmount BigDecimal required min(1.00)
+
+  transactionDate Instant required
+  description String maxlength(255)
+
+  senderAccountNumber String required minlength(8) maxlength(16)
+  receiverAccountNumber String required minlength(8) maxlength(16)
+
+  currencySendAmount String required minlength(3) maxlength(3)
+  currencyReceiveAmount String required minlength(3) maxlength(3)
+
+  transactionStatus TransactionStatus required
+
+  transactionReference String required unique minlength(10) maxlength(64)
+
+  // Fraud engine fields
+  riskScore Integer required min(0) max(100)
+  fraudStatus FraudStatus required
+
+  // Audit fields
+  createdAt Instant required
+  updatedAt Instant
+}
+
+entity IdempotencyRecord {
+  keyHash String required unique maxlength(128)
+  endpoint String required maxlength(200)
+  userId Long required
+  createdAt Instant required
+
+  // Deterministic response replay
+  responseBody TextBlob
+  responseStatus Integer
+
+  // If the request created a transaction
+  transactionReference String maxlength(64)
+}
+
 entity UserDetailsAccount {
   phoneNumber String required
   facePicture String required
@@ -7,6 +70,14 @@ entity UserDetailsAccount {
   isAgent Boolean required
   accountNumber String required
   accountBalance BigDecimal required
+}
+
+/////////////////////////////////////////////////////////////
+// RELATIONSHIPS
+/////////////////////////////////////////////////////////////
+
+relationship ManyToOne {
+  TransactionRecord{userLogin(login)} to User with builtInEntity
 }
 
 relationship OneToOne {

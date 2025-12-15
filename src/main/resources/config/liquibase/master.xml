@@ -17,7 +17,13 @@
            relativeToChangelogFile="false"/>
   <include file="config/liquibase/changelog/20251120071619_added_entity_constraints_UserDetailsAccount.xml"
            relativeToChangelogFile="false"/>
-
+<!-- Add entities IdempotencyRecord, TransactionRecord, and constraints TransactionRecord -->
+  <include file="config/liquibase/changelog/20251215170622_added_entity_TransactionRecord.xml"
+           relativeToChangelogFile="false"/>
+  <include file="config/liquibase/changelog/20251215170622_added_entity_constraints_TransactionRecord.xml"
+           relativeToChangelogFile="false"/>
+  <include file="config/liquibase/changelog/20251215170623_added_entity_IdempotencyRecord.xml"
+           relativeToChangelogFile="false"/>
 
   <!-- jhipster-needle-liquibase-add-changelog - JHipster will add liquibase changelogs here -->
   <!-- jhipster-needle-liquibase-add-constraints-changelog - JHipster will add liquibase constraints changelogs here -->

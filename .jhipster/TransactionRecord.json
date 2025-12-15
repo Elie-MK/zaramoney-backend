@@ -1,0 +1,116 @@
+{
+  "annotations": {
+    "changelogDate": "20251215170622"
+  },
+  "applications": "*",
+  "dto": "mapstruct",
+  "fields": [
+    {
+      "fieldName": "transactionType",
+      "fieldType": "TransactionType",
+      "fieldValidateRules": ["required"],
+      "fieldValues": "DEPOSIT,WITHDRAWAL,TRANSFER"
+    },
+    {
+      "fieldName": "sendAmount",
+      "fieldType": "BigDecimal",
+      "fieldValidateRules": ["required", "min"],
+      "fieldValidateRulesMin": "1.00"
+    },
+    {
+      "fieldName": "receiveAmount",
+      "fieldType": "BigDecimal",
+      "fieldValidateRules": ["required", "min"],
+      "fieldValidateRulesMin": "1.00"
+    },
+    {
+      "fieldName": "transactionDate",
+      "fieldType": "Instant",
+      "fieldValidateRules": ["required"]
+    },
+    {
+      "fieldName": "description",
+      "fieldType": "String",
+      "fieldValidateRules": ["maxlength"],
+      "fieldValidateRulesMaxlength": "255"
+    },
+    {
+      "fieldName": "senderAccountNumber",
+      "fieldType": "String",
+      "fieldValidateRules": ["required", "minlength", "maxlength"],
+      "fieldValidateRulesMaxlength": "16",
+      "fieldValidateRulesMinlength": "8"
+    },
+    {
+      "fieldName": "receiverAccountNumber",
+      "fieldType": "String",
+      "fieldValidateRules": ["required", "minlength", "maxlength"],
+      "fieldValidateRulesMaxlength": "16",
+      "fieldValidateRulesMinlength": "8"
+    },
+    {
+      "fieldName": "currencySendAmount",
+      "fieldType": "String",
+      "fieldValidateRules": ["required", "minlength", "maxlength"],
+      "fieldValidateRulesMaxlength": "3",
+      "fieldValidateRulesMinlength": "3"
+    },
+    {
+      "fieldName": "currencyReceiveAmount",
+      "fieldType": "String",
+      "fieldValidateRules": ["required", "minlength", "maxlength"],
+      "fieldValidateRulesMaxlength": "3",
+      "fieldValidateRulesMinlength": "3"
+    },
+    {
+      "fieldName": "transactionStatus",
+      "fieldType": "TransactionStatus",
+      "fieldValidateRules": ["required"],
+      "fieldValues": "PENDING,COMPLETED,FAILED"
+    },
+    {
+      "fieldName": "transactionReference",
+      "fieldType": "String",
+      "fieldValidateRules": ["required", "unique", "minlength", "maxlength"],
+      "fieldValidateRulesMaxlength": "64",
+      "fieldValidateRulesMinlength": "10"
+    },
+    {
+      "fieldName": "riskScore",
+      "fieldType": "Integer",
+      "fieldValidateRules": ["required", "min", "max"],
+      "fieldValidateRulesMax": "100",
+      "fieldValidateRulesMin": "0"
+    },
+    {
+      "fieldName": "fraudStatus",
+      "fieldType": "FraudStatus",
+      "fieldValidateRules": ["required"],
+      "fieldValues": "CLEAN,SUSPICIOUS,BLOCKED"
+    },
+    {
+      "fieldName": "createdAt",
+      "fieldType": "Instant",
+      "fieldValidateRules": ["required"]
+    },
+    {
+      "fieldName": "updatedAt",
+      "fieldType": "Instant"
+    }
+  ],
+  "jpaMetamodelFiltering": true,
+  "name": "TransactionRecord",
+  "pagination": "pagination",
+  "relationships": [
+    {
+      "otherEntityField": "login",
+      "otherEntityName": "user",
+      "relationshipName": "userLogin",
+      "relationshipSide": "left",
+      "relationshipType": "many-to-one",
+      "relationshipWithBuiltInEntity": true
+    }
+  ],
+  "searchEngine": "no",
+  "service": "serviceClass"
+}

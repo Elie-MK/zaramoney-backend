@@ -1,0 +1,11 @@
+id;transaction_type;send_amount;receive_amount;transaction_date;description;sender_account_number;receiver_account_number;currency_send_amount;currency_receive_amount;transaction_status;transaction_reference;risk_score;fraud_status;created_at;updated_at
+1;WITHDRAWAL;32508.9;14172.74;2025-12-15T13:09:10;bah hello healthily;behind ouch;assured well-doc;unf;tho;COMPLETED;husband whoa hastily;15;SUSPICIOUS;2025-12-15T09:08:41;2025-12-14T22:50:49
+2;WITHDRAWAL;20532.61;18110.7;2025-12-15T09:40:36;consequently manipulate mmm;cafe browse real;absent oval;ush;tha;PENDING;wryXXXXXXX;100;SUSPICIOUS;2025-12-15T09:09:07;2025-12-14T23:43:04
+3;WITHDRAWAL;8551.97;31834.62;2025-12-15T14:16:56;pish apud white;fabricate alongs;tremendously;tro;anx;PENDING;sweetly hmph;98;CLEAN;2025-12-15T06:24:26;2025-12-15T08:28:27
+4;TRANSFER;2934.57;20992;2025-12-14T17:07:05;around defiantly;whoseXXX;rebel inasmuch;qui;sma;FAILED;in bah croon;70;BLOCKED;2025-12-15T12:01:33;2025-12-15T16:25:27
+5;WITHDRAWAL;18595.49;26875.93;2025-12-14T18:28:37;consequently zowie;beforeXX;mostlyXX;sta;but;PENDING;aXXXXXXXXX;67;SUSPICIOUS;2025-12-14T23:17:49;2025-12-15T10:45:17
+6;DEPOSIT;13849.53;32491.17;2025-12-15T14:52:02;pronoun;topsailX;illusion widow t;der;equ;COMPLETED;whoaXXXXXX;44;CLEAN;2025-12-15T15:26:39;2025-12-15T11:26:36
+7;DEPOSIT;23389.46;18240.2;2025-12-15T11:06:53;duh yahoo;swordfish till;outside redraw w;til;cus;PENDING;anaesthetise pull;59;CLEAN;2025-12-15T15:46:48;2025-12-14T18:15:03
+8;TRANSFER;5427.83;3873.23;2025-12-14T17:48:17;afraid legend;interestingly be;rationale;brr;eve;COMPLETED;litterXXXX;99;BLOCKED;2025-12-15T11:58:17;2025-12-15T14:19:19
+9;WITHDRAWAL;4055.54;28347.81;2025-12-15T12:22:54;since woeful;following;aha deficient;vet;yaw;FAILED;an consistency;7;BLOCKED;2025-12-14T19:12:39;2025-12-15T11:51:53
+10;WITHDRAWAL;23702.23;21501.7;2025-12-15T02:16:45;sick wrongly;punctually thoug;paralyse punctua;flo;dia;FAILED;vibraphone enrage;66;SUSPICIOUS;2025-12-14T22:56:03;2025-12-14T18:25:52
