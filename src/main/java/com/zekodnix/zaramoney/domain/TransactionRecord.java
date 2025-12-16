@@ -1,5 +1,6 @@
 package com.zekodnix.zaramoney.domain;
 
+import com.zekodnix.zaramoney.domain.enumeration.Currency;
 import com.zekodnix.zaramoney.domain.enumeration.FraudStatus;
 import com.zekodnix.zaramoney.domain.enumeration.TransactionStatus;
 import com.zekodnix.zaramoney.domain.enumeration.TransactionType;
@@ -62,14 +63,14 @@ public class TransactionRecord implements Serializable {
     private String receiverAccountNumber;
 
     @NotNull
-    @Size(min = 3, max = 3)
-    @Column(name = "currency_send_amount", length = 3, nullable = false)
-    private String currencySendAmount;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "currency_send_amount", nullable = false)
+    private Currency currencySendAmount;
 
     @NotNull
-    @Size(min = 3, max = 3)
-    @Column(name = "currency_receive_amount", length = 3, nullable = false)
-    private String currencyReceiveAmount;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "currency_receive_amount", nullable = false)
+    private Currency currencyReceiveAmount;
 
     @NotNull
     @Enumerated(EnumType.STRING)
@@ -208,29 +209,29 @@ public class TransactionRecord implements Serializable {
         this.receiverAccountNumber = receiverAccountNumber;
     }
 
-    public String getCurrencySendAmount() {
+    public Currency getCurrencySendAmount() {
         return this.currencySendAmount;
     }
 
-    public TransactionRecord currencySendAmount(String currencySendAmount) {
+    public TransactionRecord currencySendAmount(Currency currencySendAmount) {
         this.setCurrencySendAmount(currencySendAmount);
         return this;
     }
 
-    public void setCurrencySendAmount(String currencySendAmount) {
+    public void setCurrencySendAmount(Currency currencySendAmount) {
         this.currencySendAmount = currencySendAmount;
     }
 
-    public String getCurrencyReceiveAmount() {
+    public Currency getCurrencyReceiveAmount() {
         return this.currencyReceiveAmount;
     }
 
-    public TransactionRecord currencyReceiveAmount(String currencyReceiveAmount) {
+    public TransactionRecord currencyReceiveAmount(Currency currencyReceiveAmount) {
         this.setCurrencyReceiveAmount(currencyReceiveAmount);
         return this;
     }
 
-    public void setCurrencyReceiveAmount(String currencyReceiveAmount) {
+    public void setCurrencyReceiveAmount(Currency currencyReceiveAmount) {
         this.currencyReceiveAmount = currencyReceiveAmount;
     }
 

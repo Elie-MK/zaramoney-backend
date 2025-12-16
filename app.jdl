@@ -14,6 +14,10 @@ enum FraudStatus {
   CLEAN, SUSPICIOUS, BLOCKED
 }
 
+enum Currency {
+  USD,
+  TND
+}
 
 /////////////////////////////////////////////////////////////
 // ENTITIES
@@ -31,8 +35,8 @@ entity TransactionRecord {
   senderAccountNumber String required minlength(8) maxlength(16)
   receiverAccountNumber String required minlength(8) maxlength(16)
 
-  currencySendAmount String required minlength(3) maxlength(3)
-  currencyReceiveAmount String required minlength(3) maxlength(3)
+  currencySendAmount Currency required
+  currencyReceiveAmount Currency required
 
   transactionStatus TransactionStatus required
 

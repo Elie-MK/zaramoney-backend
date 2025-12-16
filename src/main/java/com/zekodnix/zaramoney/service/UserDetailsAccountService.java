@@ -109,4 +109,9 @@ public class UserDetailsAccountService {
         LOG.debug("Request to delete UserDetailsAccount : {}", id);
         userDetailsAccountRepository.deleteById(id);
     }
+
+    public Optional<UserDetailsAccountDTO> findByAccountNumber(String accountNumber) {
+        LOG.debug("Request to get UserDetailsAccount by userId : {}", accountNumber);
+        return userDetailsAccountRepository.findByAccountNumber(accountNumber).map(userDetailsAccountMapper::toDto);
+    }
 }

@@ -50,17 +50,15 @@
     },
     {
       "fieldName": "currencySendAmount",
-      "fieldType": "String",
-      "fieldValidateRules": ["required", "minlength", "maxlength"],
-      "fieldValidateRulesMaxlength": "3",
-      "fieldValidateRulesMinlength": "3"
+      "fieldType": "Currency",
+      "fieldValidateRules": ["required"],
+      "fieldValues": "USD,TND"
     },
     {
       "fieldName": "currencyReceiveAmount",
-      "fieldType": "String",
-      "fieldValidateRules": ["required", "minlength", "maxlength"],
-      "fieldValidateRulesMaxlength": "3",
-      "fieldValidateRulesMinlength": "3"
+      "fieldType": "Currency",
+      "fieldValidateRules": ["required"],
+      "fieldValues": "USD,TND"
     },
     {
       "fieldName": "transactionStatus",

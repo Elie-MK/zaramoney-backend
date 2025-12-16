@@ -1,5 +1,6 @@
 package com.zekodnix.zaramoney.service.dto;
 
+import com.zekodnix.zaramoney.domain.enumeration.Currency;
 import com.zekodnix.zaramoney.domain.enumeration.FraudStatus;
 import com.zekodnix.zaramoney.domain.enumeration.TransactionStatus;
 import com.zekodnix.zaramoney.domain.enumeration.TransactionType;
@@ -43,12 +44,10 @@ public class TransactionRecordDTO implements Serializable {
     private String receiverAccountNumber;
 
     @NotNull
-    @Size(min = 3, max = 3)
-    private String currencySendAmount;
+    private Currency currencySendAmount;
 
     @NotNull
-    @Size(min = 3, max = 3)
-    private String currencyReceiveAmount;
+    private Currency currencyReceiveAmount;
 
     @NotNull
     private TransactionStatus transactionStatus;
@@ -136,19 +135,19 @@ public class TransactionRecordDTO implements Serializable {
         this.receiverAccountNumber = receiverAccountNumber;
     }
 
-    public String getCurrencySendAmount() {
+    public Currency getCurrencySendAmount() {
         return currencySendAmount;
     }
 
-    public void setCurrencySendAmount(String currencySendAmount) {
+    public void setCurrencySendAmount(Currency currencySendAmount) {
         this.currencySendAmount = currencySendAmount;
     }
 
-    public String getCurrencyReceiveAmount() {
+    public Currency getCurrencyReceiveAmount() {
         return currencyReceiveAmount;
     }
 
-    public void setCurrencyReceiveAmount(String currencyReceiveAmount) {
+    public void setCurrencyReceiveAmount(Currency currencyReceiveAmount) {
         this.currencyReceiveAmount = currencyReceiveAmount;
     }
 

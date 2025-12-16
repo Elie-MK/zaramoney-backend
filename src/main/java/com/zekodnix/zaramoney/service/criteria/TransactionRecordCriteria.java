@@ -1,5 +1,7 @@
 package com.zekodnix.zaramoney.service.criteria;
 
+import com.zekodnix.zaramoney.domain.enumeration.Currency;
+import com.zekodnix.zaramoney.domain.enumeration.Currency;
 import com.zekodnix.zaramoney.domain.enumeration.FraudStatus;
 import com.zekodnix.zaramoney.domain.enumeration.TransactionStatus;
 import com.zekodnix.zaramoney.domain.enumeration.TransactionType;
@@ -37,6 +39,23 @@ public class TransactionRecordCriteria implements Serializable, Criteria {
         @Override
         public TransactionTypeFilter copy() {
             return new TransactionTypeFilter(this);
+        }
+    }
+
+    /**
+     * Class for filtering Currency
+     */
+    public static class CurrencyFilter extends Filter<Currency> {
+
+        public CurrencyFilter() {}
+
+        public CurrencyFilter(CurrencyFilter filter) {
+            super(filter);
+        }
+
+        @Override
+        public CurrencyFilter copy() {
+            return new CurrencyFilter(this);
         }
     }
 
@@ -92,9 +111,9 @@ public class TransactionRecordCriteria implements Serializable, Criteria {
 
     private StringFilter receiverAccountNumber;
 
-    private StringFilter currencySendAmount;
+    private CurrencyFilter currencySendAmount;
 
-    private StringFilter currencyReceiveAmount;
+    private CurrencyFilter currencyReceiveAmount;
 
     private TransactionStatusFilter transactionStatus;
 
@@ -123,8 +142,8 @@ public class TransactionRecordCriteria implements Serializable, Criteria {
         this.description = other.optionalDescription().map(StringFilter::copy).orElse(null);
         this.senderAccountNumber = other.optionalSenderAccountNumber().map(StringFilter::copy).orElse(null);
         this.receiverAccountNumber = other.optionalReceiverAccountNumber().map(StringFilter::copy).orElse(null);
-        this.currencySendAmount = other.optionalCurrencySendAmount().map(StringFilter::copy).orElse(null);
-        this.currencyReceiveAmount = other.optionalCurrencyReceiveAmount().map(StringFilter::copy).orElse(null);
+        this.currencySendAmount = other.optionalCurrencySendAmount().map(CurrencyFilter::copy).orElse(null);
+        this.currencyReceiveAmount = other.optionalCurrencyReceiveAmount().map(CurrencyFilter::copy).orElse(null);
         this.transactionStatus = other.optionalTransactionStatus().map(TransactionStatusFilter::copy).orElse(null);
         this.transactionReference = other.optionalTransactionReference().map(StringFilter::copy).orElse(null);
         this.riskScore = other.optionalRiskScore().map(IntegerFilter::copy).orElse(null);
@@ -292,41 +311,41 @@ public class TransactionRecordCriteria implements Serializable, Criteria {
         this.receiverAccountNumber = receiverAccountNumber;
     }
 
-    public StringFilter getCurrencySendAmount() {
+    public CurrencyFilter getCurrencySendAmount() {
         return currencySendAmount;
     }
 
-    public Optional<StringFilter> optionalCurrencySendAmount() {
+    public Optional<CurrencyFilter> optionalCurrencySendAmount() {
         return Optional.ofNullable(currencySendAmount);
     }
 
-    public StringFilter currencySendAmount() {
+    public CurrencyFilter currencySendAmount() {
         if (currencySendAmount == null) {
-            setCurrencySendAmount(new StringFilter());
+            setCurrencySendAmount(new CurrencyFilter());
         }
         return currencySendAmount;
     }
 
-    public void setCurrencySendAmount(StringFilter currencySendAmount) {
+    public void setCurrencySendAmount(CurrencyFilter currencySendAmount) {
         this.currencySendAmount = currencySendAmount;
     }
 
-    public StringFilter getCurrencyReceiveAmount() {
+    public CurrencyFilter getCurrencyReceiveAmount() {
         return currencyReceiveAmount;
     }
 
-    public Optional<StringFilter> optionalCurrencyReceiveAmount() {
+    public Optional<CurrencyFilter> optionalCurrencyReceiveAmount() {
         return Optional.ofNullable(currencyReceiveAmount);
     }
 
-    public StringFilter currencyReceiveAmount() {
+    public CurrencyFilter currencyReceiveAmount() {
         if (currencyReceiveAmount == null) {
-            setCurrencyReceiveAmount(new StringFilter());
+            setCurrencyReceiveAmount(new CurrencyFilter());
         }
         return currencyReceiveAmount;
     }
 
-    public void setCurrencyReceiveAmount(StringFilter currencyReceiveAmount) {
+    public void setCurrencyReceiveAmount(CurrencyFilter currencyReceiveAmount) {
         this.currencyReceiveAmount = currencyReceiveAmount;
     }
 

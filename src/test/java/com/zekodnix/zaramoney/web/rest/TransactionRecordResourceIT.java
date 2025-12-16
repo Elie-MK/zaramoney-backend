@@ -13,6 +13,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zekodnix.zaramoney.IntegrationTest;
 import com.zekodnix.zaramoney.domain.TransactionRecord;
 import com.zekodnix.zaramoney.domain.User;
+import com.zekodnix.zaramoney.domain.enumeration.Currency;
+import com.zekodnix.zaramoney.domain.enumeration.Currency;
 import com.zekodnix.zaramoney.domain.enumeration.FraudStatus;
 import com.zekodnix.zaramoney.domain.enumeration.TransactionStatus;
 import com.zekodnix.zaramoney.domain.enumeration.TransactionType;
@@ -75,11 +77,11 @@ class TransactionRecordResourceIT {
     private static final String DEFAULT_RECEIVER_ACCOUNT_NUMBER = "AAAAAAAAAA";
     private static final String UPDATED_RECEIVER_ACCOUNT_NUMBER = "BBBBBBBBBB";
 
-    private static final String DEFAULT_CURRENCY_SEND_AMOUNT = "AAA";
-    private static final String UPDATED_CURRENCY_SEND_AMOUNT = "BBB";
+    private static final Currency DEFAULT_CURRENCY_SEND_AMOUNT = Currency.USD;
+    private static final Currency UPDATED_CURRENCY_SEND_AMOUNT = Currency.TND;
 
-    private static final String DEFAULT_CURRENCY_RECEIVE_AMOUNT = "AAA";
-    private static final String UPDATED_CURRENCY_RECEIVE_AMOUNT = "BBB";
+    private static final Currency DEFAULT_CURRENCY_RECEIVE_AMOUNT = Currency.USD;
+    private static final Currency UPDATED_CURRENCY_RECEIVE_AMOUNT = Currency.TND;
 
     private static final TransactionStatus DEFAULT_TRANSACTION_STATUS = TransactionStatus.PENDING;
     private static final TransactionStatus UPDATED_TRANSACTION_STATUS = TransactionStatus.COMPLETED;
@@ -479,8 +481,8 @@ class TransactionRecordResourceIT {
             .andExpect(jsonPath("$.[*].description").value(hasItem(DEFAULT_DESCRIPTION)))
             .andExpect(jsonPath("$.[*].senderAccountNumber").value(hasItem(DEFAULT_SENDER_ACCOUNT_NUMBER)))
             .andExpect(jsonPath("$.[*].receiverAccountNumber").value(hasItem(DEFAULT_RECEIVER_ACCOUNT_NUMBER)))
-            .andExpect(jsonPath("$.[*].currencySendAmount").value(hasItem(DEFAULT_CURRENCY_SEND_AMOUNT)))
-            .andExpect(jsonPath("$.[*].currencyReceiveAmount").value(hasItem(DEFAULT_CURRENCY_RECEIVE_AMOUNT)))
+            .andExpect(jsonPath("$.[*].currencySendAmount").value(hasItem(DEFAULT_CURRENCY_SEND_AMOUNT.toString())))
+            .andExpect(jsonPath("$.[*].currencyReceiveAmount").value(hasItem(DEFAULT_CURRENCY_RECEIVE_AMOUNT.toString())))
             .andExpect(jsonPath("$.[*].transactionStatus").value(hasItem(DEFAULT_TRANSACTION_STATUS.toString())))
             .andExpect(jsonPath("$.[*].transactionReference").value(hasItem(DEFAULT_TRANSACTION_REFERENCE)))
             .andExpect(jsonPath("$.[*].riskScore").value(hasItem(DEFAULT_RISK_SCORE)))
@@ -525,8 +527,8 @@ class TransactionRecordResourceIT {
             .andExpect(jsonPath("$.description").value(DEFAULT_DESCRIPTION))
             .andExpect(jsonPath("$.senderAccountNumber").value(DEFAULT_SENDER_ACCOUNT_NUMBER))
             .andExpect(jsonPath("$.receiverAccountNumber").value(DEFAULT_RECEIVER_ACCOUNT_NUMBER))
-            .andExpect(jsonPath("$.currencySendAmount").value(DEFAULT_CURRENCY_SEND_AMOUNT))
-            .andExpect(jsonPath("$.currencyReceiveAmount").value(DEFAULT_CURRENCY_RECEIVE_AMOUNT))
+            .andExpect(jsonPath("$.currencySendAmount").value(DEFAULT_CURRENCY_SEND_AMOUNT.toString()))
+            .andExpect(jsonPath("$.currencyReceiveAmount").value(DEFAULT_CURRENCY_RECEIVE_AMOUNT.toString()))
             .andExpect(jsonPath("$.transactionStatus").value(DEFAULT_TRANSACTION_STATUS.toString()))
             .andExpect(jsonPath("$.transactionReference").value(DEFAULT_TRANSACTION_REFERENCE))
             .andExpect(jsonPath("$.riskScore").value(DEFAULT_RISK_SCORE))
@@ -1007,32 +1009,6 @@ class TransactionRecordResourceIT {
 
     @Test
     @Transactional
-    void getAllTransactionRecordsByCurrencySendAmountContainsSomething() throws Exception {
-        // Initialize the database
-        insertedTransactionRecord = transactionRecordRepository.saveAndFlush(transactionRecord);
-
-        // Get all the transactionRecordList where currencySendAmount contains
-        defaultTransactionRecordFiltering(
-            "currencySendAmount.contains=" + DEFAULT_CURRENCY_SEND_AMOUNT,
-            "currencySendAmount.contains=" + UPDATED_CURRENCY_SEND_AMOUNT
-        );
-    }
-
-    @Test
-    @Transactional
-    void getAllTransactionRecordsByCurrencySendAmountNotContainsSomething() throws Exception {
-        // Initialize the database
-        insertedTransactionRecord = transactionRecordRepository.saveAndFlush(transactionRecord);
-
-        // Get all the transactionRecordList where currencySendAmount does not contain
-        defaultTransactionRecordFiltering(
-            "currencySendAmount.doesNotContain=" + UPDATED_CURRENCY_SEND_AMOUNT,
-            "currencySendAmount.doesNotContain=" + DEFAULT_CURRENCY_SEND_AMOUNT
-        );
-    }
-
-    @Test
-    @Transactional
     void getAllTransactionRecordsByCurrencyReceiveAmountIsEqualToSomething() throws Exception {
         // Initialize the database
         insertedTransactionRecord = transactionRecordRepository.saveAndFlush(transactionRecord);
@@ -1065,32 +1041,6 @@ class TransactionRecordResourceIT {
 
         // Get all the transactionRecordList where currencyReceiveAmount is not null
         defaultTransactionRecordFiltering("currencyReceiveAmount.specified=true", "currencyReceiveAmount.specified=false");
-    }
-
-    @Test
-    @Transactional
-    void getAllTransactionRecordsByCurrencyReceiveAmountContainsSomething() throws Exception {
-        // Initialize the database
-        insertedTransactionRecord = transactionRecordRepository.saveAndFlush(transactionRecord);
-
-        // Get all the transactionRecordList where currencyReceiveAmount contains
-        defaultTransactionRecordFiltering(
-            "currencyReceiveAmount.contains=" + DEFAULT_CURRENCY_RECEIVE_AMOUNT,
-            "currencyReceiveAmount.contains=" + UPDATED_CURRENCY_RECEIVE_AMOUNT
-        );
-    }
-
-    @Test
-    @Transactional
-    void getAllTransactionRecordsByCurrencyReceiveAmountNotContainsSomething() throws Exception {
-        // Initialize the database
-        insertedTransactionRecord = transactionRecordRepository.saveAndFlush(transactionRecord);
-
-        // Get all the transactionRecordList where currencyReceiveAmount does not contain
-        defaultTransactionRecordFiltering(
-            "currencyReceiveAmount.doesNotContain=" + UPDATED_CURRENCY_RECEIVE_AMOUNT,
-            "currencyReceiveAmount.doesNotContain=" + DEFAULT_CURRENCY_RECEIVE_AMOUNT
-        );
     }
 
     @Test
@@ -1412,8 +1362,8 @@ class TransactionRecordResourceIT {
             .andExpect(jsonPath("$.[*].description").value(hasItem(DEFAULT_DESCRIPTION)))
             .andExpect(jsonPath("$.[*].senderAccountNumber").value(hasItem(DEFAULT_SENDER_ACCOUNT_NUMBER)))
             .andExpect(jsonPath("$.[*].receiverAccountNumber").value(hasItem(DEFAULT_RECEIVER_ACCOUNT_NUMBER)))
-            .andExpect(jsonPath("$.[*].currencySendAmount").value(hasItem(DEFAULT_CURRENCY_SEND_AMOUNT)))
-            .andExpect(jsonPath("$.[*].currencyReceiveAmount").value(hasItem(DEFAULT_CURRENCY_RECEIVE_AMOUNT)))
+            .andExpect(jsonPath("$.[*].currencySendAmount").value(hasItem(DEFAULT_CURRENCY_SEND_AMOUNT.toString())))
+            .andExpect(jsonPath("$.[*].currencyReceiveAmount").value(hasItem(DEFAULT_CURRENCY_RECEIVE_AMOUNT.toString())))
             .andExpect(jsonPath("$.[*].transactionStatus").value(hasItem(DEFAULT_TRANSACTION_STATUS.toString())))
             .andExpect(jsonPath("$.[*].transactionReference").value(hasItem(DEFAULT_TRANSACTION_REFERENCE)))
             .andExpect(jsonPath("$.[*].riskScore").value(hasItem(DEFAULT_RISK_SCORE)))

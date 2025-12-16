@@ -40,4 +40,6 @@ public interface UserDetailsAccountRepository
         "select userDetailsAccount from UserDetailsAccount userDetailsAccount left join fetch userDetailsAccount.userLogin where userDetailsAccount.id =:id"
     )
     Optional<UserDetailsAccount> findOneWithToOneRelationships(@Param("id") Long id);
+
+    Optional<UserDetailsAccount> findByAccountNumber(String accountNumber);
 }
