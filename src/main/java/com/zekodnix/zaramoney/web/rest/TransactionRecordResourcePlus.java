@@ -1,0 +1,36 @@
+package com.zekodnix.zaramoney.web.rest;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.zekodnix.zaramoney.service.TransactionRecordServicePlus;
+import com.zekodnix.zaramoney.service.dto.TransactionRecordDTO;
+import com.zekodnix.zaramoney.web.rest.vm.TransactionRecordVM;
+import jakarta.validation.Valid;
+import java.nio.file.AccessDeniedException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequestMapping("/api/plus/transaction-records")
+public class TransactionRecordResourcePlus {
+
+    private static final Logger LOG = LoggerFactory.getLogger(TransactionRecordResourcePlus.class);
+
+    private final TransactionRecordServicePlus transactionRecordServicePlus;
+
+    public TransactionRecordResourcePlus(TransactionRecordServicePlus transactionRecordServicePlus) {
+        this.transactionRecordServicePlus = transactionRecordServicePlus;
+    }
+
+    @PostMapping("/send")
+    public ResponseEntity<TransactionRecordDTO> sendTransactionRecord(@Valid @RequestBody TransactionRecordVM transactionRecordVM)
+        throws AccessDeniedException, InterruptedException, JsonProcessingException {
+        LOG.debug("REST request to send TransactionRecord : {}", transactionRecordVM);
+        var response = transactionRecordServicePlus.createTransactionRecord(transactionRecordVM);
+        return ResponseEntity.ok(response);
+    }
+}

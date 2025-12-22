@@ -100,6 +100,12 @@ public class UserDetailsAccountService {
         return userDetailsAccountRepository.findOneWithEagerRelationships(id).map(userDetailsAccountMapper::toDto);
     }
 
+    @Transactional(readOnly = true)
+    public Optional<UserDetailsAccountDTO> findByUserLoginId(Long userLoginId) {
+        LOG.debug("Request to get UserDetailsAccount by userLoginId : {}", userLoginId);
+        return userDetailsAccountRepository.findByUserLoginId(userLoginId).map(userDetailsAccountMapper::toDto);
+    }
+
     /**
      * Delete the userDetailsAccount by id.
      *

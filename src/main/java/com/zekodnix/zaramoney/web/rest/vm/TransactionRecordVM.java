@@ -35,38 +35,6 @@ public class TransactionRecordVM {
     @NotNull
     private String endpoint;
 
-    public Currency getCurrencySendAmount() {
-        return currencySendAmount;
-    }
-
-    public void setCurrencySendAmount(Currency currencySendAmount) {
-        this.currencySendAmount = currencySendAmount;
-    }
-
-    public Currency getCurrencyReceiveAmount() {
-        return currencyReceiveAmount;
-    }
-
-    public void setCurrencyReceiveAmount(Currency currencyReceiveAmount) {
-        this.currencyReceiveAmount = currencyReceiveAmount;
-    }
-
-    public String getEndpoint() {
-        return endpoint;
-    }
-
-    public void setEndpoint(String endpoint) {
-        this.endpoint = endpoint;
-    }
-
-    public String getIdempotencyKey() {
-        return idempotencyKey;
-    }
-
-    public void setIdempotencyKey(String idempotencyKey) {
-        this.idempotencyKey = idempotencyKey;
-    }
-
     public TransactionType getTransactionType() {
         return transactionType;
     }
@@ -99,33 +67,57 @@ public class TransactionRecordVM {
         this.receiverAccountNumber = receiverAccountNumber;
     }
 
-    @Override
-    public String toString() {
-        return (
-            "TransactionRecordVM{" +
-            "transactionType=" +
-            transactionType +
-            ", sendAmount=" +
-            sendAmount +
-            ", description='" +
-            description +
-            '\'' +
-            ", receiverAccountNumber='" +
-            receiverAccountNumber +
-            '\'' +
-            ", currencySendAmount='" +
-            currencySendAmount +
-            '\'' +
-            ", currencyReceiveAmount='" +
-            currencyReceiveAmount +
-            '\'' +
-            ", idempotencyKey='" +
-            idempotencyKey +
-            '\'' +
-            ", endpoint='" +
-            endpoint +
-            '\'' +
-            '}'
-        );
+    public Currency getCurrencySendAmount() {
+        return currencySendAmount;
     }
+
+    public void setCurrencySendAmount(Currency currencySendAmount) {
+        this.currencySendAmount = currencySendAmount;
+    }
+
+    public Currency getCurrencyReceiveAmount() {
+        return currencyReceiveAmount;
+    }
+
+    public void setCurrencyReceiveAmount(Currency currencyReceiveAmount) {
+        this.currencyReceiveAmount = currencyReceiveAmount;
+    }
+
+    public String getIdempotencyKey() {
+        return idempotencyKey;
+    }
+
+    public void setIdempotencyKey(String idempotencyKey) {
+        this.idempotencyKey = idempotencyKey;
+    }
+
+    public String getEndpoint() {
+        return endpoint;
+    }
+
+    public void setEndpoint(String endpoint) {
+        this.endpoint = endpoint;
+    }
+
+    public TransactionRecordVM(
+        TransactionType transactionType,
+        BigDecimal sendAmount,
+        String description,
+        String receiverAccountNumber,
+        Currency currencySendAmount,
+        Currency currencyReceiveAmount,
+        String idempotencyKey,
+        String endpoint
+    ) {
+        this.transactionType = transactionType;
+        this.sendAmount = sendAmount;
+        this.description = description;
+        this.receiverAccountNumber = receiverAccountNumber;
+        this.currencySendAmount = currencySendAmount;
+        this.currencyReceiveAmount = currencyReceiveAmount;
+        this.idempotencyKey = idempotencyKey;
+        this.endpoint = endpoint;
+    }
+
+    public TransactionRecordVM() {}
 }

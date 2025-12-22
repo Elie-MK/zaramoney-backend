@@ -103,6 +103,14 @@ public class TransactionRecord implements Serializable {
     @ManyToOne(fetch = FetchType.LAZY)
     private User userLogin;
 
+    @PrePersist
+    public void prePersist() {
+        Instant now = Instant.now();
+        this.createdAt = now;
+        this.updatedAt = now;
+        this.transactionDate = now;
+    }
+
     // jhipster-needle-entity-add-field - JHipster will add fields here
 
     public Long getId() {

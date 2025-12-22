@@ -1,5 +1,6 @@
 package com.zekodnix.zaramoney.service.mapper;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zekodnix.zaramoney.domain.TransactionRecord;
 import com.zekodnix.zaramoney.domain.User;
 import com.zekodnix.zaramoney.service.dto.TransactionRecordDTO;
@@ -20,12 +21,12 @@ public interface TransactionRecordMapper extends EntityMapper<TransactionRecordD
     @Mapping(target = "login", source = "login")
     UserDTO toDtoUserLogin(User user);
 
-    // -----------------------------
-    // JSON helpers for idempotency
-    // -----------------------------
     default String toJson(TransactionRecordDTO dto) {
         try {
-            return new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(dto);
+            ObjectMapper mapper = new ObjectMapper();
+            mapper.registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule());
+            mapper.disable(com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+            return mapper.writeValueAsString(dto);
         } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
             throw new RuntimeException("Failed to serialize TransactionRecordDTO", e);
         }
@@ -33,7 +34,10 @@ public interface TransactionRecordMapper extends EntityMapper<TransactionRecordD
 
     default TransactionRecordDTO fromJson(String json) {
         try {
-            return new com.fasterxml.jackson.databind.ObjectMapper().readValue(json, TransactionRecordDTO.class);
+            ObjectMapper mapper = new ObjectMapper();
+            mapper.registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule());
+            mapper.disable(com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+            return mapper.readValue(json, TransactionRecordDTO.class);
         } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
             throw new RuntimeException("Failed to deserialize TransactionRecordDTO", e);
         }

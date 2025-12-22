@@ -42,4 +42,6 @@ public interface UserDetailsAccountRepository
     Optional<UserDetailsAccount> findOneWithToOneRelationships(@Param("id") Long id);
 
     Optional<UserDetailsAccount> findByAccountNumber(String accountNumber);
+
+    Optional<UserDetailsAccount> findByUserLoginId(Long userLoginId);
 }
