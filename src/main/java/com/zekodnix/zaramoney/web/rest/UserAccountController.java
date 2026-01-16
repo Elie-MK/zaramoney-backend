@@ -25,4 +25,11 @@ public class UserAccountController {
         var response = userAccountService.createNewUserAccount(userAccountVM);
         return ResponseEntity.ok(response);
     }
+
+    @GetMapping
+    @ResponseStatus(HttpStatus.OK)
+    public ResponseEntity<UserAccountDto> getUserDetailsAccount() {
+        var res = userAccountService.getUserDetailsAccount();
+        return ResponseEntity.ok(res);
+    }
 }

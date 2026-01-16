@@ -2,6 +2,7 @@ package com.zekodnix.zaramoney.service;
 
 import com.zekodnix.zaramoney.service.dto.UserAccountDto;
 import com.zekodnix.zaramoney.service.dto.UserDetailsAccountDTO;
+import com.zekodnix.zaramoney.service.exception.UserDetailsAccountNotFoundException;
 import com.zekodnix.zaramoney.service.mapper.UserMapper;
 import com.zekodnix.zaramoney.web.rest.vm.UserAccountVM;
 import java.math.BigDecimal;
@@ -45,6 +46,16 @@ public class UserAccountService {
         userDetailsAccountDTO.setAddress(userAccountVM.getAddress());
         userDetailsAccountDTO.setPhoneNumber(userAccountVM.getPhoneNumber());
         var userDetails = userDetailsAccountService.save(userDetailsAccountDTO);
+
+        return new UserAccountDto(currentUser.getFirstName(), currentUser.getLastName(), userDetails.getAccountNumber());
+    }
+
+    public UserAccountDto getUserDetailsAccount() {
+        var currentUser = userService.getUserWithAuthorities().orElseThrow();
+        var userSaved = userMapper.userToUserDTO(currentUser);
+        var userDetails = userDetailsAccountService
+            .findByUserLoginId(userSaved.getId())
+            .orElseThrow(() -> new UserDetailsAccountNotFoundException(userSaved.getId()));
 
         return new UserAccountDto(currentUser.getFirstName(), currentUser.getLastName(), userDetails.getAccountNumber());
     }
