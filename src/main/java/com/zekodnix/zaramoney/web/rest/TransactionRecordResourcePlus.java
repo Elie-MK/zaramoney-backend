@@ -2,17 +2,16 @@ package com.zekodnix.zaramoney.web.rest;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.zekodnix.zaramoney.service.TransactionRecordServicePlus;
+import com.zekodnix.zaramoney.service.dto.TransactionDetails;
 import com.zekodnix.zaramoney.service.dto.TransactionRecordDTO;
 import com.zekodnix.zaramoney.web.rest.vm.TransactionRecordVM;
 import jakarta.validation.Valid;
+import java.math.BigDecimal;
 import java.nio.file.AccessDeniedException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/plus/transaction-records")
@@ -32,5 +31,22 @@ public class TransactionRecordResourcePlus {
         LOG.debug("REST request to send TransactionRecord : {}", transactionRecordVM);
         var response = transactionRecordServicePlus.createTransactionRecord(transactionRecordVM);
         return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Endpoint to check if the account number is existing in the system
+     *
+     * @param accountNumber the account number to check
+     * @return Boolean
+     */
+
+    @GetMapping("/accounts/exists")
+    public ResponseEntity<TransactionDetails> checkAccountExistence(
+        @RequestParam String accountNumber,
+        @RequestParam BigDecimal sendAmount
+    ) throws AccessDeniedException {
+        LOG.debug("REST request to check account existence : {}", accountNumber);
+        var exists = transactionRecordServicePlus.checkAccountNumber(accountNumber, sendAmount);
+        return ResponseEntity.ok(exists);
     }
 }

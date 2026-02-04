@@ -35,6 +35,9 @@ public class TransactionRecordVM {
     @NotNull
     private String endpoint;
 
+    @NotNull
+    private String password;
+
     public TransactionType getTransactionType() {
         return transactionType;
     }
@@ -99,25 +102,11 @@ public class TransactionRecordVM {
         this.endpoint = endpoint;
     }
 
-    public TransactionRecordVM(
-        TransactionType transactionType,
-        BigDecimal sendAmount,
-        String description,
-        String receiverAccountNumber,
-        Currency currencySendAmount,
-        Currency currencyReceiveAmount,
-        String idempotencyKey,
-        String endpoint
-    ) {
-        this.transactionType = transactionType;
-        this.sendAmount = sendAmount;
-        this.description = description;
-        this.receiverAccountNumber = receiverAccountNumber;
-        this.currencySendAmount = currencySendAmount;
-        this.currencyReceiveAmount = currencyReceiveAmount;
-        this.idempotencyKey = idempotencyKey;
-        this.endpoint = endpoint;
+    public String getPassword() {
+        return password;
     }
 
-    public TransactionRecordVM() {}
+    public void setPassword(String password) {
+        this.password = password;
+    }
 }

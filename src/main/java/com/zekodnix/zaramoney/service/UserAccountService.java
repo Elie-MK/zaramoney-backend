@@ -4,6 +4,7 @@ import com.zekodnix.zaramoney.service.dto.UserAccountDto;
 import com.zekodnix.zaramoney.service.dto.UserDetailsAccountDTO;
 import com.zekodnix.zaramoney.service.exception.UserDetailsAccountNotFoundException;
 import com.zekodnix.zaramoney.service.mapper.UserMapper;
+import com.zekodnix.zaramoney.service.utils.MaskingUtils;
 import com.zekodnix.zaramoney.web.rest.vm.UserAccountVM;
 import java.math.BigDecimal;
 import java.util.HashMap;
@@ -47,7 +48,12 @@ public class UserAccountService {
         userDetailsAccountDTO.setPhoneNumber(userAccountVM.getPhoneNumber());
         var userDetails = userDetailsAccountService.save(userDetailsAccountDTO);
 
-        return new UserAccountDto(currentUser.getFirstName(), currentUser.getLastName(), userDetails.getAccountNumber());
+        return new UserAccountDto(
+            currentUser.getFirstName(),
+            currentUser.getLastName(),
+            userDetails.getAccountNumber(),
+            userDetails.getAccountBalance()
+        );
     }
 
     public UserAccountDto getUserDetailsAccount() {
@@ -57,7 +63,14 @@ public class UserAccountService {
             .findByUserLoginId(userSaved.getId())
             .orElseThrow(() -> new UserDetailsAccountNotFoundException(userSaved.getId()));
 
-        return new UserAccountDto(currentUser.getFirstName(), currentUser.getLastName(), userDetails.getAccountNumber());
+        String maskedAccountNumber = MaskingUtils.maskAccountNumber(userDetails.getAccountNumber());
+
+        return new UserAccountDto(
+            currentUser.getFirstName(),
+            currentUser.getLastName(),
+            maskedAccountNumber,
+            userDetails.getAccountBalance()
+        );
     }
 
     private BigDecimal generateAccountNumber() {

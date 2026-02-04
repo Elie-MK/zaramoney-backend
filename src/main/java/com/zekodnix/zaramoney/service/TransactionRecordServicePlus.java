@@ -12,6 +12,7 @@ import com.zekodnix.zaramoney.domain.enumeration.FraudStatus;
 import com.zekodnix.zaramoney.domain.enumeration.TransactionStatus;
 import com.zekodnix.zaramoney.repository.IdempotencyRecordRepository;
 import com.zekodnix.zaramoney.repository.TransactionRecordRepository;
+import com.zekodnix.zaramoney.service.dto.TransactionDetails;
 import com.zekodnix.zaramoney.service.dto.TransactionRecordDTO;
 import com.zekodnix.zaramoney.service.dto.UserDetailsAccountDTO;
 import com.zekodnix.zaramoney.service.mapper.TransactionRecordMapper;
@@ -25,6 +26,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.util.HexFormat;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -42,19 +44,22 @@ public class TransactionRecordServicePlus {
     private final UserService userService;
     private final UserDetailsAccountService userDetailsAccountService;
     private final IdempotencyRecordRepository idempotencyRecordRepository;
+    private final PasswordEncoder passwordEncoder;
 
     public TransactionRecordServicePlus(
         TransactionRecordRepository transactionRecordRepository,
         TransactionRecordMapper transactionRecordMapper,
         UserService userService,
         UserDetailsAccountService userDetailsAccountService,
-        IdempotencyRecordRepository idempotencyRecordRepository
+        IdempotencyRecordRepository idempotencyRecordRepository,
+        PasswordEncoder passwordEncoder
     ) {
         this.transactionRecordRepository = transactionRecordRepository;
         this.transactionRecordMapper = transactionRecordMapper;
         this.userService = userService;
         this.userDetailsAccountService = userDetailsAccountService;
         this.idempotencyRecordRepository = idempotencyRecordRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
     @Transactional
@@ -62,6 +67,13 @@ public class TransactionRecordServicePlus {
         throws AccessDeniedException, JsonProcessingException {
         // Authenticated user (trust Spring Security context only)
         var currentUser = userService.getUserWithAuthorities().orElseThrow(() -> new AccessDeniedException("Unauthorized"));
+
+        if (
+            transactionRecordVM.getPassword() == null ||
+            !passwordEncoder.matches(transactionRecordVM.getPassword(), currentUser.getPassword())
+        ) {
+            throw new BadRequestAlertException("Invalid transaction password", "transaction", "invalidpassword");
+        }
 
         // Check user details account
         var currentUserDetailsAccount = userDetailsAccountService
@@ -128,6 +140,36 @@ public class TransactionRecordServicePlus {
         completeIdempotency(idempotency, transaction);
 
         return transactionRecordMapper.toDto(transaction);
+    }
+
+    public TransactionDetails checkAccountNumber(String accountNumber, BigDecimal sendAmount) throws AccessDeniedException {
+        var currentUser = userService.getUserWithAuthorities().orElseThrow(() -> new AccessDeniedException("Unauthorized"));
+
+        // Check user details account
+        var currentUserDetailsAccount = userDetailsAccountService
+            .findByUserLoginId(currentUser.getId())
+            .orElseThrow(() -> new BadRequestAlertException("Sender account not found", "transaction", "sendernotfound"));
+
+        var input = accountNumber.trim();
+
+        if (currentUserDetailsAccount.getAccountNumber().equals(input)) {
+            throw new BadRequestAlertException("Cannot send money to yourself", "transaction", "sendtomyself");
+        }
+
+        var receiverDetailsAccount = userDetailsAccountService.findByAccountNumber(input);
+        if (receiverDetailsAccount.isEmpty()) {
+            throw new BadRequestAlertException("Receiver account not found", "transaction", "receivernotfound");
+        }
+        var receiverUser = userService.findOneByLogin(receiverDetailsAccount.get().getUserLogin().getLogin());
+        var name = receiverUser.getFirstName() + " " + receiverUser.getLastName();
+
+        var response = new TransactionDetails();
+        response.setReceiverName(name);
+        response.setReceiverAccountNumber(input);
+        response.setSendAmount(sendAmount);
+        var calculateTND = sendAmount.multiply(TND_TO_USD_RATE);
+        response.setReceiveAmount(calculateTND.setScale(SCALE, RoundingMode.HALF_UP));
+        return response;
     }
 
     private IdempotencyRecord reserveIdempotency(TransactionRecordVM vm, String keyHash, User currentUser) {
