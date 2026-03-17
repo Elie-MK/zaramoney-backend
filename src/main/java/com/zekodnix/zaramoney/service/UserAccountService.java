@@ -52,7 +52,9 @@ public class UserAccountService {
             currentUser.getFirstName(),
             currentUser.getLastName(),
             userDetails.getAccountNumber(),
-            userDetails.getAccountBalance()
+            userDetails.getAccountBalance(),
+            userDetails.getUserLogin().getLogin(),
+            userDetails.getAccountNumber()
         );
     }
 
@@ -69,7 +71,9 @@ public class UserAccountService {
             currentUser.getFirstName(),
             currentUser.getLastName(),
             maskedAccountNumber,
-            userDetails.getAccountBalance()
+            userDetails.getAccountBalance(),
+            userDetails.getUserLogin().getLogin(),
+            userDetails.getAccountNumber()
         );
     }
 

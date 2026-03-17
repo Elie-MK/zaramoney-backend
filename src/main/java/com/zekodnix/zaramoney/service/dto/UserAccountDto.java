@@ -15,11 +15,24 @@ public class UserAccountDto {
 
     private BigDecimal accountBalance;
 
-    public UserAccountDto(String firstName, String lastName, String accountNumber, BigDecimal accountBalance) {
+    private String email;
+
+    private String phoneNumber;
+
+    public UserAccountDto(
+        String firstName,
+        String lastName,
+        String accountNumber,
+        BigDecimal accountBalance,
+        String email,
+        String phoneNumber
+    ) {
         this.firstName = firstName;
         this.lastName = lastName;
         this.accountNumber = accountNumber;
         this.accountBalance = accountBalance;
+        this.email = email;
+        this.phoneNumber = phoneNumber;
     }
 
     public BigDecimal getAccountBalance() {
@@ -52,5 +65,21 @@ public class UserAccountDto {
 
     public void setAccountNumber(String accountNumber) {
         this.accountNumber = accountNumber;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
+    public String getPhoneNumber() {
+        return phoneNumber;
+    }
+
+    public void setPhoneNumber(String phoneNumber) {
+        this.phoneNumber = phoneNumber;
     }
 }
