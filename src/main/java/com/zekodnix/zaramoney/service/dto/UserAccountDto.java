@@ -19,20 +19,12 @@ public class UserAccountDto {
 
     private String phoneNumber;
 
-    public UserAccountDto(
-        String firstName,
-        String lastName,
-        String accountNumber,
-        BigDecimal accountBalance,
-        String email,
-        String phoneNumber
-    ) {
+    public UserAccountDto(String firstName, String lastName, String accountNumber, BigDecimal accountBalance, String email) {
         this.firstName = firstName;
         this.lastName = lastName;
         this.accountNumber = accountNumber;
         this.accountBalance = accountBalance;
         this.email = email;
-        this.phoneNumber = phoneNumber;
     }
 
     public BigDecimal getAccountBalance() {

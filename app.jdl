@@ -1,4 +1,3 @@
-
 /////////////////////////////////////////////////////////////
 // ENUMS
 /////////////////////////////////////////////////////////////
@@ -6,6 +5,7 @@
 enum TransactionType {
   DEPOSIT, WITHDRAWAL, TRANSFER
 }
+
 enum TransactionStatus {
   PENDING, COMPLETED, FAILED
 }
@@ -23,6 +23,12 @@ enum Currency {
 // ENTITIES
 /////////////////////////////////////////////////////////////
 
+entity BankAccount {
+  accountNumber String required unique minlength(8) maxlength(16)
+  balance BigDecimal required
+  currency Currency required
+}
+
 entity TransactionRecord {
   transactionType TransactionType required
 
@@ -32,9 +38,6 @@ entity TransactionRecord {
   transactionDate Instant required
   description String maxlength(255)
 
-  senderAccountNumber String required minlength(8) maxlength(16)
-  receiverAccountNumber String required minlength(8) maxlength(16)
-
   currencySendAmount Currency required
   currencyReceiveAmount Currency required
 
@@ -42,11 +45,11 @@ entity TransactionRecord {
 
   transactionReference String required unique minlength(10) maxlength(64)
 
-  // Fraud engine fields
+  // Fraud engine
   riskScore Integer required min(0) max(100)
   fraudStatus FraudStatus required
 
-  // Audit fields
+  // Audit
   createdAt Instant required
   updatedAt Instant
 }
@@ -57,11 +60,8 @@ entity IdempotencyRecord {
   userId Long required
   createdAt Instant required
 
-  // Deterministic response replay
   responseBody TextBlob
   responseStatus Integer
-
-  // If the request created a transaction
   transactionReference String maxlength(64)
 }
 
@@ -72,8 +72,6 @@ entity UserDetailsAccount {
   country String required
   address String required
   isAgent Boolean required
-  accountNumber String required
-  accountBalance BigDecimal required
 }
 
 /////////////////////////////////////////////////////////////
@@ -81,12 +79,18 @@ entity UserDetailsAccount {
 /////////////////////////////////////////////////////////////
 
 relationship ManyToOne {
-  TransactionRecord{userLogin(login)} to User with builtInEntity
+  BankAccount{user(login)} to User with builtInEntity
+  TransactionRecord{sender(accountNumber)} to BankAccount
+  TransactionRecord{receiver(accountNumber)} to BankAccount
 }
 
 relationship OneToOne {
-  UserDetailsAccount{userLogin(login)} to User with builtInEntity
+  UserDetailsAccount{user} to User with builtInEntity
 }
+
+/////////////////////////////////////////////////////////////
+// OPTIONS
+/////////////////////////////////////////////////////////////
 
 paginate * with pagination
 dto * with mapstruct except User

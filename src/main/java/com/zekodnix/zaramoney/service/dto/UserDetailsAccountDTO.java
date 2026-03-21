@@ -2,7 +2,6 @@ package com.zekodnix.zaramoney.service.dto;
 
 import jakarta.validation.constraints.*;
 import java.io.Serializable;
-import java.math.BigDecimal;
 import java.util.Objects;
 
 /**
@@ -31,13 +30,7 @@ public class UserDetailsAccountDTO implements Serializable {
     @NotNull
     private Boolean isAgent;
 
-    @NotNull
-    private String accountNumber;
-
-    @NotNull
-    private BigDecimal accountBalance;
-
-    private UserDTO userLogin;
+    private UserDTO user;
 
     public Long getId() {
         return id;
@@ -95,28 +88,12 @@ public class UserDetailsAccountDTO implements Serializable {
         this.isAgent = isAgent;
     }
 
-    public String getAccountNumber() {
-        return accountNumber;
+    public UserDTO getUser() {
+        return user;
     }
 
-    public void setAccountNumber(String accountNumber) {
-        this.accountNumber = accountNumber;
-    }
-
-    public BigDecimal getAccountBalance() {
-        return accountBalance;
-    }
-
-    public void setAccountBalance(BigDecimal accountBalance) {
-        this.accountBalance = accountBalance;
-    }
-
-    public UserDTO getUserLogin() {
-        return userLogin;
-    }
-
-    public void setUserLogin(UserDTO userLogin) {
-        this.userLogin = userLogin;
+    public void setUser(UserDTO user) {
+        this.user = user;
     }
 
     @Override
@@ -151,9 +128,7 @@ public class UserDetailsAccountDTO implements Serializable {
             ", country='" + getCountry() + "'" +
             ", address='" + getAddress() + "'" +
             ", isAgent='" + getIsAgent() + "'" +
-            ", accountNumber='" + getAccountNumber() + "'" +
-            ", accountBalance=" + getAccountBalance() +
-            ", userLogin=" + getUserLogin() +
+            ", user=" + getUser() +
             "}";
     }
 }

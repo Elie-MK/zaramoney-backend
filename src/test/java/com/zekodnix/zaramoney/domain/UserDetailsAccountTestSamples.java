@@ -16,8 +16,7 @@ public class UserDetailsAccountTestSamples {
             .facePicture("facePicture1")
             .idCardPicture("idCardPicture1")
             .country("country1")
-            .address("address1")
-            .accountNumber("accountNumber1");
+            .address("address1");
     }
 
     public static UserDetailsAccount getUserDetailsAccountSample2() {
@@ -27,8 +26,7 @@ public class UserDetailsAccountTestSamples {
             .facePicture("facePicture2")
             .idCardPicture("idCardPicture2")
             .country("country2")
-            .address("address2")
-            .accountNumber("accountNumber2");
+            .address("address2");
     }
 
     public static UserDetailsAccount getUserDetailsAccountRandomSampleGenerator() {
@@ -38,7 +36,6 @@ public class UserDetailsAccountTestSamples {
             .facePicture(UUID.randomUUID().toString())
             .idCardPicture(UUID.randomUUID().toString())
             .country(UUID.randomUUID().toString())
-            .address(UUID.randomUUID().toString())
-            .accountNumber(UUID.randomUUID().toString());
+            .address(UUID.randomUUID().toString());
     }
 }

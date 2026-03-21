@@ -81,8 +81,6 @@ class TransactionRecordCriteriaTest {
         transactionRecordCriteria.receiveAmount();
         transactionRecordCriteria.transactionDate();
         transactionRecordCriteria.description();
-        transactionRecordCriteria.senderAccountNumber();
-        transactionRecordCriteria.receiverAccountNumber();
         transactionRecordCriteria.currencySendAmount();
         transactionRecordCriteria.currencyReceiveAmount();
         transactionRecordCriteria.transactionStatus();
@@ -91,7 +89,8 @@ class TransactionRecordCriteriaTest {
         transactionRecordCriteria.fraudStatus();
         transactionRecordCriteria.createdAt();
         transactionRecordCriteria.updatedAt();
-        transactionRecordCriteria.userLoginId();
+        transactionRecordCriteria.senderId();
+        transactionRecordCriteria.receiverId();
         transactionRecordCriteria.distinct();
     }
 
@@ -104,8 +103,6 @@ class TransactionRecordCriteriaTest {
                 condition.apply(criteria.getReceiveAmount()) &&
                 condition.apply(criteria.getTransactionDate()) &&
                 condition.apply(criteria.getDescription()) &&
-                condition.apply(criteria.getSenderAccountNumber()) &&
-                condition.apply(criteria.getReceiverAccountNumber()) &&
                 condition.apply(criteria.getCurrencySendAmount()) &&
                 condition.apply(criteria.getCurrencyReceiveAmount()) &&
                 condition.apply(criteria.getTransactionStatus()) &&
@@ -114,7 +111,8 @@ class TransactionRecordCriteriaTest {
                 condition.apply(criteria.getFraudStatus()) &&
                 condition.apply(criteria.getCreatedAt()) &&
                 condition.apply(criteria.getUpdatedAt()) &&
-                condition.apply(criteria.getUserLoginId()) &&
+                condition.apply(criteria.getSenderId()) &&
+                condition.apply(criteria.getReceiverId()) &&
                 condition.apply(criteria.getDistinct()),
             "every filter matches"
         );
@@ -132,8 +130,6 @@ class TransactionRecordCriteriaTest {
                 condition.apply(criteria.getReceiveAmount(), copy.getReceiveAmount()) &&
                 condition.apply(criteria.getTransactionDate(), copy.getTransactionDate()) &&
                 condition.apply(criteria.getDescription(), copy.getDescription()) &&
-                condition.apply(criteria.getSenderAccountNumber(), copy.getSenderAccountNumber()) &&
-                condition.apply(criteria.getReceiverAccountNumber(), copy.getReceiverAccountNumber()) &&
                 condition.apply(criteria.getCurrencySendAmount(), copy.getCurrencySendAmount()) &&
                 condition.apply(criteria.getCurrencyReceiveAmount(), copy.getCurrencyReceiveAmount()) &&
                 condition.apply(criteria.getTransactionStatus(), copy.getTransactionStatus()) &&
@@ -142,7 +138,8 @@ class TransactionRecordCriteriaTest {
                 condition.apply(criteria.getFraudStatus(), copy.getFraudStatus()) &&
                 condition.apply(criteria.getCreatedAt(), copy.getCreatedAt()) &&
                 condition.apply(criteria.getUpdatedAt(), copy.getUpdatedAt()) &&
-                condition.apply(criteria.getUserLoginId(), copy.getUserLoginId()) &&
+                condition.apply(criteria.getSenderId(), copy.getSenderId()) &&
+                condition.apply(criteria.getReceiverId(), copy.getReceiverId()) &&
                 condition.apply(criteria.getDistinct(), copy.getDistinct()),
             "every filter matches"
         );

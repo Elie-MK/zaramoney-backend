@@ -36,11 +36,7 @@ public class UserDetailsAccountCriteria implements Serializable, Criteria {
 
     private BooleanFilter isAgent;
 
-    private StringFilter accountNumber;
-
-    private BigDecimalFilter accountBalance;
-
-    private LongFilter userLoginId;
+    private LongFilter userId;
 
     private Boolean distinct;
 
@@ -54,9 +50,7 @@ public class UserDetailsAccountCriteria implements Serializable, Criteria {
         this.country = other.optionalCountry().map(StringFilter::copy).orElse(null);
         this.address = other.optionalAddress().map(StringFilter::copy).orElse(null);
         this.isAgent = other.optionalIsAgent().map(BooleanFilter::copy).orElse(null);
-        this.accountNumber = other.optionalAccountNumber().map(StringFilter::copy).orElse(null);
-        this.accountBalance = other.optionalAccountBalance().map(BigDecimalFilter::copy).orElse(null);
-        this.userLoginId = other.optionalUserLoginId().map(LongFilter::copy).orElse(null);
+        this.userId = other.optionalUserId().map(LongFilter::copy).orElse(null);
         this.distinct = other.distinct;
     }
 
@@ -198,61 +192,23 @@ public class UserDetailsAccountCriteria implements Serializable, Criteria {
         this.isAgent = isAgent;
     }
 
-    public StringFilter getAccountNumber() {
-        return accountNumber;
+    public LongFilter getUserId() {
+        return userId;
     }
 
-    public Optional<StringFilter> optionalAccountNumber() {
-        return Optional.ofNullable(accountNumber);
+    public Optional<LongFilter> optionalUserId() {
+        return Optional.ofNullable(userId);
     }
 
-    public StringFilter accountNumber() {
-        if (accountNumber == null) {
-            setAccountNumber(new StringFilter());
+    public LongFilter userId() {
+        if (userId == null) {
+            setUserId(new LongFilter());
         }
-        return accountNumber;
+        return userId;
     }
 
-    public void setAccountNumber(StringFilter accountNumber) {
-        this.accountNumber = accountNumber;
-    }
-
-    public BigDecimalFilter getAccountBalance() {
-        return accountBalance;
-    }
-
-    public Optional<BigDecimalFilter> optionalAccountBalance() {
-        return Optional.ofNullable(accountBalance);
-    }
-
-    public BigDecimalFilter accountBalance() {
-        if (accountBalance == null) {
-            setAccountBalance(new BigDecimalFilter());
-        }
-        return accountBalance;
-    }
-
-    public void setAccountBalance(BigDecimalFilter accountBalance) {
-        this.accountBalance = accountBalance;
-    }
-
-    public LongFilter getUserLoginId() {
-        return userLoginId;
-    }
-
-    public Optional<LongFilter> optionalUserLoginId() {
-        return Optional.ofNullable(userLoginId);
-    }
-
-    public LongFilter userLoginId() {
-        if (userLoginId == null) {
-            setUserLoginId(new LongFilter());
-        }
-        return userLoginId;
-    }
-
-    public void setUserLoginId(LongFilter userLoginId) {
-        this.userLoginId = userLoginId;
+    public void setUserId(LongFilter userId) {
+        this.userId = userId;
     }
 
     public Boolean getDistinct() {
@@ -291,28 +247,14 @@ public class UserDetailsAccountCriteria implements Serializable, Criteria {
             Objects.equals(country, that.country) &&
             Objects.equals(address, that.address) &&
             Objects.equals(isAgent, that.isAgent) &&
-            Objects.equals(accountNumber, that.accountNumber) &&
-            Objects.equals(accountBalance, that.accountBalance) &&
-            Objects.equals(userLoginId, that.userLoginId) &&
+            Objects.equals(userId, that.userId) &&
             Objects.equals(distinct, that.distinct)
         );
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(
-            id,
-            phoneNumber,
-            facePicture,
-            idCardPicture,
-            country,
-            address,
-            isAgent,
-            accountNumber,
-            accountBalance,
-            userLoginId,
-            distinct
-        );
+        return Objects.hash(id, phoneNumber, facePicture, idCardPicture, country, address, isAgent, userId, distinct);
     }
 
     // prettier-ignore
@@ -326,9 +268,7 @@ public class UserDetailsAccountCriteria implements Serializable, Criteria {
             optionalCountry().map(f -> "country=" + f + ", ").orElse("") +
             optionalAddress().map(f -> "address=" + f + ", ").orElse("") +
             optionalIsAgent().map(f -> "isAgent=" + f + ", ").orElse("") +
-            optionalAccountNumber().map(f -> "accountNumber=" + f + ", ").orElse("") +
-            optionalAccountBalance().map(f -> "accountBalance=" + f + ", ").orElse("") +
-            optionalUserLoginId().map(f -> "userLoginId=" + f + ", ").orElse("") +
+            optionalUserId().map(f -> "userId=" + f + ", ").orElse("") +
             optionalDistinct().map(f -> "distinct=" + f + ", ").orElse("") +
         "}";
     }

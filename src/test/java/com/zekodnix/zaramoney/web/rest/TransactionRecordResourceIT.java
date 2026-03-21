@@ -11,15 +11,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zekodnix.zaramoney.IntegrationTest;
+import com.zekodnix.zaramoney.domain.BankAccount;
 import com.zekodnix.zaramoney.domain.TransactionRecord;
-import com.zekodnix.zaramoney.domain.User;
 import com.zekodnix.zaramoney.domain.enumeration.Currency;
 import com.zekodnix.zaramoney.domain.enumeration.Currency;
 import com.zekodnix.zaramoney.domain.enumeration.FraudStatus;
 import com.zekodnix.zaramoney.domain.enumeration.TransactionStatus;
 import com.zekodnix.zaramoney.domain.enumeration.TransactionType;
 import com.zekodnix.zaramoney.repository.TransactionRecordRepository;
-import com.zekodnix.zaramoney.repository.UserRepository;
 import com.zekodnix.zaramoney.service.TransactionRecordService;
 import com.zekodnix.zaramoney.service.dto.TransactionRecordDTO;
 import com.zekodnix.zaramoney.service.mapper.TransactionRecordMapper;
@@ -71,12 +70,6 @@ class TransactionRecordResourceIT {
     private static final String DEFAULT_DESCRIPTION = "AAAAAAAAAA";
     private static final String UPDATED_DESCRIPTION = "BBBBBBBBBB";
 
-    private static final String DEFAULT_SENDER_ACCOUNT_NUMBER = "AAAAAAAAAA";
-    private static final String UPDATED_SENDER_ACCOUNT_NUMBER = "BBBBBBBBBB";
-
-    private static final String DEFAULT_RECEIVER_ACCOUNT_NUMBER = "AAAAAAAAAA";
-    private static final String UPDATED_RECEIVER_ACCOUNT_NUMBER = "BBBBBBBBBB";
-
     private static final Currency DEFAULT_CURRENCY_SEND_AMOUNT = Currency.USD;
     private static final Currency UPDATED_CURRENCY_SEND_AMOUNT = Currency.TND;
 
@@ -114,9 +107,6 @@ class TransactionRecordResourceIT {
     @Autowired
     private TransactionRecordRepository transactionRecordRepository;
 
-    @Autowired
-    private UserRepository userRepository;
-
     @Mock
     private TransactionRecordRepository transactionRecordRepositoryMock;
 
@@ -149,8 +139,6 @@ class TransactionRecordResourceIT {
             .receiveAmount(DEFAULT_RECEIVE_AMOUNT)
             .transactionDate(DEFAULT_TRANSACTION_DATE)
             .description(DEFAULT_DESCRIPTION)
-            .senderAccountNumber(DEFAULT_SENDER_ACCOUNT_NUMBER)
-            .receiverAccountNumber(DEFAULT_RECEIVER_ACCOUNT_NUMBER)
             .currencySendAmount(DEFAULT_CURRENCY_SEND_AMOUNT)
             .currencyReceiveAmount(DEFAULT_CURRENCY_RECEIVE_AMOUNT)
             .transactionStatus(DEFAULT_TRANSACTION_STATUS)
@@ -174,8 +162,6 @@ class TransactionRecordResourceIT {
             .receiveAmount(UPDATED_RECEIVE_AMOUNT)
             .transactionDate(UPDATED_TRANSACTION_DATE)
             .description(UPDATED_DESCRIPTION)
-            .senderAccountNumber(UPDATED_SENDER_ACCOUNT_NUMBER)
-            .receiverAccountNumber(UPDATED_RECEIVER_ACCOUNT_NUMBER)
             .currencySendAmount(UPDATED_CURRENCY_SEND_AMOUNT)
             .currencyReceiveAmount(UPDATED_CURRENCY_RECEIVE_AMOUNT)
             .transactionStatus(UPDATED_TRANSACTION_STATUS)
@@ -298,40 +284,6 @@ class TransactionRecordResourceIT {
         long databaseSizeBeforeTest = getRepositoryCount();
         // set the field null
         transactionRecord.setTransactionDate(null);
-
-        // Create the TransactionRecord, which fails.
-        TransactionRecordDTO transactionRecordDTO = transactionRecordMapper.toDto(transactionRecord);
-
-        restTransactionRecordMockMvc
-            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(transactionRecordDTO)))
-            .andExpect(status().isBadRequest());
-
-        assertSameRepositoryCount(databaseSizeBeforeTest);
-    }
-
-    @Test
-    @Transactional
-    void checkSenderAccountNumberIsRequired() throws Exception {
-        long databaseSizeBeforeTest = getRepositoryCount();
-        // set the field null
-        transactionRecord.setSenderAccountNumber(null);
-
-        // Create the TransactionRecord, which fails.
-        TransactionRecordDTO transactionRecordDTO = transactionRecordMapper.toDto(transactionRecord);
-
-        restTransactionRecordMockMvc
-            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(transactionRecordDTO)))
-            .andExpect(status().isBadRequest());
-
-        assertSameRepositoryCount(databaseSizeBeforeTest);
-    }
-
-    @Test
-    @Transactional
-    void checkReceiverAccountNumberIsRequired() throws Exception {
-        long databaseSizeBeforeTest = getRepositoryCount();
-        // set the field null
-        transactionRecord.setReceiverAccountNumber(null);
 
         // Create the TransactionRecord, which fails.
         TransactionRecordDTO transactionRecordDTO = transactionRecordMapper.toDto(transactionRecord);
@@ -479,8 +431,6 @@ class TransactionRecordResourceIT {
             .andExpect(jsonPath("$.[*].receiveAmount").value(hasItem(sameNumber(DEFAULT_RECEIVE_AMOUNT))))
             .andExpect(jsonPath("$.[*].transactionDate").value(hasItem(DEFAULT_TRANSACTION_DATE.toString())))
             .andExpect(jsonPath("$.[*].description").value(hasItem(DEFAULT_DESCRIPTION)))
-            .andExpect(jsonPath("$.[*].senderAccountNumber").value(hasItem(DEFAULT_SENDER_ACCOUNT_NUMBER)))
-            .andExpect(jsonPath("$.[*].receiverAccountNumber").value(hasItem(DEFAULT_RECEIVER_ACCOUNT_NUMBER)))
             .andExpect(jsonPath("$.[*].currencySendAmount").value(hasItem(DEFAULT_CURRENCY_SEND_AMOUNT.toString())))
             .andExpect(jsonPath("$.[*].currencyReceiveAmount").value(hasItem(DEFAULT_CURRENCY_RECEIVE_AMOUNT.toString())))
             .andExpect(jsonPath("$.[*].transactionStatus").value(hasItem(DEFAULT_TRANSACTION_STATUS.toString())))
@@ -525,8 +475,6 @@ class TransactionRecordResourceIT {
             .andExpect(jsonPath("$.receiveAmount").value(sameNumber(DEFAULT_RECEIVE_AMOUNT)))
             .andExpect(jsonPath("$.transactionDate").value(DEFAULT_TRANSACTION_DATE.toString()))
             .andExpect(jsonPath("$.description").value(DEFAULT_DESCRIPTION))
-            .andExpect(jsonPath("$.senderAccountNumber").value(DEFAULT_SENDER_ACCOUNT_NUMBER))
-            .andExpect(jsonPath("$.receiverAccountNumber").value(DEFAULT_RECEIVER_ACCOUNT_NUMBER))
             .andExpect(jsonPath("$.currencySendAmount").value(DEFAULT_CURRENCY_SEND_AMOUNT.toString()))
             .andExpect(jsonPath("$.currencyReceiveAmount").value(DEFAULT_CURRENCY_RECEIVE_AMOUNT.toString()))
             .andExpect(jsonPath("$.transactionStatus").value(DEFAULT_TRANSACTION_STATUS.toString()))
@@ -844,130 +792,6 @@ class TransactionRecordResourceIT {
         defaultTransactionRecordFiltering(
             "description.doesNotContain=" + UPDATED_DESCRIPTION,
             "description.doesNotContain=" + DEFAULT_DESCRIPTION
-        );
-    }
-
-    @Test
-    @Transactional
-    void getAllTransactionRecordsBySenderAccountNumberIsEqualToSomething() throws Exception {
-        // Initialize the database
-        insertedTransactionRecord = transactionRecordRepository.saveAndFlush(transactionRecord);
-
-        // Get all the transactionRecordList where senderAccountNumber equals to
-        defaultTransactionRecordFiltering(
-            "senderAccountNumber.equals=" + DEFAULT_SENDER_ACCOUNT_NUMBER,
-            "senderAccountNumber.equals=" + UPDATED_SENDER_ACCOUNT_NUMBER
-        );
-    }
-
-    @Test
-    @Transactional
-    void getAllTransactionRecordsBySenderAccountNumberIsInShouldWork() throws Exception {
-        // Initialize the database
-        insertedTransactionRecord = transactionRecordRepository.saveAndFlush(transactionRecord);
-
-        // Get all the transactionRecordList where senderAccountNumber in
-        defaultTransactionRecordFiltering(
-            "senderAccountNumber.in=" + DEFAULT_SENDER_ACCOUNT_NUMBER + "," + UPDATED_SENDER_ACCOUNT_NUMBER,
-            "senderAccountNumber.in=" + UPDATED_SENDER_ACCOUNT_NUMBER
-        );
-    }
-
-    @Test
-    @Transactional
-    void getAllTransactionRecordsBySenderAccountNumberIsNullOrNotNull() throws Exception {
-        // Initialize the database
-        insertedTransactionRecord = transactionRecordRepository.saveAndFlush(transactionRecord);
-
-        // Get all the transactionRecordList where senderAccountNumber is not null
-        defaultTransactionRecordFiltering("senderAccountNumber.specified=true", "senderAccountNumber.specified=false");
-    }
-
-    @Test
-    @Transactional
-    void getAllTransactionRecordsBySenderAccountNumberContainsSomething() throws Exception {
-        // Initialize the database
-        insertedTransactionRecord = transactionRecordRepository.saveAndFlush(transactionRecord);
-
-        // Get all the transactionRecordList where senderAccountNumber contains
-        defaultTransactionRecordFiltering(
-            "senderAccountNumber.contains=" + DEFAULT_SENDER_ACCOUNT_NUMBER,
-            "senderAccountNumber.contains=" + UPDATED_SENDER_ACCOUNT_NUMBER
-        );
-    }
-
-    @Test
-    @Transactional
-    void getAllTransactionRecordsBySenderAccountNumberNotContainsSomething() throws Exception {
-        // Initialize the database
-        insertedTransactionRecord = transactionRecordRepository.saveAndFlush(transactionRecord);
-
-        // Get all the transactionRecordList where senderAccountNumber does not contain
-        defaultTransactionRecordFiltering(
-            "senderAccountNumber.doesNotContain=" + UPDATED_SENDER_ACCOUNT_NUMBER,
-            "senderAccountNumber.doesNotContain=" + DEFAULT_SENDER_ACCOUNT_NUMBER
-        );
-    }
-
-    @Test
-    @Transactional
-    void getAllTransactionRecordsByReceiverAccountNumberIsEqualToSomething() throws Exception {
-        // Initialize the database
-        insertedTransactionRecord = transactionRecordRepository.saveAndFlush(transactionRecord);
-
-        // Get all the transactionRecordList where receiverAccountNumber equals to
-        defaultTransactionRecordFiltering(
-            "receiverAccountNumber.equals=" + DEFAULT_RECEIVER_ACCOUNT_NUMBER,
-            "receiverAccountNumber.equals=" + UPDATED_RECEIVER_ACCOUNT_NUMBER
-        );
-    }
-
-    @Test
-    @Transactional
-    void getAllTransactionRecordsByReceiverAccountNumberIsInShouldWork() throws Exception {
-        // Initialize the database
-        insertedTransactionRecord = transactionRecordRepository.saveAndFlush(transactionRecord);
-
-        // Get all the transactionRecordList where receiverAccountNumber in
-        defaultTransactionRecordFiltering(
-            "receiverAccountNumber.in=" + DEFAULT_RECEIVER_ACCOUNT_NUMBER + "," + UPDATED_RECEIVER_ACCOUNT_NUMBER,
-            "receiverAccountNumber.in=" + UPDATED_RECEIVER_ACCOUNT_NUMBER
-        );
-    }
-
-    @Test
-    @Transactional
-    void getAllTransactionRecordsByReceiverAccountNumberIsNullOrNotNull() throws Exception {
-        // Initialize the database
-        insertedTransactionRecord = transactionRecordRepository.saveAndFlush(transactionRecord);
-
-        // Get all the transactionRecordList where receiverAccountNumber is not null
-        defaultTransactionRecordFiltering("receiverAccountNumber.specified=true", "receiverAccountNumber.specified=false");
-    }
-
-    @Test
-    @Transactional
-    void getAllTransactionRecordsByReceiverAccountNumberContainsSomething() throws Exception {
-        // Initialize the database
-        insertedTransactionRecord = transactionRecordRepository.saveAndFlush(transactionRecord);
-
-        // Get all the transactionRecordList where receiverAccountNumber contains
-        defaultTransactionRecordFiltering(
-            "receiverAccountNumber.contains=" + DEFAULT_RECEIVER_ACCOUNT_NUMBER,
-            "receiverAccountNumber.contains=" + UPDATED_RECEIVER_ACCOUNT_NUMBER
-        );
-    }
-
-    @Test
-    @Transactional
-    void getAllTransactionRecordsByReceiverAccountNumberNotContainsSomething() throws Exception {
-        // Initialize the database
-        insertedTransactionRecord = transactionRecordRepository.saveAndFlush(transactionRecord);
-
-        // Get all the transactionRecordList where receiverAccountNumber does not contain
-        defaultTransactionRecordFiltering(
-            "receiverAccountNumber.doesNotContain=" + UPDATED_RECEIVER_ACCOUNT_NUMBER,
-            "receiverAccountNumber.doesNotContain=" + DEFAULT_RECEIVER_ACCOUNT_NUMBER
         );
     }
 
@@ -1321,24 +1145,46 @@ class TransactionRecordResourceIT {
 
     @Test
     @Transactional
-    void getAllTransactionRecordsByUserLoginIsEqualToSomething() throws Exception {
-        User userLogin;
-        if (TestUtil.findAll(em, User.class).isEmpty()) {
+    void getAllTransactionRecordsBySenderIsEqualToSomething() throws Exception {
+        BankAccount sender;
+        if (TestUtil.findAll(em, BankAccount.class).isEmpty()) {
             transactionRecordRepository.saveAndFlush(transactionRecord);
-            userLogin = UserResourceIT.createEntity();
+            sender = BankAccountResourceIT.createEntity();
         } else {
-            userLogin = TestUtil.findAll(em, User.class).get(0);
+            sender = TestUtil.findAll(em, BankAccount.class).get(0);
         }
-        em.persist(userLogin);
+        em.persist(sender);
         em.flush();
-        transactionRecord.setUserLogin(userLogin);
+        transactionRecord.setSender(sender);
         transactionRecordRepository.saveAndFlush(transactionRecord);
-        Long userLoginId = userLogin.getId();
-        // Get all the transactionRecordList where userLogin equals to userLoginId
-        defaultTransactionRecordShouldBeFound("userLoginId.equals=" + userLoginId);
+        Long senderId = sender.getId();
+        // Get all the transactionRecordList where sender equals to senderId
+        defaultTransactionRecordShouldBeFound("senderId.equals=" + senderId);
 
-        // Get all the transactionRecordList where userLogin equals to (userLoginId + 1)
-        defaultTransactionRecordShouldNotBeFound("userLoginId.equals=" + (userLoginId + 1));
+        // Get all the transactionRecordList where sender equals to (senderId + 1)
+        defaultTransactionRecordShouldNotBeFound("senderId.equals=" + (senderId + 1));
+    }
+
+    @Test
+    @Transactional
+    void getAllTransactionRecordsByReceiverIsEqualToSomething() throws Exception {
+        BankAccount receiver;
+        if (TestUtil.findAll(em, BankAccount.class).isEmpty()) {
+            transactionRecordRepository.saveAndFlush(transactionRecord);
+            receiver = BankAccountResourceIT.createEntity();
+        } else {
+            receiver = TestUtil.findAll(em, BankAccount.class).get(0);
+        }
+        em.persist(receiver);
+        em.flush();
+        transactionRecord.setReceiver(receiver);
+        transactionRecordRepository.saveAndFlush(transactionRecord);
+        Long receiverId = receiver.getId();
+        // Get all the transactionRecordList where receiver equals to receiverId
+        defaultTransactionRecordShouldBeFound("receiverId.equals=" + receiverId);
+
+        // Get all the transactionRecordList where receiver equals to (receiverId + 1)
+        defaultTransactionRecordShouldNotBeFound("receiverId.equals=" + (receiverId + 1));
     }
 
     private void defaultTransactionRecordFiltering(String shouldBeFound, String shouldNotBeFound) throws Exception {
@@ -1360,8 +1206,6 @@ class TransactionRecordResourceIT {
             .andExpect(jsonPath("$.[*].receiveAmount").value(hasItem(sameNumber(DEFAULT_RECEIVE_AMOUNT))))
             .andExpect(jsonPath("$.[*].transactionDate").value(hasItem(DEFAULT_TRANSACTION_DATE.toString())))
             .andExpect(jsonPath("$.[*].description").value(hasItem(DEFAULT_DESCRIPTION)))
-            .andExpect(jsonPath("$.[*].senderAccountNumber").value(hasItem(DEFAULT_SENDER_ACCOUNT_NUMBER)))
-            .andExpect(jsonPath("$.[*].receiverAccountNumber").value(hasItem(DEFAULT_RECEIVER_ACCOUNT_NUMBER)))
             .andExpect(jsonPath("$.[*].currencySendAmount").value(hasItem(DEFAULT_CURRENCY_SEND_AMOUNT.toString())))
             .andExpect(jsonPath("$.[*].currencyReceiveAmount").value(hasItem(DEFAULT_CURRENCY_RECEIVE_AMOUNT.toString())))
             .andExpect(jsonPath("$.[*].transactionStatus").value(hasItem(DEFAULT_TRANSACTION_STATUS.toString())))
@@ -1423,8 +1267,6 @@ class TransactionRecordResourceIT {
             .receiveAmount(UPDATED_RECEIVE_AMOUNT)
             .transactionDate(UPDATED_TRANSACTION_DATE)
             .description(UPDATED_DESCRIPTION)
-            .senderAccountNumber(UPDATED_SENDER_ACCOUNT_NUMBER)
-            .receiverAccountNumber(UPDATED_RECEIVER_ACCOUNT_NUMBER)
             .currencySendAmount(UPDATED_CURRENCY_SEND_AMOUNT)
             .currencyReceiveAmount(UPDATED_CURRENCY_RECEIVE_AMOUNT)
             .transactionStatus(UPDATED_TRANSACTION_STATUS)
@@ -1523,16 +1365,11 @@ class TransactionRecordResourceIT {
         partialUpdatedTransactionRecord.setId(transactionRecord.getId());
 
         partialUpdatedTransactionRecord
-            .transactionDate(UPDATED_TRANSACTION_DATE)
-            .senderAccountNumber(UPDATED_SENDER_ACCOUNT_NUMBER)
-            .receiverAccountNumber(UPDATED_RECEIVER_ACCOUNT_NUMBER)
+            .sendAmount(UPDATED_SEND_AMOUNT)
+            .receiveAmount(UPDATED_RECEIVE_AMOUNT)
+            .description(UPDATED_DESCRIPTION)
             .currencySendAmount(UPDATED_CURRENCY_SEND_AMOUNT)
-            .currencyReceiveAmount(UPDATED_CURRENCY_RECEIVE_AMOUNT)
-            .transactionStatus(UPDATED_TRANSACTION_STATUS)
-            .transactionReference(UPDATED_TRANSACTION_REFERENCE)
-            .riskScore(UPDATED_RISK_SCORE)
-            .createdAt(UPDATED_CREATED_AT)
-            .updatedAt(UPDATED_UPDATED_AT);
+            .riskScore(UPDATED_RISK_SCORE);
 
         restTransactionRecordMockMvc
             .perform(
@@ -1569,8 +1406,6 @@ class TransactionRecordResourceIT {
             .receiveAmount(UPDATED_RECEIVE_AMOUNT)
             .transactionDate(UPDATED_TRANSACTION_DATE)
             .description(UPDATED_DESCRIPTION)
-            .senderAccountNumber(UPDATED_SENDER_ACCOUNT_NUMBER)
-            .receiverAccountNumber(UPDATED_RECEIVER_ACCOUNT_NUMBER)
             .currencySendAmount(UPDATED_CURRENCY_SEND_AMOUNT)
             .currencyReceiveAmount(UPDATED_CURRENCY_RECEIVE_AMOUNT)
             .transactionStatus(UPDATED_TRANSACTION_STATUS)

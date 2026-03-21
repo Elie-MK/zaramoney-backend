@@ -34,16 +34,6 @@
       "fieldName": "isAgent",
       "fieldType": "Boolean",
       "fieldValidateRules": ["required"]
-    },
-    {
-      "fieldName": "accountNumber",
-      "fieldType": "String",
-      "fieldValidateRules": ["required"]
-    },
-    {
-      "fieldName": "accountBalance",
-      "fieldType": "BigDecimal",
-      "fieldValidateRules": ["required"]
     }
   ],
   "jpaMetamodelFiltering": true,
@@ -51,9 +41,8 @@
   "pagination": "pagination",
   "relationships": [
     {
-      "otherEntityField": "login",
       "otherEntityName": "user",
-      "relationshipName": "userLogin",
+      "relationshipName": "user",
       "relationshipSide": "left",
       "relationshipType": "one-to-one",
       "relationshipWithBuiltInEntity": true

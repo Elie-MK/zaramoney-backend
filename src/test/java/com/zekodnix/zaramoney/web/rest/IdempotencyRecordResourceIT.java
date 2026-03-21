@@ -816,7 +816,12 @@ class IdempotencyRecordResourceIT {
         IdempotencyRecord partialUpdatedIdempotencyRecord = new IdempotencyRecord();
         partialUpdatedIdempotencyRecord.setId(idempotencyRecord.getId());
 
-        partialUpdatedIdempotencyRecord.endpoint(UPDATED_ENDPOINT).responseStatus(UPDATED_RESPONSE_STATUS);
+        partialUpdatedIdempotencyRecord
+            .keyHash(UPDATED_KEY_HASH)
+            .endpoint(UPDATED_ENDPOINT)
+            .userId(UPDATED_USER_ID)
+            .responseBody(UPDATED_RESPONSE_BODY)
+            .responseStatus(UPDATED_RESPONSE_STATUS);
 
         restIdempotencyRecordMockMvc
             .perform(

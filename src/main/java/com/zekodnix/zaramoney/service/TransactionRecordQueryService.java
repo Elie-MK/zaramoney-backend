@@ -82,8 +82,6 @@ public class TransactionRecordQueryService extends QueryService<TransactionRecor
                 buildRangeSpecification(criteria.getReceiveAmount(), TransactionRecord_.receiveAmount),
                 buildRangeSpecification(criteria.getTransactionDate(), TransactionRecord_.transactionDate),
                 buildStringSpecification(criteria.getDescription(), TransactionRecord_.description),
-                buildStringSpecification(criteria.getSenderAccountNumber(), TransactionRecord_.senderAccountNumber),
-                buildStringSpecification(criteria.getReceiverAccountNumber(), TransactionRecord_.receiverAccountNumber),
                 buildSpecification(criteria.getCurrencySendAmount(), TransactionRecord_.currencySendAmount),
                 buildSpecification(criteria.getCurrencyReceiveAmount(), TransactionRecord_.currencyReceiveAmount),
                 buildSpecification(criteria.getTransactionStatus(), TransactionRecord_.transactionStatus),
@@ -92,7 +90,11 @@ public class TransactionRecordQueryService extends QueryService<TransactionRecor
                 buildSpecification(criteria.getFraudStatus(), TransactionRecord_.fraudStatus),
                 buildRangeSpecification(criteria.getCreatedAt(), TransactionRecord_.createdAt),
                 buildRangeSpecification(criteria.getUpdatedAt(), TransactionRecord_.updatedAt),
-                buildSpecification(criteria.getUserLoginId(), root -> root.join(TransactionRecord_.userLogin, JoinType.LEFT).get(User_.id))
+                buildSpecification(criteria.getSenderId(), root -> root.join(TransactionRecord_.sender, JoinType.LEFT).get(BankAccount_.id)
+                ),
+                buildSpecification(criteria.getReceiverId(), root ->
+                    root.join(TransactionRecord_.receiver, JoinType.LEFT).get(BankAccount_.id)
+                )
             );
         }
         return specification;

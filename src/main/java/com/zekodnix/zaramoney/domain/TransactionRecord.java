@@ -1,5 +1,6 @@
 package com.zekodnix.zaramoney.domain;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.zekodnix.zaramoney.domain.enumeration.Currency;
 import com.zekodnix.zaramoney.domain.enumeration.FraudStatus;
 import com.zekodnix.zaramoney.domain.enumeration.TransactionStatus;
@@ -53,16 +54,6 @@ public class TransactionRecord implements Serializable {
     private String description;
 
     @NotNull
-    @Size(min = 8, max = 16)
-    @Column(name = "sender_account_number", length = 16, nullable = false)
-    private String senderAccountNumber;
-
-    @NotNull
-    @Size(min = 8, max = 16)
-    @Column(name = "receiver_account_number", length = 16, nullable = false)
-    private String receiverAccountNumber;
-
-    @NotNull
     @Enumerated(EnumType.STRING)
     @Column(name = "currency_send_amount", nullable = false)
     private Currency currencySendAmount;
@@ -101,15 +92,12 @@ public class TransactionRecord implements Serializable {
     private Instant updatedAt;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    private User userLogin;
+    @JsonIgnoreProperties(value = { "user" }, allowSetters = true)
+    private BankAccount sender;
 
-    @PrePersist
-    public void prePersist() {
-        Instant now = Instant.now();
-        this.createdAt = now;
-        this.updatedAt = now;
-        this.transactionDate = now;
-    }
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JsonIgnoreProperties(value = { "user" }, allowSetters = true)
+    private BankAccount receiver;
 
     // jhipster-needle-entity-add-field - JHipster will add fields here
 
@@ -189,32 +177,6 @@ public class TransactionRecord implements Serializable {
 
     public void setDescription(String description) {
         this.description = description;
-    }
-
-    public String getSenderAccountNumber() {
-        return this.senderAccountNumber;
-    }
-
-    public TransactionRecord senderAccountNumber(String senderAccountNumber) {
-        this.setSenderAccountNumber(senderAccountNumber);
-        return this;
-    }
-
-    public void setSenderAccountNumber(String senderAccountNumber) {
-        this.senderAccountNumber = senderAccountNumber;
-    }
-
-    public String getReceiverAccountNumber() {
-        return this.receiverAccountNumber;
-    }
-
-    public TransactionRecord receiverAccountNumber(String receiverAccountNumber) {
-        this.setReceiverAccountNumber(receiverAccountNumber);
-        return this;
-    }
-
-    public void setReceiverAccountNumber(String receiverAccountNumber) {
-        this.receiverAccountNumber = receiverAccountNumber;
     }
 
     public Currency getCurrencySendAmount() {
@@ -321,16 +283,29 @@ public class TransactionRecord implements Serializable {
         this.updatedAt = updatedAt;
     }
 
-    public User getUserLogin() {
-        return this.userLogin;
+    public BankAccount getSender() {
+        return this.sender;
     }
 
-    public void setUserLogin(User user) {
-        this.userLogin = user;
+    public void setSender(BankAccount bankAccount) {
+        this.sender = bankAccount;
     }
 
-    public TransactionRecord userLogin(User user) {
-        this.setUserLogin(user);
+    public TransactionRecord sender(BankAccount bankAccount) {
+        this.setSender(bankAccount);
+        return this;
+    }
+
+    public BankAccount getReceiver() {
+        return this.receiver;
+    }
+
+    public void setReceiver(BankAccount bankAccount) {
+        this.receiver = bankAccount;
+    }
+
+    public TransactionRecord receiver(BankAccount bankAccount) {
+        this.setReceiver(bankAccount);
         return this;
     }
 
@@ -363,8 +338,6 @@ public class TransactionRecord implements Serializable {
             ", receiveAmount=" + getReceiveAmount() +
             ", transactionDate='" + getTransactionDate() + "'" +
             ", description='" + getDescription() + "'" +
-            ", senderAccountNumber='" + getSenderAccountNumber() + "'" +
-            ", receiverAccountNumber='" + getReceiverAccountNumber() + "'" +
             ", currencySendAmount='" + getCurrencySendAmount() + "'" +
             ", currencyReceiveAmount='" + getCurrencyReceiveAmount() + "'" +
             ", transactionStatus='" + getTransactionStatus() + "'" +

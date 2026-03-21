@@ -13,6 +13,10 @@
 
   <include file="config/liquibase/changelog/00000000000000_initial_schema.xml" relativeToChangelogFile="false"/>
   <!-- Add userDetailsAccount / 20-11-2025 -->
+  <include file="config/liquibase/changelog/20260317182554_added_entity_BankAccount.xml"
+           relativeToChangelogFile="false"/>
+  <include file="config/liquibase/changelog/20260317182554_added_entity_constraints_BankAccount.xml"
+           relativeToChangelogFile="false"/>
   <include file="config/liquibase/changelog/20251120071619_added_entity_UserDetailsAccount.xml"
            relativeToChangelogFile="false"/>
   <include file="config/liquibase/changelog/20251120071619_added_entity_constraints_UserDetailsAccount.xml"
@@ -24,6 +28,8 @@
            relativeToChangelogFile="false"/>
   <include file="config/liquibase/changelog/20251215170623_added_entity_IdempotencyRecord.xml"
            relativeToChangelogFile="false"/>
+
+<!-- 21-03-2026  -->
 
   <!-- jhipster-needle-liquibase-add-changelog - JHipster will add liquibase changelogs here -->
   <!-- jhipster-needle-liquibase-add-constraints-changelog - JHipster will add liquibase constraints changelogs here -->

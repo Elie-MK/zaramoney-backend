@@ -14,11 +14,6 @@ import org.springframework.stereotype.Repository;
  */
 @Repository
 public interface TransactionRecordRepository extends JpaRepository<TransactionRecord, Long>, JpaSpecificationExecutor<TransactionRecord> {
-    @Query(
-        "select transactionRecord from TransactionRecord transactionRecord where transactionRecord.userLogin.login = ?#{authentication.name}"
-    )
-    List<TransactionRecord> findByUserLoginIsCurrentUser();
-
     default Optional<TransactionRecord> findOneWithEagerRelationships(Long id) {
         return this.findOneWithToOneRelationships(id);
     }
@@ -32,16 +27,18 @@ public interface TransactionRecordRepository extends JpaRepository<TransactionRe
     }
 
     @Query(
-        value = "select transactionRecord from TransactionRecord transactionRecord left join fetch transactionRecord.userLogin",
+        value = "select transactionRecord from TransactionRecord transactionRecord left join fetch transactionRecord.sender left join fetch transactionRecord.receiver",
         countQuery = "select count(transactionRecord) from TransactionRecord transactionRecord"
     )
     Page<TransactionRecord> findAllWithToOneRelationships(Pageable pageable);
 
-    @Query("select transactionRecord from TransactionRecord transactionRecord left join fetch transactionRecord.userLogin")
+    @Query(
+        "select transactionRecord from TransactionRecord transactionRecord left join fetch transactionRecord.sender left join fetch transactionRecord.receiver"
+    )
     List<TransactionRecord> findAllWithToOneRelationships();
 
     @Query(
-        "select transactionRecord from TransactionRecord transactionRecord left join fetch transactionRecord.userLogin where transactionRecord.id =:id"
+        "select transactionRecord from TransactionRecord transactionRecord left join fetch transactionRecord.sender left join fetch transactionRecord.receiver where transactionRecord.id =:id"
     )
     Optional<TransactionRecord> findOneWithToOneRelationships(@Param("id") Long id);
 }

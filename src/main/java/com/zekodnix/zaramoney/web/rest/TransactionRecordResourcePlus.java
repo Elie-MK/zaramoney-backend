@@ -10,6 +10,8 @@ import java.math.BigDecimal;
 import java.nio.file.AccessDeniedException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -31,22 +33,5 @@ public class TransactionRecordResourcePlus {
         LOG.debug("REST request to send TransactionRecord : {}", transactionRecordVM);
         var response = transactionRecordServicePlus.createTransactionRecord(transactionRecordVM);
         return ResponseEntity.ok(response);
-    }
-
-    /**
-     * Endpoint to check if the account number is existing in the system
-     *
-     * @param accountNumber the account number to check
-     * @return Boolean
-     */
-
-    @GetMapping("/accounts/exists")
-    public ResponseEntity<TransactionDetails> checkAccountExistence(
-        @RequestParam String accountNumber,
-        @RequestParam BigDecimal sendAmount
-    ) throws AccessDeniedException {
-        LOG.debug("REST request to check account existence : {}", accountNumber);
-        var exists = transactionRecordServicePlus.checkAccountNumber(accountNumber, sendAmount);
-        return ResponseEntity.ok(exists);
     }
 }

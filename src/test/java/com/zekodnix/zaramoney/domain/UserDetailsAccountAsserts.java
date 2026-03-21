@@ -1,6 +1,5 @@
 package com.zekodnix.zaramoney.domain;
 
-import static com.zekodnix.zaramoney.domain.AssertUtils.bigDecimalCompareTo;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class UserDetailsAccountAsserts {
@@ -53,14 +52,7 @@ public class UserDetailsAccountAsserts {
             .satisfies(a -> assertThat(a.getIdCardPicture()).as("check idCardPicture").isEqualTo(expected.getIdCardPicture()))
             .satisfies(a -> assertThat(a.getCountry()).as("check country").isEqualTo(expected.getCountry()))
             .satisfies(a -> assertThat(a.getAddress()).as("check address").isEqualTo(expected.getAddress()))
-            .satisfies(a -> assertThat(a.getIsAgent()).as("check isAgent").isEqualTo(expected.getIsAgent()))
-            .satisfies(a -> assertThat(a.getAccountNumber()).as("check accountNumber").isEqualTo(expected.getAccountNumber()))
-            .satisfies(a ->
-                assertThat(a.getAccountBalance())
-                    .as("check accountBalance")
-                    .usingComparator(bigDecimalCompareTo)
-                    .isEqualTo(expected.getAccountBalance())
-            );
+            .satisfies(a -> assertThat(a.getIsAgent()).as("check isAgent").isEqualTo(expected.getIsAgent()));
     }
 
     /**

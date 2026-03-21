@@ -63,12 +63,6 @@ public class TransactionRecordAsserts {
             )
             .satisfies(a -> assertThat(a.getTransactionDate()).as("check transactionDate").isEqualTo(expected.getTransactionDate()))
             .satisfies(a -> assertThat(a.getDescription()).as("check description").isEqualTo(expected.getDescription()))
-            .satisfies(a ->
-                assertThat(a.getSenderAccountNumber()).as("check senderAccountNumber").isEqualTo(expected.getSenderAccountNumber())
-            )
-            .satisfies(a ->
-                assertThat(a.getReceiverAccountNumber()).as("check receiverAccountNumber").isEqualTo(expected.getReceiverAccountNumber())
-            )
             .satisfies(a -> assertThat(a.getCurrencySendAmount()).as("check currencySendAmount").isEqualTo(expected.getCurrencySendAmount())
             )
             .satisfies(a ->
@@ -91,6 +85,9 @@ public class TransactionRecordAsserts {
      * @param actual the actual entity
      */
     public static void assertTransactionRecordUpdatableRelationshipsEquals(TransactionRecord expected, TransactionRecord actual) {
-        // empty method
+        assertThat(actual)
+            .as("Verify TransactionRecord relationships")
+            .satisfies(a -> assertThat(a.getSender()).as("check sender").isEqualTo(expected.getSender()))
+            .satisfies(a -> assertThat(a.getReceiver()).as("check receiver").isEqualTo(expected.getReceiver()));
     }
 }

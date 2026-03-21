@@ -50,6 +50,10 @@ public class CacheConfiguration {
             createCache(cm, com.zekodnix.zaramoney.domain.User.class.getName());
             createCache(cm, com.zekodnix.zaramoney.domain.Authority.class.getName());
             createCache(cm, com.zekodnix.zaramoney.domain.User.class.getName() + ".authorities");
+            createCache(cm, com.zekodnix.zaramoney.domain.UserDetailsAccount.class.getName());
+            createCache(cm, com.zekodnix.zaramoney.domain.TransactionRecord.class.getName());
+            createCache(cm, com.zekodnix.zaramoney.domain.IdempotencyRecord.class.getName());
+            createCache(cm, com.zekodnix.zaramoney.domain.BankAccount.class.getName());
             // jhipster-needle-ehcache-add-entry
         };
     }

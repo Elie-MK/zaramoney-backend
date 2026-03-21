@@ -35,20 +35,6 @@
       "fieldValidateRulesMaxlength": "255"
     },
     {
-      "fieldName": "senderAccountNumber",
-      "fieldType": "String",
-      "fieldValidateRules": ["required", "minlength", "maxlength"],
-      "fieldValidateRulesMaxlength": "16",
-      "fieldValidateRulesMinlength": "8"
-    },
-    {
-      "fieldName": "receiverAccountNumber",
-      "fieldType": "String",
-      "fieldValidateRules": ["required", "minlength", "maxlength"],
-      "fieldValidateRulesMaxlength": "16",
-      "fieldValidateRulesMinlength": "8"
-    },
-    {
       "fieldName": "currencySendAmount",
       "fieldType": "Currency",
       "fieldValidateRules": ["required"],
@@ -101,12 +87,18 @@
   "pagination": "pagination",
   "relationships": [
     {
-      "otherEntityField": "login",
-      "otherEntityName": "user",
-      "relationshipName": "userLogin",
+      "otherEntityField": "accountNumber",
+      "otherEntityName": "bankAccount",
+      "relationshipName": "sender",
       "relationshipSide": "left",
-      "relationshipType": "many-to-one",
-      "relationshipWithBuiltInEntity": true
+      "relationshipType": "many-to-one"
+    },
+    {
+      "otherEntityField": "accountNumber",
+      "otherEntityName": "bankAccount",
+      "relationshipName": "receiver",
+      "relationshipSide": "left",
+      "relationshipType": "many-to-one"
     }
   ],
   "searchEngine": "no",

@@ -1,6 +1,9 @@
 package com.zekodnix.zaramoney.service;
 
+import com.zekodnix.zaramoney.domain.enumeration.Currency;
+import com.zekodnix.zaramoney.service.dto.BankAccountDTO;
 import com.zekodnix.zaramoney.service.dto.UserAccountDto;
+import com.zekodnix.zaramoney.service.dto.UserDTO;
 import com.zekodnix.zaramoney.service.dto.UserDetailsAccountDTO;
 import com.zekodnix.zaramoney.service.exception.UserDetailsAccountNotFoundException;
 import com.zekodnix.zaramoney.service.mapper.UserMapper;
@@ -10,6 +13,7 @@ import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.Map;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class UserAccountService {
@@ -18,63 +22,81 @@ public class UserAccountService {
     private final UserDetailsAccountService userDetailsAccountService;
     private final UserMapper userMapper;
     private final UploadFileService uploadFileService;
+    private final BankAccountService bankAccountService;
 
     public UserAccountService(
         UserService userService,
         UserDetailsAccountService userDetailsAccountService,
         UserMapper userMapper,
-        UploadFileService uploadFileService
+        UploadFileService uploadFileService,
+        BankAccountService bankAccountService
     ) {
         this.userService = userService;
         this.userDetailsAccountService = userDetailsAccountService;
         this.userMapper = userMapper;
         this.uploadFileService = uploadFileService;
+        this.bankAccountService = bankAccountService;
     }
 
+    @Transactional
     public UserAccountDto createNewUserAccount(UserAccountVM userAccountVM) {
         Map<String, Map<String, String>> files = getUploadedPictures(userAccountVM);
         var currentUser = userService.getUserWithAuthorities().orElseThrow();
         var userSaved = userMapper.userToUserDTO(currentUser);
 
-        var userDetailsAccountDTO = new UserDetailsAccountDTO();
-        userDetailsAccountDTO.setUserLogin(userSaved);
-        userDetailsAccountDTO.setFacePicture(files.containsKey("facePicture") ? files.get("facePicture").get("url") : null);
-        userDetailsAccountDTO.setIdCardPicture(files.containsKey("idCardPicture") ? files.get("idCardPicture").get("url") : null);
-        userDetailsAccountDTO.setAccountBalance(BigDecimal.valueOf(5.00));
-        userDetailsAccountDTO.setAccountNumber(generateAccountNumber().toString());
-        userDetailsAccountDTO.setIsAgent(false);
-        userDetailsAccountDTO.setCountry(userAccountVM.getCountry());
-        userDetailsAccountDTO.setAddress(userAccountVM.getAddress());
-        userDetailsAccountDTO.setPhoneNumber(userAccountVM.getPhoneNumber());
-        var userDetails = userDetailsAccountService.save(userDetailsAccountDTO);
+        var bankAccountSaved = getBankAccountDTO(userSaved);
+        createUserDetails(userAccountVM, userSaved, files);
 
         return new UserAccountDto(
             currentUser.getFirstName(),
             currentUser.getLastName(),
-            userDetails.getAccountNumber(),
-            userDetails.getAccountBalance(),
-            userDetails.getUserLogin().getLogin(),
-            userDetails.getAccountNumber()
+            bankAccountSaved.getAccountNumber(),
+            bankAccountSaved.getBalance(),
+            bankAccountSaved.getUser().getLogin()
         );
+    }
+
+    private BankAccountDTO getBankAccountDTO(UserDTO userSaved) {
+        var bankAccountDTO = new BankAccountDTO();
+        bankAccountDTO.setUser(userSaved);
+        bankAccountDTO.setBalance(BigDecimal.valueOf(5.00));
+        bankAccountDTO.setAccountNumber(generateAccountNumber().toString());
+        bankAccountDTO.setCurrency(Currency.TND);
+
+        return bankAccountService.save(bankAccountDTO);
+    }
+
+    private void createUserDetails(UserAccountVM userAccountVM, UserDTO userSaved, Map<String, Map<String, String>> files) {
+        var userDetailsAccountDTO = new UserDetailsAccountDTO();
+        userDetailsAccountDTO.setUser(userSaved);
+        userDetailsAccountDTO.setFacePicture(files.containsKey("facePicture") ? files.get("facePicture").get("url") : null);
+        userDetailsAccountDTO.setIdCardPicture(files.containsKey("idCardPicture") ? files.get("idCardPicture").get("url") : null);
+        userDetailsAccountDTO.setIsAgent(false);
+        userDetailsAccountDTO.setCountry(userAccountVM.getCountry());
+        userDetailsAccountDTO.setAddress(userAccountVM.getAddress());
+        userDetailsAccountDTO.setPhoneNumber(userAccountVM.getPhoneNumber());
+        userDetailsAccountService.save(userDetailsAccountDTO);
     }
 
     public UserAccountDto getUserDetailsAccount() {
         var currentUser = userService.getUserWithAuthorities().orElseThrow();
         var userSaved = userMapper.userToUserDTO(currentUser);
-        var userDetails = userDetailsAccountService
-            .findByUserLoginId(userSaved.getId())
-            .orElseThrow(() -> new UserDetailsAccountNotFoundException(userSaved.getId()));
 
-        String maskedAccountNumber = MaskingUtils.maskAccountNumber(userDetails.getAccountNumber());
+        var bankAccountSaved = bankAccountService.findOne(userSaved.getId()).orElseThrow();
+
+        var maskedAccountNumber = maskedAccountNumber(bankAccountSaved.getAccountNumber());
 
         return new UserAccountDto(
             currentUser.getFirstName(),
             currentUser.getLastName(),
             maskedAccountNumber,
-            userDetails.getAccountBalance(),
-            userDetails.getUserLogin().getLogin(),
-            userDetails.getAccountNumber()
+            bankAccountSaved.getBalance(),
+            bankAccountSaved.getUser().getLogin()
         );
+    }
+
+    private String maskedAccountNumber(String accountNumber) {
+        return MaskingUtils.maskAccountNumber(accountNumber);
     }
 
     private BigDecimal generateAccountNumber() {

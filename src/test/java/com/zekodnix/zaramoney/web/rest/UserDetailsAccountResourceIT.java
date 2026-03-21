@@ -2,7 +2,6 @@ package com.zekodnix.zaramoney.web.rest;
 
 import static com.zekodnix.zaramoney.domain.UserDetailsAccountAsserts.*;
 import static com.zekodnix.zaramoney.web.rest.TestUtil.createUpdateProxyForBean;
-import static com.zekodnix.zaramoney.web.rest.TestUtil.sameNumber;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasItem;
 import static org.mockito.Mockito.*;
@@ -19,7 +18,6 @@ import com.zekodnix.zaramoney.service.UserDetailsAccountService;
 import com.zekodnix.zaramoney.service.dto.UserDetailsAccountDTO;
 import com.zekodnix.zaramoney.service.mapper.UserDetailsAccountMapper;
 import jakarta.persistence.EntityManager;
-import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicLong;
@@ -64,13 +62,6 @@ class UserDetailsAccountResourceIT {
 
     private static final Boolean DEFAULT_IS_AGENT = false;
     private static final Boolean UPDATED_IS_AGENT = true;
-
-    private static final String DEFAULT_ACCOUNT_NUMBER = "AAAAAAAAAA";
-    private static final String UPDATED_ACCOUNT_NUMBER = "BBBBBBBBBB";
-
-    private static final BigDecimal DEFAULT_ACCOUNT_BALANCE = new BigDecimal(1);
-    private static final BigDecimal UPDATED_ACCOUNT_BALANCE = new BigDecimal(2);
-    private static final BigDecimal SMALLER_ACCOUNT_BALANCE = new BigDecimal(1 - 1);
 
     private static final String ENTITY_API_URL = "/api/user-details-accounts";
     private static final String ENTITY_API_URL_ID = ENTITY_API_URL + "/{id}";
@@ -119,9 +110,7 @@ class UserDetailsAccountResourceIT {
             .idCardPicture(DEFAULT_ID_CARD_PICTURE)
             .country(DEFAULT_COUNTRY)
             .address(DEFAULT_ADDRESS)
-            .isAgent(DEFAULT_IS_AGENT)
-            .accountNumber(DEFAULT_ACCOUNT_NUMBER)
-            .accountBalance(DEFAULT_ACCOUNT_BALANCE);
+            .isAgent(DEFAULT_IS_AGENT);
     }
 
     /**
@@ -137,9 +126,7 @@ class UserDetailsAccountResourceIT {
             .idCardPicture(UPDATED_ID_CARD_PICTURE)
             .country(UPDATED_COUNTRY)
             .address(UPDATED_ADDRESS)
-            .isAgent(UPDATED_IS_AGENT)
-            .accountNumber(UPDATED_ACCOUNT_NUMBER)
-            .accountBalance(UPDATED_ACCOUNT_BALANCE);
+            .isAgent(UPDATED_IS_AGENT);
     }
 
     @BeforeEach
@@ -304,40 +291,6 @@ class UserDetailsAccountResourceIT {
 
     @Test
     @Transactional
-    void checkAccountNumberIsRequired() throws Exception {
-        long databaseSizeBeforeTest = getRepositoryCount();
-        // set the field null
-        userDetailsAccount.setAccountNumber(null);
-
-        // Create the UserDetailsAccount, which fails.
-        UserDetailsAccountDTO userDetailsAccountDTO = userDetailsAccountMapper.toDto(userDetailsAccount);
-
-        restUserDetailsAccountMockMvc
-            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(userDetailsAccountDTO)))
-            .andExpect(status().isBadRequest());
-
-        assertSameRepositoryCount(databaseSizeBeforeTest);
-    }
-
-    @Test
-    @Transactional
-    void checkAccountBalanceIsRequired() throws Exception {
-        long databaseSizeBeforeTest = getRepositoryCount();
-        // set the field null
-        userDetailsAccount.setAccountBalance(null);
-
-        // Create the UserDetailsAccount, which fails.
-        UserDetailsAccountDTO userDetailsAccountDTO = userDetailsAccountMapper.toDto(userDetailsAccount);
-
-        restUserDetailsAccountMockMvc
-            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(userDetailsAccountDTO)))
-            .andExpect(status().isBadRequest());
-
-        assertSameRepositoryCount(databaseSizeBeforeTest);
-    }
-
-    @Test
-    @Transactional
     void getAllUserDetailsAccounts() throws Exception {
         // Initialize the database
         insertedUserDetailsAccount = userDetailsAccountRepository.saveAndFlush(userDetailsAccount);
@@ -353,9 +306,7 @@ class UserDetailsAccountResourceIT {
             .andExpect(jsonPath("$.[*].idCardPicture").value(hasItem(DEFAULT_ID_CARD_PICTURE)))
             .andExpect(jsonPath("$.[*].country").value(hasItem(DEFAULT_COUNTRY)))
             .andExpect(jsonPath("$.[*].address").value(hasItem(DEFAULT_ADDRESS)))
-            .andExpect(jsonPath("$.[*].isAgent").value(hasItem(DEFAULT_IS_AGENT)))
-            .andExpect(jsonPath("$.[*].accountNumber").value(hasItem(DEFAULT_ACCOUNT_NUMBER)))
-            .andExpect(jsonPath("$.[*].accountBalance").value(hasItem(sameNumber(DEFAULT_ACCOUNT_BALANCE))));
+            .andExpect(jsonPath("$.[*].isAgent").value(hasItem(DEFAULT_IS_AGENT)));
     }
 
     @SuppressWarnings({ "unchecked" })
@@ -392,9 +343,7 @@ class UserDetailsAccountResourceIT {
             .andExpect(jsonPath("$.idCardPicture").value(DEFAULT_ID_CARD_PICTURE))
             .andExpect(jsonPath("$.country").value(DEFAULT_COUNTRY))
             .andExpect(jsonPath("$.address").value(DEFAULT_ADDRESS))
-            .andExpect(jsonPath("$.isAgent").value(DEFAULT_IS_AGENT))
-            .andExpect(jsonPath("$.accountNumber").value(DEFAULT_ACCOUNT_NUMBER))
-            .andExpect(jsonPath("$.accountBalance").value(sameNumber(DEFAULT_ACCOUNT_BALANCE)));
+            .andExpect(jsonPath("$.isAgent").value(DEFAULT_IS_AGENT));
     }
 
     @Test
@@ -718,174 +667,24 @@ class UserDetailsAccountResourceIT {
 
     @Test
     @Transactional
-    void getAllUserDetailsAccountsByAccountNumberIsEqualToSomething() throws Exception {
-        // Initialize the database
-        insertedUserDetailsAccount = userDetailsAccountRepository.saveAndFlush(userDetailsAccount);
-
-        // Get all the userDetailsAccountList where accountNumber equals to
-        defaultUserDetailsAccountFiltering(
-            "accountNumber.equals=" + DEFAULT_ACCOUNT_NUMBER,
-            "accountNumber.equals=" + UPDATED_ACCOUNT_NUMBER
-        );
-    }
-
-    @Test
-    @Transactional
-    void getAllUserDetailsAccountsByAccountNumberIsInShouldWork() throws Exception {
-        // Initialize the database
-        insertedUserDetailsAccount = userDetailsAccountRepository.saveAndFlush(userDetailsAccount);
-
-        // Get all the userDetailsAccountList where accountNumber in
-        defaultUserDetailsAccountFiltering(
-            "accountNumber.in=" + DEFAULT_ACCOUNT_NUMBER + "," + UPDATED_ACCOUNT_NUMBER,
-            "accountNumber.in=" + UPDATED_ACCOUNT_NUMBER
-        );
-    }
-
-    @Test
-    @Transactional
-    void getAllUserDetailsAccountsByAccountNumberIsNullOrNotNull() throws Exception {
-        // Initialize the database
-        insertedUserDetailsAccount = userDetailsAccountRepository.saveAndFlush(userDetailsAccount);
-
-        // Get all the userDetailsAccountList where accountNumber is not null
-        defaultUserDetailsAccountFiltering("accountNumber.specified=true", "accountNumber.specified=false");
-    }
-
-    @Test
-    @Transactional
-    void getAllUserDetailsAccountsByAccountNumberContainsSomething() throws Exception {
-        // Initialize the database
-        insertedUserDetailsAccount = userDetailsAccountRepository.saveAndFlush(userDetailsAccount);
-
-        // Get all the userDetailsAccountList where accountNumber contains
-        defaultUserDetailsAccountFiltering(
-            "accountNumber.contains=" + DEFAULT_ACCOUNT_NUMBER,
-            "accountNumber.contains=" + UPDATED_ACCOUNT_NUMBER
-        );
-    }
-
-    @Test
-    @Transactional
-    void getAllUserDetailsAccountsByAccountNumberNotContainsSomething() throws Exception {
-        // Initialize the database
-        insertedUserDetailsAccount = userDetailsAccountRepository.saveAndFlush(userDetailsAccount);
-
-        // Get all the userDetailsAccountList where accountNumber does not contain
-        defaultUserDetailsAccountFiltering(
-            "accountNumber.doesNotContain=" + UPDATED_ACCOUNT_NUMBER,
-            "accountNumber.doesNotContain=" + DEFAULT_ACCOUNT_NUMBER
-        );
-    }
-
-    @Test
-    @Transactional
-    void getAllUserDetailsAccountsByAccountBalanceIsEqualToSomething() throws Exception {
-        // Initialize the database
-        insertedUserDetailsAccount = userDetailsAccountRepository.saveAndFlush(userDetailsAccount);
-
-        // Get all the userDetailsAccountList where accountBalance equals to
-        defaultUserDetailsAccountFiltering(
-            "accountBalance.equals=" + DEFAULT_ACCOUNT_BALANCE,
-            "accountBalance.equals=" + UPDATED_ACCOUNT_BALANCE
-        );
-    }
-
-    @Test
-    @Transactional
-    void getAllUserDetailsAccountsByAccountBalanceIsInShouldWork() throws Exception {
-        // Initialize the database
-        insertedUserDetailsAccount = userDetailsAccountRepository.saveAndFlush(userDetailsAccount);
-
-        // Get all the userDetailsAccountList where accountBalance in
-        defaultUserDetailsAccountFiltering(
-            "accountBalance.in=" + DEFAULT_ACCOUNT_BALANCE + "," + UPDATED_ACCOUNT_BALANCE,
-            "accountBalance.in=" + UPDATED_ACCOUNT_BALANCE
-        );
-    }
-
-    @Test
-    @Transactional
-    void getAllUserDetailsAccountsByAccountBalanceIsNullOrNotNull() throws Exception {
-        // Initialize the database
-        insertedUserDetailsAccount = userDetailsAccountRepository.saveAndFlush(userDetailsAccount);
-
-        // Get all the userDetailsAccountList where accountBalance is not null
-        defaultUserDetailsAccountFiltering("accountBalance.specified=true", "accountBalance.specified=false");
-    }
-
-    @Test
-    @Transactional
-    void getAllUserDetailsAccountsByAccountBalanceIsGreaterThanOrEqualToSomething() throws Exception {
-        // Initialize the database
-        insertedUserDetailsAccount = userDetailsAccountRepository.saveAndFlush(userDetailsAccount);
-
-        // Get all the userDetailsAccountList where accountBalance is greater than or equal to
-        defaultUserDetailsAccountFiltering(
-            "accountBalance.greaterThanOrEqual=" + DEFAULT_ACCOUNT_BALANCE,
-            "accountBalance.greaterThanOrEqual=" + UPDATED_ACCOUNT_BALANCE
-        );
-    }
-
-    @Test
-    @Transactional
-    void getAllUserDetailsAccountsByAccountBalanceIsLessThanOrEqualToSomething() throws Exception {
-        // Initialize the database
-        insertedUserDetailsAccount = userDetailsAccountRepository.saveAndFlush(userDetailsAccount);
-
-        // Get all the userDetailsAccountList where accountBalance is less than or equal to
-        defaultUserDetailsAccountFiltering(
-            "accountBalance.lessThanOrEqual=" + DEFAULT_ACCOUNT_BALANCE,
-            "accountBalance.lessThanOrEqual=" + SMALLER_ACCOUNT_BALANCE
-        );
-    }
-
-    @Test
-    @Transactional
-    void getAllUserDetailsAccountsByAccountBalanceIsLessThanSomething() throws Exception {
-        // Initialize the database
-        insertedUserDetailsAccount = userDetailsAccountRepository.saveAndFlush(userDetailsAccount);
-
-        // Get all the userDetailsAccountList where accountBalance is less than
-        defaultUserDetailsAccountFiltering(
-            "accountBalance.lessThan=" + UPDATED_ACCOUNT_BALANCE,
-            "accountBalance.lessThan=" + DEFAULT_ACCOUNT_BALANCE
-        );
-    }
-
-    @Test
-    @Transactional
-    void getAllUserDetailsAccountsByAccountBalanceIsGreaterThanSomething() throws Exception {
-        // Initialize the database
-        insertedUserDetailsAccount = userDetailsAccountRepository.saveAndFlush(userDetailsAccount);
-
-        // Get all the userDetailsAccountList where accountBalance is greater than
-        defaultUserDetailsAccountFiltering(
-            "accountBalance.greaterThan=" + SMALLER_ACCOUNT_BALANCE,
-            "accountBalance.greaterThan=" + DEFAULT_ACCOUNT_BALANCE
-        );
-    }
-
-    @Test
-    @Transactional
-    void getAllUserDetailsAccountsByUserLoginIsEqualToSomething() throws Exception {
-        User userLogin;
+    void getAllUserDetailsAccountsByUserIsEqualToSomething() throws Exception {
+        User user;
         if (TestUtil.findAll(em, User.class).isEmpty()) {
             userDetailsAccountRepository.saveAndFlush(userDetailsAccount);
-            userLogin = UserResourceIT.createEntity();
+            user = UserResourceIT.createEntity();
         } else {
-            userLogin = TestUtil.findAll(em, User.class).get(0);
+            user = TestUtil.findAll(em, User.class).get(0);
         }
-        em.persist(userLogin);
+        em.persist(user);
         em.flush();
-        userDetailsAccount.setUserLogin(userLogin);
+        userDetailsAccount.setUser(user);
         userDetailsAccountRepository.saveAndFlush(userDetailsAccount);
-        Long userLoginId = userLogin.getId();
-        // Get all the userDetailsAccountList where userLogin equals to userLoginId
-        defaultUserDetailsAccountShouldBeFound("userLoginId.equals=" + userLoginId);
+        Long userId = user.getId();
+        // Get all the userDetailsAccountList where user equals to userId
+        defaultUserDetailsAccountShouldBeFound("userId.equals=" + userId);
 
-        // Get all the userDetailsAccountList where userLogin equals to (userLoginId + 1)
-        defaultUserDetailsAccountShouldNotBeFound("userLoginId.equals=" + (userLoginId + 1));
+        // Get all the userDetailsAccountList where user equals to (userId + 1)
+        defaultUserDetailsAccountShouldNotBeFound("userId.equals=" + (userId + 1));
     }
 
     private void defaultUserDetailsAccountFiltering(String shouldBeFound, String shouldNotBeFound) throws Exception {
@@ -907,9 +706,7 @@ class UserDetailsAccountResourceIT {
             .andExpect(jsonPath("$.[*].idCardPicture").value(hasItem(DEFAULT_ID_CARD_PICTURE)))
             .andExpect(jsonPath("$.[*].country").value(hasItem(DEFAULT_COUNTRY)))
             .andExpect(jsonPath("$.[*].address").value(hasItem(DEFAULT_ADDRESS)))
-            .andExpect(jsonPath("$.[*].isAgent").value(hasItem(DEFAULT_IS_AGENT)))
-            .andExpect(jsonPath("$.[*].accountNumber").value(hasItem(DEFAULT_ACCOUNT_NUMBER)))
-            .andExpect(jsonPath("$.[*].accountBalance").value(hasItem(sameNumber(DEFAULT_ACCOUNT_BALANCE))));
+            .andExpect(jsonPath("$.[*].isAgent").value(hasItem(DEFAULT_IS_AGENT)));
 
         // Check, that the count call also returns 1
         restUserDetailsAccountMockMvc
@@ -963,9 +760,7 @@ class UserDetailsAccountResourceIT {
             .idCardPicture(UPDATED_ID_CARD_PICTURE)
             .country(UPDATED_COUNTRY)
             .address(UPDATED_ADDRESS)
-            .isAgent(UPDATED_IS_AGENT)
-            .accountNumber(UPDATED_ACCOUNT_NUMBER)
-            .accountBalance(UPDATED_ACCOUNT_BALANCE);
+            .isAgent(UPDATED_IS_AGENT);
         UserDetailsAccountDTO userDetailsAccountDTO = userDetailsAccountMapper.toDto(updatedUserDetailsAccount);
 
         restUserDetailsAccountMockMvc
@@ -1055,11 +850,7 @@ class UserDetailsAccountResourceIT {
         UserDetailsAccount partialUpdatedUserDetailsAccount = new UserDetailsAccount();
         partialUpdatedUserDetailsAccount.setId(userDetailsAccount.getId());
 
-        partialUpdatedUserDetailsAccount
-            .facePicture(UPDATED_FACE_PICTURE)
-            .isAgent(UPDATED_IS_AGENT)
-            .accountNumber(UPDATED_ACCOUNT_NUMBER)
-            .accountBalance(UPDATED_ACCOUNT_BALANCE);
+        partialUpdatedUserDetailsAccount.country(UPDATED_COUNTRY).address(UPDATED_ADDRESS).isAgent(UPDATED_IS_AGENT);
 
         restUserDetailsAccountMockMvc
             .perform(
@@ -1096,9 +887,7 @@ class UserDetailsAccountResourceIT {
             .idCardPicture(UPDATED_ID_CARD_PICTURE)
             .country(UPDATED_COUNTRY)
             .address(UPDATED_ADDRESS)
-            .isAgent(UPDATED_IS_AGENT)
-            .accountNumber(UPDATED_ACCOUNT_NUMBER)
-            .accountBalance(UPDATED_ACCOUNT_BALANCE);
+            .isAgent(UPDATED_IS_AGENT);
 
         restUserDetailsAccountMockMvc
             .perform(

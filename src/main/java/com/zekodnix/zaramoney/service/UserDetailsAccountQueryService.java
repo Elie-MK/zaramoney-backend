@@ -83,9 +83,7 @@ public class UserDetailsAccountQueryService extends QueryService<UserDetailsAcco
                 buildStringSpecification(criteria.getCountry(), UserDetailsAccount_.country),
                 buildStringSpecification(criteria.getAddress(), UserDetailsAccount_.address),
                 buildSpecification(criteria.getIsAgent(), UserDetailsAccount_.isAgent),
-                buildStringSpecification(criteria.getAccountNumber(), UserDetailsAccount_.accountNumber),
-                buildRangeSpecification(criteria.getAccountBalance(), UserDetailsAccount_.accountBalance),
-                buildSpecification(criteria.getUserLoginId(), root -> root.join(UserDetailsAccount_.userLogin, JoinType.LEFT).get(User_.id))
+                buildSpecification(criteria.getUserId(), root -> root.join(UserDetailsAccount_.user, JoinType.LEFT).get(User_.id))
             );
         }
         return specification;

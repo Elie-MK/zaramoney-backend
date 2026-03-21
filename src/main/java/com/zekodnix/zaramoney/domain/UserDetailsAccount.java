@@ -3,7 +3,6 @@ package com.zekodnix.zaramoney.domain;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
 import java.io.Serializable;
-import java.math.BigDecimal;
 import org.hibernate.annotations.Cache;
 import org.hibernate.annotations.CacheConcurrencyStrategy;
 
@@ -48,17 +47,9 @@ public class UserDetailsAccount implements Serializable {
     @Column(name = "is_agent", nullable = false)
     private Boolean isAgent;
 
-    @NotNull
-    @Column(name = "account_number", nullable = false)
-    private String accountNumber;
-
-    @NotNull
-    @Column(name = "account_balance", precision = 21, scale = 2, nullable = false)
-    private BigDecimal accountBalance;
-
     @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(unique = true)
-    private User userLogin;
+    @JoinColumn(name = "user_login_id", unique = true)
+    private User user;
 
     // jhipster-needle-entity-add-field - JHipster will add fields here
 
@@ -153,42 +144,16 @@ public class UserDetailsAccount implements Serializable {
         this.isAgent = isAgent;
     }
 
-    public String getAccountNumber() {
-        return this.accountNumber;
+    public User getUser() {
+        return this.user;
     }
 
-    public UserDetailsAccount accountNumber(String accountNumber) {
-        this.setAccountNumber(accountNumber);
-        return this;
+    public void setUser(User user) {
+        this.user = user;
     }
 
-    public void setAccountNumber(String accountNumber) {
-        this.accountNumber = accountNumber;
-    }
-
-    public BigDecimal getAccountBalance() {
-        return this.accountBalance;
-    }
-
-    public UserDetailsAccount accountBalance(BigDecimal accountBalance) {
-        this.setAccountBalance(accountBalance);
-        return this;
-    }
-
-    public void setAccountBalance(BigDecimal accountBalance) {
-        this.accountBalance = accountBalance;
-    }
-
-    public User getUserLogin() {
-        return this.userLogin;
-    }
-
-    public void setUserLogin(User user) {
-        this.userLogin = user;
-    }
-
-    public UserDetailsAccount userLogin(User user) {
-        this.setUserLogin(user);
+    public UserDetailsAccount user(User user) {
+        this.setUser(user);
         return this;
     }
 
@@ -222,8 +187,6 @@ public class UserDetailsAccount implements Serializable {
             ", country='" + getCountry() + "'" +
             ", address='" + getAddress() + "'" +
             ", isAgent='" + getIsAgent() + "'" +
-            ", accountNumber='" + getAccountNumber() + "'" +
-            ", accountBalance=" + getAccountBalance() +
             "}";
     }
 }

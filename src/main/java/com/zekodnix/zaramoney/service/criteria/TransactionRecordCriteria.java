@@ -107,10 +107,6 @@ public class TransactionRecordCriteria implements Serializable, Criteria {
 
     private StringFilter description;
 
-    private StringFilter senderAccountNumber;
-
-    private StringFilter receiverAccountNumber;
-
     private CurrencyFilter currencySendAmount;
 
     private CurrencyFilter currencyReceiveAmount;
@@ -127,7 +123,9 @@ public class TransactionRecordCriteria implements Serializable, Criteria {
 
     private InstantFilter updatedAt;
 
-    private LongFilter userLoginId;
+    private LongFilter senderId;
+
+    private LongFilter receiverId;
 
     private Boolean distinct;
 
@@ -140,8 +138,6 @@ public class TransactionRecordCriteria implements Serializable, Criteria {
         this.receiveAmount = other.optionalReceiveAmount().map(BigDecimalFilter::copy).orElse(null);
         this.transactionDate = other.optionalTransactionDate().map(InstantFilter::copy).orElse(null);
         this.description = other.optionalDescription().map(StringFilter::copy).orElse(null);
-        this.senderAccountNumber = other.optionalSenderAccountNumber().map(StringFilter::copy).orElse(null);
-        this.receiverAccountNumber = other.optionalReceiverAccountNumber().map(StringFilter::copy).orElse(null);
         this.currencySendAmount = other.optionalCurrencySendAmount().map(CurrencyFilter::copy).orElse(null);
         this.currencyReceiveAmount = other.optionalCurrencyReceiveAmount().map(CurrencyFilter::copy).orElse(null);
         this.transactionStatus = other.optionalTransactionStatus().map(TransactionStatusFilter::copy).orElse(null);
@@ -150,7 +146,8 @@ public class TransactionRecordCriteria implements Serializable, Criteria {
         this.fraudStatus = other.optionalFraudStatus().map(FraudStatusFilter::copy).orElse(null);
         this.createdAt = other.optionalCreatedAt().map(InstantFilter::copy).orElse(null);
         this.updatedAt = other.optionalUpdatedAt().map(InstantFilter::copy).orElse(null);
-        this.userLoginId = other.optionalUserLoginId().map(LongFilter::copy).orElse(null);
+        this.senderId = other.optionalSenderId().map(LongFilter::copy).orElse(null);
+        this.receiverId = other.optionalReceiverId().map(LongFilter::copy).orElse(null);
         this.distinct = other.distinct;
     }
 
@@ -271,44 +268,6 @@ public class TransactionRecordCriteria implements Serializable, Criteria {
 
     public void setDescription(StringFilter description) {
         this.description = description;
-    }
-
-    public StringFilter getSenderAccountNumber() {
-        return senderAccountNumber;
-    }
-
-    public Optional<StringFilter> optionalSenderAccountNumber() {
-        return Optional.ofNullable(senderAccountNumber);
-    }
-
-    public StringFilter senderAccountNumber() {
-        if (senderAccountNumber == null) {
-            setSenderAccountNumber(new StringFilter());
-        }
-        return senderAccountNumber;
-    }
-
-    public void setSenderAccountNumber(StringFilter senderAccountNumber) {
-        this.senderAccountNumber = senderAccountNumber;
-    }
-
-    public StringFilter getReceiverAccountNumber() {
-        return receiverAccountNumber;
-    }
-
-    public Optional<StringFilter> optionalReceiverAccountNumber() {
-        return Optional.ofNullable(receiverAccountNumber);
-    }
-
-    public StringFilter receiverAccountNumber() {
-        if (receiverAccountNumber == null) {
-            setReceiverAccountNumber(new StringFilter());
-        }
-        return receiverAccountNumber;
-    }
-
-    public void setReceiverAccountNumber(StringFilter receiverAccountNumber) {
-        this.receiverAccountNumber = receiverAccountNumber;
     }
 
     public CurrencyFilter getCurrencySendAmount() {
@@ -463,23 +422,42 @@ public class TransactionRecordCriteria implements Serializable, Criteria {
         this.updatedAt = updatedAt;
     }
 
-    public LongFilter getUserLoginId() {
-        return userLoginId;
+    public LongFilter getSenderId() {
+        return senderId;
     }
 
-    public Optional<LongFilter> optionalUserLoginId() {
-        return Optional.ofNullable(userLoginId);
+    public Optional<LongFilter> optionalSenderId() {
+        return Optional.ofNullable(senderId);
     }
 
-    public LongFilter userLoginId() {
-        if (userLoginId == null) {
-            setUserLoginId(new LongFilter());
+    public LongFilter senderId() {
+        if (senderId == null) {
+            setSenderId(new LongFilter());
         }
-        return userLoginId;
+        return senderId;
     }
 
-    public void setUserLoginId(LongFilter userLoginId) {
-        this.userLoginId = userLoginId;
+    public void setSenderId(LongFilter senderId) {
+        this.senderId = senderId;
+    }
+
+    public LongFilter getReceiverId() {
+        return receiverId;
+    }
+
+    public Optional<LongFilter> optionalReceiverId() {
+        return Optional.ofNullable(receiverId);
+    }
+
+    public LongFilter receiverId() {
+        if (receiverId == null) {
+            setReceiverId(new LongFilter());
+        }
+        return receiverId;
+    }
+
+    public void setReceiverId(LongFilter receiverId) {
+        this.receiverId = receiverId;
     }
 
     public Boolean getDistinct() {
@@ -517,8 +495,6 @@ public class TransactionRecordCriteria implements Serializable, Criteria {
             Objects.equals(receiveAmount, that.receiveAmount) &&
             Objects.equals(transactionDate, that.transactionDate) &&
             Objects.equals(description, that.description) &&
-            Objects.equals(senderAccountNumber, that.senderAccountNumber) &&
-            Objects.equals(receiverAccountNumber, that.receiverAccountNumber) &&
             Objects.equals(currencySendAmount, that.currencySendAmount) &&
             Objects.equals(currencyReceiveAmount, that.currencyReceiveAmount) &&
             Objects.equals(transactionStatus, that.transactionStatus) &&
@@ -527,7 +503,8 @@ public class TransactionRecordCriteria implements Serializable, Criteria {
             Objects.equals(fraudStatus, that.fraudStatus) &&
             Objects.equals(createdAt, that.createdAt) &&
             Objects.equals(updatedAt, that.updatedAt) &&
-            Objects.equals(userLoginId, that.userLoginId) &&
+            Objects.equals(senderId, that.senderId) &&
+            Objects.equals(receiverId, that.receiverId) &&
             Objects.equals(distinct, that.distinct)
         );
     }
@@ -541,8 +518,6 @@ public class TransactionRecordCriteria implements Serializable, Criteria {
             receiveAmount,
             transactionDate,
             description,
-            senderAccountNumber,
-            receiverAccountNumber,
             currencySendAmount,
             currencyReceiveAmount,
             transactionStatus,
@@ -551,7 +526,8 @@ public class TransactionRecordCriteria implements Serializable, Criteria {
             fraudStatus,
             createdAt,
             updatedAt,
-            userLoginId,
+            senderId,
+            receiverId,
             distinct
         );
     }
@@ -566,8 +542,6 @@ public class TransactionRecordCriteria implements Serializable, Criteria {
             optionalReceiveAmount().map(f -> "receiveAmount=" + f + ", ").orElse("") +
             optionalTransactionDate().map(f -> "transactionDate=" + f + ", ").orElse("") +
             optionalDescription().map(f -> "description=" + f + ", ").orElse("") +
-            optionalSenderAccountNumber().map(f -> "senderAccountNumber=" + f + ", ").orElse("") +
-            optionalReceiverAccountNumber().map(f -> "receiverAccountNumber=" + f + ", ").orElse("") +
             optionalCurrencySendAmount().map(f -> "currencySendAmount=" + f + ", ").orElse("") +
             optionalCurrencyReceiveAmount().map(f -> "currencyReceiveAmount=" + f + ", ").orElse("") +
             optionalTransactionStatus().map(f -> "transactionStatus=" + f + ", ").orElse("") +
@@ -576,7 +550,8 @@ public class TransactionRecordCriteria implements Serializable, Criteria {
             optionalFraudStatus().map(f -> "fraudStatus=" + f + ", ").orElse("") +
             optionalCreatedAt().map(f -> "createdAt=" + f + ", ").orElse("") +
             optionalUpdatedAt().map(f -> "updatedAt=" + f + ", ").orElse("") +
-            optionalUserLoginId().map(f -> "userLoginId=" + f + ", ").orElse("") +
+            optionalSenderId().map(f -> "senderId=" + f + ", ").orElse("") +
+            optionalReceiverId().map(f -> "receiverId=" + f + ", ").orElse("") +
             optionalDistinct().map(f -> "distinct=" + f + ", ").orElse("") +
         "}";
     }

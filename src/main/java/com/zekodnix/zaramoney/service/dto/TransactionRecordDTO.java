@@ -36,14 +36,6 @@ public class TransactionRecordDTO implements Serializable {
     private String description;
 
     @NotNull
-    @Size(min = 8, max = 16)
-    private String senderAccountNumber;
-
-    @NotNull
-    @Size(min = 8, max = 16)
-    private String receiverAccountNumber;
-
-    @NotNull
     private Currency currencySendAmount;
 
     @NotNull
@@ -69,7 +61,9 @@ public class TransactionRecordDTO implements Serializable {
 
     private Instant updatedAt;
 
-    private UserDTO userLogin;
+    private BankAccountDTO sender;
+
+    private BankAccountDTO receiver;
 
     public Long getId() {
         return id;
@@ -117,22 +111,6 @@ public class TransactionRecordDTO implements Serializable {
 
     public void setDescription(String description) {
         this.description = description;
-    }
-
-    public String getSenderAccountNumber() {
-        return senderAccountNumber;
-    }
-
-    public void setSenderAccountNumber(String senderAccountNumber) {
-        this.senderAccountNumber = senderAccountNumber;
-    }
-
-    public String getReceiverAccountNumber() {
-        return receiverAccountNumber;
-    }
-
-    public void setReceiverAccountNumber(String receiverAccountNumber) {
-        this.receiverAccountNumber = receiverAccountNumber;
     }
 
     public Currency getCurrencySendAmount() {
@@ -199,12 +177,20 @@ public class TransactionRecordDTO implements Serializable {
         this.updatedAt = updatedAt;
     }
 
-    public UserDTO getUserLogin() {
-        return userLogin;
+    public BankAccountDTO getSender() {
+        return sender;
     }
 
-    public void setUserLogin(UserDTO userLogin) {
-        this.userLogin = userLogin;
+    public void setSender(BankAccountDTO sender) {
+        this.sender = sender;
+    }
+
+    public BankAccountDTO getReceiver() {
+        return receiver;
+    }
+
+    public void setReceiver(BankAccountDTO receiver) {
+        this.receiver = receiver;
     }
 
     @Override
@@ -238,8 +224,6 @@ public class TransactionRecordDTO implements Serializable {
             ", receiveAmount=" + getReceiveAmount() +
             ", transactionDate='" + getTransactionDate() + "'" +
             ", description='" + getDescription() + "'" +
-            ", senderAccountNumber='" + getSenderAccountNumber() + "'" +
-            ", receiverAccountNumber='" + getReceiverAccountNumber() + "'" +
             ", currencySendAmount='" + getCurrencySendAmount() + "'" +
             ", currencyReceiveAmount='" + getCurrencyReceiveAmount() + "'" +
             ", transactionStatus='" + getTransactionStatus() + "'" +
@@ -248,7 +232,8 @@ public class TransactionRecordDTO implements Serializable {
             ", fraudStatus='" + getFraudStatus() + "'" +
             ", createdAt='" + getCreatedAt() + "'" +
             ", updatedAt='" + getUpdatedAt() + "'" +
-            ", userLogin=" + getUserLogin() +
+            ", sender=" + getSender() +
+            ", receiver=" + getReceiver() +
             "}";
     }
 }

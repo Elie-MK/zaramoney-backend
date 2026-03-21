@@ -28,20 +28,16 @@ public interface UserDetailsAccountRepository
     }
 
     @Query(
-        value = "select userDetailsAccount from UserDetailsAccount userDetailsAccount left join fetch userDetailsAccount.userLogin",
+        value = "select userDetailsAccount from UserDetailsAccount userDetailsAccount left join fetch userDetailsAccount.user",
         countQuery = "select count(userDetailsAccount) from UserDetailsAccount userDetailsAccount"
     )
     Page<UserDetailsAccount> findAllWithToOneRelationships(Pageable pageable);
 
-    @Query("select userDetailsAccount from UserDetailsAccount userDetailsAccount left join fetch userDetailsAccount.userLogin")
+    @Query("select userDetailsAccount from UserDetailsAccount userDetailsAccount left join fetch userDetailsAccount.user")
     List<UserDetailsAccount> findAllWithToOneRelationships();
 
     @Query(
-        "select userDetailsAccount from UserDetailsAccount userDetailsAccount left join fetch userDetailsAccount.userLogin where userDetailsAccount.id =:id"
+        "select userDetailsAccount from UserDetailsAccount userDetailsAccount left join fetch userDetailsAccount.user where userDetailsAccount.id =:id"
     )
     Optional<UserDetailsAccount> findOneWithToOneRelationships(@Param("id") Long id);
-
-    Optional<UserDetailsAccount> findByAccountNumber(String accountNumber);
-
-    Optional<UserDetailsAccount> findByUserLoginId(Long userLoginId);
 }

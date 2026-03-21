@@ -82,9 +82,7 @@ class UserDetailsAccountCriteriaTest {
         userDetailsAccountCriteria.country();
         userDetailsAccountCriteria.address();
         userDetailsAccountCriteria.isAgent();
-        userDetailsAccountCriteria.accountNumber();
-        userDetailsAccountCriteria.accountBalance();
-        userDetailsAccountCriteria.userLoginId();
+        userDetailsAccountCriteria.userId();
         userDetailsAccountCriteria.distinct();
     }
 
@@ -98,9 +96,7 @@ class UserDetailsAccountCriteriaTest {
                 condition.apply(criteria.getCountry()) &&
                 condition.apply(criteria.getAddress()) &&
                 condition.apply(criteria.getIsAgent()) &&
-                condition.apply(criteria.getAccountNumber()) &&
-                condition.apply(criteria.getAccountBalance()) &&
-                condition.apply(criteria.getUserLoginId()) &&
+                condition.apply(criteria.getUserId()) &&
                 condition.apply(criteria.getDistinct()),
             "every filter matches"
         );
@@ -119,9 +115,7 @@ class UserDetailsAccountCriteriaTest {
                 condition.apply(criteria.getCountry(), copy.getCountry()) &&
                 condition.apply(criteria.getAddress(), copy.getAddress()) &&
                 condition.apply(criteria.getIsAgent(), copy.getIsAgent()) &&
-                condition.apply(criteria.getAccountNumber(), copy.getAccountNumber()) &&
-                condition.apply(criteria.getAccountBalance(), copy.getAccountBalance()) &&
-                condition.apply(criteria.getUserLoginId(), copy.getUserLoginId()) &&
+                condition.apply(criteria.getUserId(), copy.getUserId()) &&
                 condition.apply(criteria.getDistinct(), copy.getDistinct()),
             "every filter matches"
         );
