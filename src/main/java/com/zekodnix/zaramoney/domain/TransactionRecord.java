@@ -309,6 +309,14 @@ public class TransactionRecord implements Serializable {
         return this;
     }
 
+    @PrePersist
+    public void prePersist() {
+        Instant now = Instant.now();
+        this.createdAt = now;
+        this.updatedAt = now;
+        this.transactionDate = now;
+    }
+
     // jhipster-needle-entity-add-getters-setters - JHipster will add getters and setters here
 
     @Override

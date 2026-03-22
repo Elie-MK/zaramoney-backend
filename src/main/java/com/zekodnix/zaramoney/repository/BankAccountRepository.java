@@ -1,6 +1,7 @@
 package com.zekodnix.zaramoney.repository;
 
 import com.zekodnix.zaramoney.domain.BankAccount;
+import jakarta.persistence.LockModeType;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
@@ -40,4 +41,10 @@ public interface BankAccountRepository extends JpaRepository<BankAccount, Long>,
 
     @Query("select bankAccount from BankAccount bankAccount left join fetch bankAccount.user where bankAccount.id =:id")
     Optional<BankAccount> findOneWithToOneRelationships(@Param("id") Long id);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT b FROM BankAccount b WHERE b.accountNumber = :accountNumber")
+    Optional<BankAccount> findByAccountNumberForUpdate(@Param("accountNumber") String accountNumber);
+
+    Optional<BankAccount> findByAccountNumber(String accountNumber);
 }

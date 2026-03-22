@@ -4,12 +4,14 @@ import com.zekodnix.zaramoney.domain.BankAccount;
 import com.zekodnix.zaramoney.repository.BankAccountRepository;
 import com.zekodnix.zaramoney.service.dto.BankAccountDTO;
 import com.zekodnix.zaramoney.service.mapper.BankAccountMapper;
+import jakarta.persistence.LockModeType;
 import java.util.List;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -105,6 +107,19 @@ public class BankAccountService {
     public List<BankAccountDTO> findByUserIsCurrentUser() {
         LOG.debug("Request to get current user's BankAccounts");
         return bankAccountRepository.findByUserIsCurrentUser().stream().map(bankAccountMapper::toDto).toList();
+    }
+
+    @Transactional(readOnly = false)
+    public Optional<BankAccount> findByAccountNumberForUpdate(String accountNumber) {
+        LOG.debug("Request to get BankAccount (FOR UPDATE): {}", accountNumber);
+        return bankAccountRepository.findByAccountNumberForUpdate(accountNumber);
+    }
+
+    // ⚡ For simple reads (NO LOCK)
+    @Transactional(readOnly = true)
+    public Optional<BankAccountDTO> findByAccountNumber(String accountNumber) {
+        LOG.debug("Request to get BankAccount: {}", accountNumber);
+        return bankAccountRepository.findByAccountNumber(accountNumber).map(bankAccountMapper::toDto);
     }
 
     /**

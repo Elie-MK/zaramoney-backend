@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.zekodnix.zaramoney.domain.BankAccount;
 import com.zekodnix.zaramoney.domain.IdempotencyRecord;
 import com.zekodnix.zaramoney.domain.TransactionRecord;
 import com.zekodnix.zaramoney.domain.User;
@@ -12,9 +13,10 @@ import com.zekodnix.zaramoney.domain.enumeration.FraudStatus;
 import com.zekodnix.zaramoney.domain.enumeration.TransactionStatus;
 import com.zekodnix.zaramoney.repository.IdempotencyRecordRepository;
 import com.zekodnix.zaramoney.repository.TransactionRecordRepository;
-import com.zekodnix.zaramoney.service.dto.TransactionDetails;
+import com.zekodnix.zaramoney.service.dto.BankAccountDTO;
 import com.zekodnix.zaramoney.service.dto.TransactionRecordDTO;
-import com.zekodnix.zaramoney.service.dto.UserDetailsAccountDTO;
+import com.zekodnix.zaramoney.service.exception.UserDetailsAccountNotFoundException;
+import com.zekodnix.zaramoney.service.mapper.BankAccountMapper;
 import com.zekodnix.zaramoney.service.mapper.TransactionRecordMapper;
 import com.zekodnix.zaramoney.web.rest.errors.BadRequestAlertException;
 import com.zekodnix.zaramoney.web.rest.vm.TransactionRecordVM;
@@ -25,9 +27,7 @@ import java.nio.file.AccessDeniedException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
-import java.util.HexFormat;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
+import java.util.*;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -42,13 +42,12 @@ public class TransactionRecordServicePlus {
     private final TransactionRecordService transactionRecordService;
     BigDecimal MIN_BALANCE = BigDecimal.valueOf(5);
 
-    private final TransactionRecordRepository transactionRecordRepository;
     private final TransactionRecordMapper transactionRecordMapper;
     private final UserService userService;
-    private final UserDetailsAccountService userDetailsAccountService;
     private final IdempotencyRecordRepository idempotencyRecordRepository;
     private final PasswordEncoder passwordEncoder;
     private final BankAccountService bankAccountService;
+    private final BankAccountMapper bankAccountMapper;
 
     public TransactionRecordServicePlus(
         TransactionRecordRepository transactionRecordRepository,
@@ -58,93 +57,153 @@ public class TransactionRecordServicePlus {
         IdempotencyRecordRepository idempotencyRecordRepository,
         PasswordEncoder passwordEncoder,
         TransactionRecordService transactionRecordService,
-        BankAccountService bankAccountService
+        BankAccountService bankAccountService,
+        BankAccountMapper bankAccountMapper
     ) {
-        this.transactionRecordRepository = transactionRecordRepository;
         this.transactionRecordMapper = transactionRecordMapper;
         this.userService = userService;
-        this.userDetailsAccountService = userDetailsAccountService;
         this.idempotencyRecordRepository = idempotencyRecordRepository;
         this.passwordEncoder = passwordEncoder;
         this.transactionRecordService = transactionRecordService;
         this.bankAccountService = bankAccountService;
+        this.bankAccountMapper = bankAccountMapper;
     }
 
     @Transactional
-    public TransactionRecordDTO createTransactionRecord(TransactionRecordVM transactionRecordVM)
-        throws AccessDeniedException, JsonProcessingException {
-        // Authenticated user (trust Spring Security context only)
-        var currentUser = userService.getUserWithAuthorities().orElseThrow(() -> new AccessDeniedException("Unauthorized"));
-
-        if (
-            transactionRecordVM.getPassword() == null ||
-            !passwordEncoder.matches(transactionRecordVM.getPassword(), currentUser.getPassword())
-        ) {
-            throw new BadRequestAlertException("Invalid transaction password", "transaction", "invalidpassword");
+    public TransactionRecordDTO createTransactionRecord(TransactionRecordVM vm) throws AccessDeniedException, JsonProcessingException {
+        // 1. Validate idempotency key
+        if (vm.getIdempotencyKey() == null) {
+            throw new BadRequestAlertException("Missing idempotency key", "transaction", "idempotencykeynull");
         }
 
-        // Check user details account;
+        // 2. Check for existing transaction (idempotency)
+        String keyHash = hashIdempotencyKey(vm.getIdempotencyKey());
+        var existing = idempotencyRecordRepository.findByKeyHash(keyHash);
+        if (existing.isPresent()) {
+            return transactionRecordMapper.fromJson(existing.get().getResponseBody());
+        }
 
-        var findCurrentUserBankAccount = bankAccountService.findOne(currentUser.getId());
+        // 3. Get authenticated user
+        var currentUser = userService.getUserWithAuthorities().orElseThrow(() -> new AccessDeniedException("Unauthorized"));
 
-        // Check receiver account
+        // 4. Verify transaction password BEFORE DB locks
+        validateTransactionPassword(vm, currentUser);
 
-        // Validate amount
-        //        if (transactionRecordVM.getSendAmount() == null || transactionRecordVM.getSendAmount().compareTo(BigDecimal.ZERO) <= 0) {
-        //            throw new IllegalArgumentException("Invalid amount");
-        //        }
-        //
-        //        // Check sufficient balance
-        //        if (currentUserDetailsAccount.getAccountBalance().compareTo(transactionRecordVM.getSendAmount()) < 0) {
-        //            throw new BadRequestAlertException(INSUFFICIENT_BALANCE_MESSAGE, "transaction", "insufficientbalance");
-        //        }
-        //
-        //        if (currentUserDetailsAccount.getAccountBalance().subtract(transactionRecordVM.getSendAmount()).compareTo(MIN_BALANCE) < 0) {
-        //            throw new BadRequestAlertException(
-        //                "Transaction denied: account must maintain a minimum balance of 5",
-        //                "transaction",
-        //                "minimumbalance"
-        //            );
-        //        }
-        //
-        //        // Idempotency check (HASHED key)
-        //        String keyHash = hashIdempotencyKey(transactionRecordVM.getIdempotencyKey());
-        //
-        //        // check idempotency using idempotency key hash
-        //        var existing = idempotencyRecordRepository.findByKeyHash(keyHash);
-        //        if (existing.isPresent()) {
-        //            return transactionRecordMapper.fromJson(existing.get().getResponseBody());
-        //        }
-        //
-        //        IdempotencyRecord idempotency = reserveIdempotency(transactionRecordVM, keyHash, currentUser);
-        //
-        //        // Calculate receive amount
-        //        BigDecimal receiveAmount = calculateReceiveAmount(transactionRecordVM);
-        //
-        //        // Create transaction record
-        //        TransactionRecord transaction = getTransactionRecord(
-        //            transactionRecordVM,
-        //            receiveAmount,
-        //            currentUserDetailsAccount,
-        //            receiverDetailsAccount,
-        //            currentUser
-        //        );
-        //
-        //        // Balance updates
-        //        currentUserDetailsAccount.setAccountBalance(
-        //            currentUserDetailsAccount.getAccountBalance().subtract(transactionRecordVM.getSendAmount())
-        //        );
-        //        receiverDetailsAccount.setAccountBalance(receiverDetailsAccount.getAccountBalance().add(transactionRecordVM.getSendAmount()));
-        //
-        //        // Save updated accounts
-        //        userDetailsAccountService.save(currentUserDetailsAccount);
-        //        userDetailsAccountService.save(receiverDetailsAccount);
-        //
-        //        // Save idempotency record
-        //        completeIdempotency(idempotency, transaction);
-        //
-        //        return transactionRecordMapper.toDto(transaction);
-        return null;
+        // 5. Fetch accounts for update with consistent lock ordering
+        var accounts = fetchAccountsWithLock(vm.getSenderAccountNumber(), vm.getReceiverAccountNumber());
+        var sender = accounts.get("sender");
+        var receiver = accounts.get("receiver");
+
+        // 6. Ownership check
+        if (!sender.getUser().getId().equals(currentUser.getId())) {
+            throw new AccessDeniedException("You are not allowed to use this account");
+        }
+
+        // 7. Business validations
+        validateTransactionBusinessRules(vm, sender, receiver);
+
+        // 8. Reserve idempotency
+        IdempotencyRecord idempotency = reserveIdempotency(vm, keyHash, currentUser);
+
+        // 9. Calculate receive amount
+        BigDecimal receiveAmount = calculateReceiveAmount(vm);
+
+        // 10. Update balances
+        updateBalances(sender, receiver, vm.getSendAmount(), receiveAmount);
+
+        // 11. Map updated accounts to DTOs
+        BankAccountDTO senderDto = bankAccountMapper.toDto(sender);
+        BankAccountDTO receiverDto = bankAccountMapper.toDto(receiver);
+
+        // 12. Save updated accounts
+        bankAccountService.save(senderDto);
+        bankAccountService.save(receiverDto);
+
+        // 13. Create and save transaction record
+        TransactionRecord transaction = getTransactionRecord(vm, receiveAmount, sender, receiver);
+        TransactionRecordDTO savedTransaction = transactionRecordService.save(transactionRecordMapper.toDto(transaction));
+        savedTransaction.setSender(senderDto);
+        savedTransaction.setReceiver(receiverDto);
+
+        // 14. Complete idempotency
+        completeIdempotency(idempotency, savedTransaction);
+
+        // 15. Return result
+        return savedTransaction;
+    }
+
+    private void validateTransactionPassword(TransactionRecordVM vm, User currentUser) {
+        if (vm.getPassword() == null || !passwordEncoder.matches(vm.getPassword(), currentUser.getPassword())) {
+            throw new BadRequestAlertException("Invalid transaction password", "transaction", "invalidpassword");
+        }
+    }
+
+    private Map<String, BankAccount> fetchAccountsWithLock(String senderAcc, String receiverAcc) {
+        BankAccount firstLock, secondLock;
+
+        if (senderAcc.compareTo(receiverAcc) < 0) {
+            firstLock = bankAccountService
+                .findByAccountNumberForUpdate(senderAcc)
+                .orElseThrow(() -> new UserDetailsAccountNotFoundException("Sender account not found"));
+            secondLock = bankAccountService
+                .findByAccountNumberForUpdate(receiverAcc)
+                .orElseThrow(() -> new BadRequestAlertException("Receiver account not found", "transaction", "receivernotfound"));
+        } else {
+            secondLock = bankAccountService
+                .findByAccountNumberForUpdate(receiverAcc)
+                .orElseThrow(() -> new BadRequestAlertException("Receiver account not found", "transaction", "receivernotfound"));
+            firstLock = bankAccountService
+                .findByAccountNumberForUpdate(senderAcc)
+                .orElseThrow(() -> new UserDetailsAccountNotFoundException("Sender account not found"));
+        }
+
+        Map<String, BankAccount> map = new HashMap<>();
+        map.put("sender", firstLock);
+        map.put("receiver", secondLock);
+        return map;
+    }
+
+    private void validateTransactionBusinessRules(TransactionRecordVM vm, BankAccount sender, BankAccount receiver) {
+        // Amount validations
+        if (vm.getSendAmount() == null || vm.getSendAmount().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BadRequestAlertException("Invalid amount", "transaction", "invalidamount");
+        }
+
+        if (sender.getBalance().compareTo(vm.getSendAmount()) < 0) {
+            throw new BadRequestAlertException("Insufficient balance", "transaction", "insufficientbalance");
+        }
+
+        if (sender.getBalance().subtract(vm.getSendAmount()).compareTo(MIN_BALANCE) < 0) {
+            throw new BadRequestAlertException(
+                "Transaction denied: account must maintain a minimum balance of " + MIN_BALANCE,
+                "transaction",
+                "minimumbalance"
+            );
+        }
+
+        // Self-transfer check
+        if (sender.getAccountNumber().equals(receiver.getAccountNumber())) {
+            throw new BadRequestAlertException("Cannot transfer to same account", "transaction", "selftransfer");
+        }
+
+        // Currency validations
+        if (vm.getCurrencySendAmount() == null || vm.getCurrencyReceiveAmount() == null) {
+            throw new BadRequestAlertException("Currency must be specified", "transaction", "currencyrequired");
+        }
+
+        if (!receiver.getCurrency().equals(vm.getCurrencyReceiveAmount())) {
+            throw new BadRequestAlertException(
+                "Receiver account must be in " + vm.getCurrencyReceiveAmount(),
+                "transaction",
+                "receivercurrency"
+            );
+        }
+    }
+
+    private void updateBalances(BankAccount sender, BankAccount receiver, BigDecimal sendAmount, BigDecimal receiveAmount) {
+        // Use explicit rounding to avoid precision issues
+        sender.setBalance(sender.getBalance().subtract(sendAmount).setScale(2, RoundingMode.HALF_UP));
+        receiver.setBalance(receiver.getBalance().add(receiveAmount).setScale(2, RoundingMode.HALF_UP));
     }
 
     //    public TransactionDetails checkAccountNumber(String accountNumber, BigDecimal sendAmount) throws AccessDeniedException {
@@ -187,7 +246,7 @@ public class TransactionRecordServicePlus {
         return idempotencyRecordRepository.save(idempotency);
     }
 
-    private void completeIdempotency(IdempotencyRecord idempotency, TransactionRecord transaction) throws JsonProcessingException {
+    private void completeIdempotency(IdempotencyRecord idempotency, TransactionRecordDTO transaction) throws JsonProcessingException {
         idempotency.setTransactionReference(transaction.getTransactionReference());
         idempotency.setResponseStatus(1); // success
 
@@ -195,7 +254,7 @@ public class TransactionRecordServicePlus {
         mapper.registerModule(new JavaTimeModule());
         mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 
-        String responseJson = mapper.writeValueAsString(transactionRecordMapper.toDto(transaction));
+        String responseJson = mapper.writeValueAsString(transaction);
 
         idempotency.setResponseBody(responseJson);
         idempotency.responseStatus(1);
@@ -203,34 +262,32 @@ public class TransactionRecordServicePlus {
         idempotencyRecordRepository.save(idempotency);
     }
 
-    //    private TransactionRecord getTransactionRecord(
-    //        TransactionRecordVM transactionRecordVM,
-    //        BigDecimal receiveAmount,
-    //        UserDetailsAccountDTO currentUserDetailsAccount,
-    //        UserDetailsAccountDTO receiverDetailsAccount,
-    //        User currentUser
-    //    ) {
-    //        // Create transaction
-    //        TransactionRecord transaction = new TransactionRecord();
-    //        transaction.setTransactionReference(generateTransactionReference());
-    //        transaction.setTransactionType(transactionRecordVM.getTransactionType());
-    //        transaction.setSendAmount(transactionRecordVM.getSendAmount());
-    //        transaction.setReceiveAmount(receiveAmount);
-    //        transaction.setCurrencySendAmount(transactionRecordVM.getCurrencySendAmount());
-    //        transaction.setCurrencyReceiveAmount(transactionRecordVM.getCurrencyReceiveAmount());
-    //        transaction.setSenderAccountNumber(currentUserDetailsAccount.getAccountNumber());
-    //        transaction.setReceiverAccountNumber(receiverDetailsAccount.getAccountNumber());
-    //        transaction.setDescription(transactionRecordVM.getDescription());
-    //        transaction.setUserLogin(currentUser);
-    //        // default risk score
-    //        transaction.setTransactionStatus(TransactionStatus.COMPLETED);
-    //        transaction.setTransactionDate(Instant.now());
-    //        transaction.setFraudStatus(FraudStatus.CLEAN);
-    //        transaction.setRiskScore(0);
-    //
-    //        transactionRecordRepository.save(transaction);
-    //        return transaction;
-    //    }
+    private TransactionRecord getTransactionRecord(
+        TransactionRecordVM transactionRecordVM,
+        BigDecimal receiveAmount,
+        BankAccount currentUser,
+        BankAccount receiverBankAccount
+    ) {
+        // Create transaction
+        TransactionRecord transaction = new TransactionRecord();
+        transaction.setTransactionReference(generateTransactionReference());
+        transaction.setTransactionType(transactionRecordVM.getTransactionType());
+        transaction.setSendAmount(transactionRecordVM.getSendAmount());
+        transaction.setReceiveAmount(receiveAmount);
+        transaction.setCurrencySendAmount(transactionRecordVM.getCurrencySendAmount());
+        transaction.setCurrencyReceiveAmount(transactionRecordVM.getCurrencyReceiveAmount());
+        transaction.setDescription(transactionRecordVM.getDescription());
+        transaction.setSender(currentUser);
+        transaction.setReceiver(receiverBankAccount);
+
+        // default risk score
+        transaction.setTransactionStatus(TransactionStatus.COMPLETED);
+        transaction.setTransactionDate(Instant.now());
+        transaction.setFraudStatus(FraudStatus.CLEAN);
+        transaction.setRiskScore(0);
+
+        return transaction;
+    }
 
     //    public Page<TransactionRecordDTO> findAllForCurrentUser(Pageable pageable)  {
     //        return transactionRecordService.findAllForCurrentUser(pageable);
