@@ -40,28 +40,25 @@ public class UserAccountService {
 
     @Transactional
     public UserAccountDto createNewUserAccount(UserAccountVM userAccountVM) {
-        Map<String, Map<String, String>> files = getUploadedPictures(userAccountVM);
         var currentUser = userService.getUserWithAuthorities().orElseThrow();
         var userSaved = userMapper.userToUserDTO(currentUser);
 
-        var bankAccountSaved = getBankAccountDTO(userSaved);
+        var tndAccount = createBankAccount(userSaved, Currency.TND);
+        var usdAccount = createBankAccount(userSaved, Currency.USD);
+
+        Map<String, Map<String, String>> files = getUploadedPictures(userAccountVM);
+
         createUserDetails(userAccountVM, userSaved, files);
 
-        return new UserAccountDto(
-            currentUser.getFirstName(),
-            currentUser.getLastName(),
-            bankAccountSaved.getAccountNumber(),
-            bankAccountSaved.getBalance(),
-            bankAccountSaved.getUser().getLogin()
-        );
+        return new UserAccountDto(currentUser.getFirstName(), currentUser.getLastName(), currentUser.getEmail(), tndAccount, usdAccount);
     }
 
-    private BankAccountDTO getBankAccountDTO(UserDTO userSaved) {
+    private BankAccountDTO createBankAccount(UserDTO user, Currency currency) {
         var bankAccountDTO = new BankAccountDTO();
-        bankAccountDTO.setUser(userSaved);
+        bankAccountDTO.setUser(user);
         bankAccountDTO.setBalance(BigDecimal.valueOf(5.00));
         bankAccountDTO.setAccountNumber(generateAccountNumber().toString());
-        bankAccountDTO.setCurrency(Currency.TND);
+        bankAccountDTO.setCurrency(currency);
 
         return bankAccountService.save(bankAccountDTO);
     }
@@ -80,23 +77,28 @@ public class UserAccountService {
 
     public UserAccountDto getUserDetailsAccount() {
         var currentUser = userService.getUserWithAuthorities().orElseThrow();
-        var userSaved = userMapper.userToUserDTO(currentUser);
 
-        var bankAccountSaved = bankAccountService.findOne(userSaved.getId()).orElseThrow();
+        var tndBankAccount = bankAccountService
+            .findByUserIsCurrentUser()
+            .stream()
+            .filter(account -> account.getCurrency() == Currency.TND)
+            .findFirst()
+            .orElseThrow(() -> new UserDetailsAccountNotFoundException("TND account not found for current user"));
 
-        var maskedAccountNumber = maskedAccountNumber(bankAccountSaved.getAccountNumber());
+        var usdBankAccount = bankAccountService
+            .findByUserIsCurrentUser()
+            .stream()
+            .filter(account -> account.getCurrency() == Currency.USD)
+            .findFirst()
+            .orElseThrow(() -> new UserDetailsAccountNotFoundException("USD account not found for current user"));
 
         return new UserAccountDto(
             currentUser.getFirstName(),
             currentUser.getLastName(),
-            maskedAccountNumber,
-            bankAccountSaved.getBalance(),
-            bankAccountSaved.getUser().getLogin()
+            currentUser.getEmail(),
+            tndBankAccount,
+            usdBankAccount
         );
-    }
-
-    private String maskedAccountNumber(String accountNumber) {
-        return MaskingUtils.maskAccountNumber(accountNumber);
     }
 
     private BigDecimal generateAccountNumber() {

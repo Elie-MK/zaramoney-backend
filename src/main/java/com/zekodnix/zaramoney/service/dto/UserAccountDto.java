@@ -11,28 +11,18 @@ public class UserAccountDto {
     @Size(max = 50)
     private String lastName;
 
-    private String accountNumber;
-
-    private BigDecimal accountBalance;
-
     private String email;
 
-    private String phoneNumber;
+    private BankAccountDTO tndAccount;
 
-    public UserAccountDto(String firstName, String lastName, String accountNumber, BigDecimal accountBalance, String email) {
+    private BankAccountDTO usdAccount;
+
+    public UserAccountDto(String firstName, String lastName, String email, BankAccountDTO tndAccount, BankAccountDTO usdAccount) {
         this.firstName = firstName;
         this.lastName = lastName;
-        this.accountNumber = accountNumber;
-        this.accountBalance = accountBalance;
         this.email = email;
-    }
-
-    public BigDecimal getAccountBalance() {
-        return accountBalance;
-    }
-
-    public void setAccountBalance(BigDecimal accountBalance) {
-        this.accountBalance = accountBalance;
+        this.tndAccount = tndAccount;
+        this.usdAccount = usdAccount;
     }
 
     public String getFirstName() {
@@ -51,14 +41,6 @@ public class UserAccountDto {
         this.lastName = lastName;
     }
 
-    public String getAccountNumber() {
-        return accountNumber;
-    }
-
-    public void setAccountNumber(String accountNumber) {
-        this.accountNumber = accountNumber;
-    }
-
     public String getEmail() {
         return email;
     }
@@ -67,11 +49,19 @@ public class UserAccountDto {
         this.email = email;
     }
 
-    public String getPhoneNumber() {
-        return phoneNumber;
+    public BankAccountDTO getTndAccount() {
+        return tndAccount;
     }
 
-    public void setPhoneNumber(String phoneNumber) {
-        this.phoneNumber = phoneNumber;
+    public void setTndAccount(BankAccountDTO tndAccount) {
+        this.tndAccount = tndAccount;
+    }
+
+    public BankAccountDTO getUsdAccount() {
+        return usdAccount;
+    }
+
+    public void setUsdAccount(BankAccountDTO usdAccount) {
+        this.usdAccount = usdAccount;
     }
 }

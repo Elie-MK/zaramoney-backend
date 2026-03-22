@@ -4,6 +4,7 @@ import com.zekodnix.zaramoney.domain.BankAccount;
 import com.zekodnix.zaramoney.repository.BankAccountRepository;
 import com.zekodnix.zaramoney.service.dto.BankAccountDTO;
 import com.zekodnix.zaramoney.service.mapper.BankAccountMapper;
+import java.util.List;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -95,6 +96,15 @@ public class BankAccountService {
     public Optional<BankAccountDTO> findOne(Long id) {
         LOG.debug("Request to get BankAccount : {}", id);
         return bankAccountRepository.findOneWithEagerRelationships(id).map(bankAccountMapper::toDto);
+    }
+
+    /**
+     * Get current user's bankAccounts.
+     */
+    @Transactional(readOnly = true)
+    public List<BankAccountDTO> findByUserIsCurrentUser() {
+        LOG.debug("Request to get current user's BankAccounts");
+        return bankAccountRepository.findByUserIsCurrentUser().stream().map(bankAccountMapper::toDto).toList();
     }
 
     /**
