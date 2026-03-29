@@ -101,6 +101,18 @@ public class UserDetailsAccountService {
     }
 
     /**
+     * Get one userDetailsAccount by id with an eager load of many-to-one relationships.
+     *
+     * @param login the id of the entity.
+     * @return the entity.
+     */
+    @Transactional(readOnly = true)
+    public Optional<UserDetailsAccountDTO> findByUserEmail(String login) {
+        LOG.debug("Request to get  userDetailsAccount by login : {}", login);
+        return userDetailsAccountRepository.findByUserEmail(login).map(userDetailsAccountMapper::toDto);
+    }
+
+    /**
      * Delete the userDetailsAccount by id.
      *
      * @param id the id of the entity.

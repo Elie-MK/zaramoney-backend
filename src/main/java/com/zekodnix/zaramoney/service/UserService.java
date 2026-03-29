@@ -9,6 +9,8 @@ import com.zekodnix.zaramoney.security.AuthoritiesConstants;
 import com.zekodnix.zaramoney.security.SecurityUtils;
 import com.zekodnix.zaramoney.service.dto.AdminUserDTO;
 import com.zekodnix.zaramoney.service.dto.UserDTO;
+import com.zekodnix.zaramoney.web.rest.errors.BadRequestAlertException;
+import com.zekodnix.zaramoney.web.rest.vm.TransactionRecordVM;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
@@ -322,7 +324,9 @@ public class UserService {
         }
     }
 
-    public User findOneByLogin(String login) {
-        return userRepository.findOneByLogin(login).orElse(null);
+    public void validateTransactionPassword(TransactionRecordVM vm, User currentUser) {
+        if (vm.getPassword() == null || !passwordEncoder.matches(vm.getPassword(), currentUser.getPassword())) {
+            throw new BadRequestAlertException("Invalid transaction password", "transaction", "invalidpassword");
+        }
     }
 }

@@ -24,10 +24,6 @@ public class TransactionRecordVM {
     private String receiverAccountNumber;
 
     @NotNull
-    @Size(min = 8, max = 16)
-    private String senderAccountNumber;
-
-    @NotNull
     private Currency currencySendAmount;
 
     @NotNull
@@ -112,13 +108,5 @@ public class TransactionRecordVM {
 
     public void setPassword(String password) {
         this.password = password;
-    }
-
-    public String getSenderAccountNumber() {
-        return senderAccountNumber;
-    }
-
-    public void setSenderAccountNumber(String senderAccountNumber) {
-        this.senderAccountNumber = senderAccountNumber;
     }
 }

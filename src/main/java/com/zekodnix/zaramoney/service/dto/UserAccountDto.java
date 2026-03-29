@@ -1,7 +1,6 @@
 package com.zekodnix.zaramoney.service.dto;
 
 import jakarta.validation.constraints.Size;
-import java.math.BigDecimal;
 
 public class UserAccountDto {
 
@@ -13,16 +12,24 @@ public class UserAccountDto {
 
     private String email;
 
-    private BankAccountDTO tndAccount;
+    private String phoneNumber;
 
     private BankAccountDTO usdAccount;
 
-    public UserAccountDto(String firstName, String lastName, String email, BankAccountDTO tndAccount, BankAccountDTO usdAccount) {
+    public UserAccountDto(String firstName, String lastName, String email, BankAccountDTO usdAccount, String phoneNumber) {
         this.firstName = firstName;
         this.lastName = lastName;
         this.email = email;
-        this.tndAccount = tndAccount;
         this.usdAccount = usdAccount;
+        this.phoneNumber = phoneNumber;
+    }
+
+    public String getPhoneNumber() {
+        return phoneNumber;
+    }
+
+    public void setPhoneNumber(String phoneNumber) {
+        this.phoneNumber = phoneNumber;
     }
 
     public String getFirstName() {
@@ -47,14 +54,6 @@ public class UserAccountDto {
 
     public void setEmail(String email) {
         this.email = email;
-    }
-
-    public BankAccountDTO getTndAccount() {
-        return tndAccount;
-    }
-
-    public void setTndAccount(BankAccountDTO tndAccount) {
-        this.tndAccount = tndAccount;
     }
 
     public BankAccountDTO getUsdAccount() {

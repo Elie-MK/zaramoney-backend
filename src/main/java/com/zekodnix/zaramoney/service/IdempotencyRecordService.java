@@ -90,6 +90,15 @@ public class IdempotencyRecordService {
     }
 
     /**
+     * Get one idempotencyRecord by idempotencyKey.
+     */
+    @Transactional(readOnly = true)
+    public Optional<IdempotencyRecordDTO> findByKeyHash(String keyHash) {
+        LOG.debug("Request to get IdempotencyRecord by keyHash : {}", keyHash);
+        return idempotencyRecordRepository.findByKeyHash(keyHash).map(idempotencyRecordMapper::toDto);
+    }
+
+    /**
      * Delete the idempotencyRecord by id.
      *
      * @param id the id of the entity.

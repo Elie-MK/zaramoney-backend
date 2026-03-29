@@ -7,7 +7,6 @@ import com.zekodnix.zaramoney.service.dto.UserDTO;
 import com.zekodnix.zaramoney.service.dto.UserDetailsAccountDTO;
 import com.zekodnix.zaramoney.service.exception.UserDetailsAccountNotFoundException;
 import com.zekodnix.zaramoney.service.mapper.UserMapper;
-import com.zekodnix.zaramoney.service.utils.MaskingUtils;
 import com.zekodnix.zaramoney.web.rest.vm.UserAccountVM;
 import java.math.BigDecimal;
 import java.util.HashMap;
@@ -43,27 +42,36 @@ public class UserAccountService {
         var currentUser = userService.getUserWithAuthorities().orElseThrow();
         var userSaved = userMapper.userToUserDTO(currentUser);
 
-        var tndAccount = createBankAccount(userSaved, Currency.TND);
-        var usdAccount = createBankAccount(userSaved, Currency.USD);
+        var usdAccount = createBankAccount(userSaved);
 
         Map<String, Map<String, String>> files = getUploadedPictures(userAccountVM);
 
-        createUserDetails(userAccountVM, userSaved, files);
+        var userDetails = createUserDetails(userAccountVM, userSaved, files);
 
-        return new UserAccountDto(currentUser.getFirstName(), currentUser.getLastName(), currentUser.getEmail(), tndAccount, usdAccount);
+        return new UserAccountDto(
+            currentUser.getFirstName(),
+            currentUser.getLastName(),
+            currentUser.getEmail(),
+            usdAccount,
+            userDetails.getPhoneNumber()
+        );
     }
 
-    private BankAccountDTO createBankAccount(UserDTO user, Currency currency) {
+    private BankAccountDTO createBankAccount(UserDTO user) {
         var bankAccountDTO = new BankAccountDTO();
         bankAccountDTO.setUser(user);
         bankAccountDTO.setBalance(BigDecimal.valueOf(5.00));
         bankAccountDTO.setAccountNumber(generateAccountNumber().toString());
-        bankAccountDTO.setCurrency(currency);
+        bankAccountDTO.setCurrency(Currency.USD);
 
         return bankAccountService.save(bankAccountDTO);
     }
 
-    private void createUserDetails(UserAccountVM userAccountVM, UserDTO userSaved, Map<String, Map<String, String>> files) {
+    private UserDetailsAccountDTO createUserDetails(
+        UserAccountVM userAccountVM,
+        UserDTO userSaved,
+        Map<String, Map<String, String>> files
+    ) {
         var userDetailsAccountDTO = new UserDetailsAccountDTO();
         userDetailsAccountDTO.setUser(userSaved);
         userDetailsAccountDTO.setFacePicture(files.containsKey("facePicture") ? files.get("facePicture").get("url") : null);
@@ -72,18 +80,12 @@ public class UserAccountService {
         userDetailsAccountDTO.setCountry(userAccountVM.getCountry());
         userDetailsAccountDTO.setAddress(userAccountVM.getAddress());
         userDetailsAccountDTO.setPhoneNumber(userAccountVM.getPhoneNumber());
-        userDetailsAccountService.save(userDetailsAccountDTO);
+        return userDetailsAccountService.save(userDetailsAccountDTO);
     }
 
     public UserAccountDto getUserDetailsAccount() {
         var currentUser = userService.getUserWithAuthorities().orElseThrow();
-
-        var tndBankAccount = bankAccountService
-            .findByUserIsCurrentUser()
-            .stream()
-            .filter(account -> account.getCurrency() == Currency.TND)
-            .findFirst()
-            .orElseThrow(() -> new UserDetailsAccountNotFoundException("TND account not found for current user"));
+        var userDetails = userDetailsAccountService.findByUserEmail(currentUser.getEmail()).orElseThrow();
 
         var usdBankAccount = bankAccountService
             .findByUserIsCurrentUser()
@@ -96,8 +98,8 @@ public class UserAccountService {
             currentUser.getFirstName(),
             currentUser.getLastName(),
             currentUser.getEmail(),
-            tndBankAccount,
-            usdBankAccount
+            usdBankAccount,
+            userDetails.getPhoneNumber()
         );
     }
 
