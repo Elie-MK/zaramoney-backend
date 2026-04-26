@@ -34,4 +34,11 @@ public class TransactionRecordResourcePlus {
         var response = transactionRecordServicePlus.createTransactionRecord(transactionRecordVM);
         return ResponseEntity.ok(response);
     }
+
+    @GetMapping("")
+    public ResponseEntity<Page<TransactionRecordDTO>> getAllTransactionRecords(Pageable pageable) {
+        LOG.debug("REST request to get TransactionRecords");
+        var response = transactionRecordServicePlus.getAllTransactionRecords(pageable);
+        return ResponseEntity.ok(response);
+    }
 }

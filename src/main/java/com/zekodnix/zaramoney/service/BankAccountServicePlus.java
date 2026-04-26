@@ -25,4 +25,8 @@ public class BankAccountServicePlus {
             return new LockedAccountsDTO(sender, receiver);
         }
     }
+
+    public Boolean verifyAccount(String accountNumber) {
+        return bankAccountService.findByAccountNumber(accountNumber).isPresent();
+    }
 }

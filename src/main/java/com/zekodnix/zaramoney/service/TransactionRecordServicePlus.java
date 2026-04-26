@@ -1,10 +1,13 @@
 package com.zekodnix.zaramoney.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.zekodnix.zaramoney.service.criteria.TransactionRecordCriteria;
 import com.zekodnix.zaramoney.service.dto.TransactionRecordDTO;
 import com.zekodnix.zaramoney.web.rest.vm.TransactionRecordVM;
 import java.nio.file.AccessDeniedException;
 import java.util.*;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,19 +19,22 @@ public class TransactionRecordServicePlus {
     private final IdempotencyRecordServicePlus idempotencyRecordServicePlus;
     private final BankAccountServicePlus bankAccountServicePlus;
     private final TransactionValidatorService transactionValidatorService;
+    private final TransactionRecordService transactionRecordService;
 
     public TransactionRecordServicePlus(
         UserService userService,
         BankAccountService bankAccountService,
         IdempotencyRecordServicePlus idempotencyRecordServicePlus,
         BankAccountServicePlus bankAccountServicePlus,
-        TransactionValidatorService transactionValidatorService
+        TransactionValidatorService transactionValidatorService,
+        TransactionRecordService transactionRecordService
     ) {
         this.userService = userService;
         this.bankAccountService = bankAccountService;
         this.idempotencyRecordServicePlus = idempotencyRecordServicePlus;
         this.bankAccountServicePlus = bankAccountServicePlus;
         this.transactionValidatorService = transactionValidatorService;
+        this.transactionRecordService = transactionRecordService;
     }
 
     @Transactional
@@ -66,6 +72,10 @@ public class TransactionRecordServicePlus {
         idempotencyRecordServicePlus.completeIdempotency(reservation, result);
 
         return result;
+    }
+
+    public Page<TransactionRecordDTO> getAllTransactionRecords(Pageable pageable) {
+        return transactionRecordService.findAllWithEagerRelationships(pageable);
     }
     //    public TransactionDetails checkAccountNumber(String accountNumber, BigDecimal sendAmount) throws AccessDeniedException {
     //        var currentUser = userService.getUserWithAuthorities().orElseThrow(() -> new AccessDeniedException("Unauthorized"));
