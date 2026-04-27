@@ -107,6 +107,6 @@ jhipster:
 # application:
 application:
   cloudinary:
-    cloud_name: dv8flwuce
-    api_key: 231333345994298
-    api_secret: cDALMJh6nPKdG421b9bdkhSTR5E
+    cloud_name: zaramoneyApp
+    api_key: 192752192549435
+    api_secret: eoH_oOkADsscDVAVU3aG94e5mC4
