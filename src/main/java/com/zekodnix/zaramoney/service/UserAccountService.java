@@ -1,14 +1,11 @@
 package com.zekodnix.zaramoney.service;
 
-import com.zekodnix.zaramoney.domain.enumeration.AccountStatus;
 import com.zekodnix.zaramoney.domain.enumeration.Currency;
 import com.zekodnix.zaramoney.domain.enumeration.KycStatus;
 import com.zekodnix.zaramoney.service.dto.*;
 import com.zekodnix.zaramoney.service.exception.UserDetailsAccountNotFoundException;
 import com.zekodnix.zaramoney.service.mapper.UserMapper;
 import com.zekodnix.zaramoney.web.rest.vm.UserAccountVM;
-import java.math.BigDecimal;
-import java.util.HashMap;
 import java.util.Map;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,21 +16,23 @@ public class UserAccountService {
     private final UserService userService;
     private final UserDetailsAccountService userDetailsAccountService;
     private final UserMapper userMapper;
-    private final UploadFileService uploadFileService;
     private final BankAccountService bankAccountService;
+    private final BankAccountServicePlus bankAccountServicePlus;
+    private final CloudinaryService cloudinaryService;
 
     public UserAccountService(
         UserService userService,
         UserDetailsAccountService userDetailsAccountService,
         UserMapper userMapper,
         UploadFileService uploadFileService,
-        BankAccountService bankAccountService
+        BankAccountService bankAccountService, BankAccountServicePlus bankAccountServicePlus, CloudinaryService cloudinaryService
     ) {
         this.userService = userService;
         this.userDetailsAccountService = userDetailsAccountService;
         this.userMapper = userMapper;
-        this.uploadFileService = uploadFileService;
+        this.cloudinaryService = cloudinaryService;
         this.bankAccountService = bankAccountService;
+        this.bankAccountServicePlus = bankAccountServicePlus;
     }
 
     @Transactional
@@ -41,9 +40,9 @@ public class UserAccountService {
         var currentUser = userService.getUserWithAuthorities().orElseThrow();
         var userSaved = userMapper.userToUserDTO(currentUser);
 
-        var usdAccount = createBankAccount(userSaved);
+        var usdAccount = bankAccountServicePlus.createBankAccount(userSaved);
 
-        Map<String, Map<String, String>> files = getUploadedPictures(userAccountVM);
+        Map<String, Map<String, String>> files = cloudinaryService.getUploadedPictures(userAccountVM);
 
         var userDetails = createUserDetails(userAccountVM, userSaved, files);
 
@@ -55,17 +54,6 @@ public class UserAccountService {
             userDetails.getPhoneNumber(),
             userDetails.getKycStatus()
         );
-    }
-
-    private BankAccountDTO createBankAccount(UserDTO user) {
-        var bankAccountDTO = new BankAccountDTO();
-        bankAccountDTO.setUser(user);
-        bankAccountDTO.setBalance(BigDecimal.valueOf(5.00));
-        bankAccountDTO.setAccountNumber(generateAccountNumber().toString());
-        bankAccountDTO.setCurrency(Currency.USD);
-        bankAccountDTO.setStatus(AccountStatus.ACTIVE);
-
-        return bankAccountService.save(bankAccountDTO);
     }
 
     private UserDetailsAccountDTO createUserDetails(
@@ -106,51 +94,6 @@ public class UserAccountService {
         );
     }
 
-    private String generateAccountNumber() {
-        String prefix = "2512";
 
-        int remainingLength = 16 - prefix.length();
 
-        long max = (long) Math.pow(10, remainingLength);
-        long randomPart = (long) (Math.random() * max);
-
-        String randomStr = String.format("%0" + remainingLength + "d", randomPart);
-
-        return prefix + randomStr;
-    }
-    private Map<String, Map<String, String>> getUploadedPictures(UserAccountVM userAccountVM) {
-        Map<String, Map<String, String>> pictures = new HashMap<>();
-
-        // Upload face picture
-        if (userAccountVM.getFacePicture() != null) {
-            Map<String, String> faceUpload = uploadFileService.uploadFile(userAccountVM.getFacePicture());
-            validateUploadedFile(faceUpload);
-            pictures.put("facePicture", faceUpload);
-        }
-
-        // Upload ID card picture
-        if (userAccountVM.getIdCardPicture() != null) {
-            Map<String, String> idCardUpload = uploadFileService.uploadFile(userAccountVM.getIdCardPicture());
-            validateUploadedFile(idCardUpload);
-            pictures.put("idCardPicture", idCardUpload);
-        }
-
-        if (pictures.isEmpty()) {
-            throw new IllegalArgumentException("No valid image files found in UserAccountVM.");
-        }
-
-        return pictures;
-    }
-
-    private void validateUploadedFile(Map<String, String> file) {
-        if (
-            file == null ||
-            !file.containsKey("url") ||
-            !file.containsKey("publicId") ||
-            file.get("url") == null ||
-            file.get("publicId") == null
-        ) {
-            throw new IllegalStateException("Uploaded file missing url or publicId");
-        }
-    }
 }

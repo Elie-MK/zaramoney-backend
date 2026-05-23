@@ -1,7 +1,13 @@
 package com.zekodnix.zaramoney.service;
 
+import com.zekodnix.zaramoney.domain.enumeration.AccountStatus;
+import com.zekodnix.zaramoney.domain.enumeration.Currency;
+import com.zekodnix.zaramoney.service.dto.BankAccountDTO;
 import com.zekodnix.zaramoney.service.dto.LockedAccountsDTO;
+import com.zekodnix.zaramoney.service.dto.UserDTO;
 import org.springframework.stereotype.Service;
+
+import java.math.BigDecimal;
 
 @Service
 public class BankAccountServicePlus {
@@ -28,5 +34,29 @@ public class BankAccountServicePlus {
 
     public Boolean verifyAccount(String accountNumber) {
         return bankAccountService.findByAccountNumber(accountNumber).isPresent();
+    }
+
+    public BankAccountDTO createBankAccount(UserDTO user) {
+        var bankAccountDTO = new BankAccountDTO();
+        bankAccountDTO.setUser(user);
+        bankAccountDTO.setBalance(BigDecimal.valueOf(5.00));
+        bankAccountDTO.setAccountNumber(generateAccountNumber());
+        bankAccountDTO.setCurrency(Currency.USD);
+        bankAccountDTO.setStatus(AccountStatus.ACTIVE);
+
+        return bankAccountService.save(bankAccountDTO);
+    }
+
+    private String generateAccountNumber() {
+        String prefix = "2512";
+
+        int remainingLength = 16 - prefix.length();
+
+        long max = (long) Math.pow(10, remainingLength);
+        long randomPart = (long) (Math.random() * max);
+
+        String randomStr = String.format("%0" + remainingLength + "d", randomPart);
+
+        return prefix + randomStr;
     }
 }
