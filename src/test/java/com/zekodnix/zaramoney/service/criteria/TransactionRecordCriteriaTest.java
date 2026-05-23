@@ -79,16 +79,17 @@ class TransactionRecordCriteriaTest {
         transactionRecordCriteria.transactionType();
         transactionRecordCriteria.sendAmount();
         transactionRecordCriteria.receiveAmount();
-        transactionRecordCriteria.transactionDate();
-        transactionRecordCriteria.description();
+        transactionRecordCriteria.exchangeRate();
         transactionRecordCriteria.currencySendAmount();
         transactionRecordCriteria.currencyReceiveAmount();
         transactionRecordCriteria.transactionStatus();
         transactionRecordCriteria.transactionReference();
+        transactionRecordCriteria.description();
         transactionRecordCriteria.riskScore();
         transactionRecordCriteria.fraudStatus();
         transactionRecordCriteria.createdAt();
         transactionRecordCriteria.updatedAt();
+        transactionRecordCriteria.transactionDate();
         transactionRecordCriteria.senderId();
         transactionRecordCriteria.receiverId();
         transactionRecordCriteria.distinct();
@@ -101,16 +102,17 @@ class TransactionRecordCriteriaTest {
                 condition.apply(criteria.getTransactionType()) &&
                 condition.apply(criteria.getSendAmount()) &&
                 condition.apply(criteria.getReceiveAmount()) &&
-                condition.apply(criteria.getTransactionDate()) &&
-                condition.apply(criteria.getDescription()) &&
+                condition.apply(criteria.getExchangeRate()) &&
                 condition.apply(criteria.getCurrencySendAmount()) &&
                 condition.apply(criteria.getCurrencyReceiveAmount()) &&
                 condition.apply(criteria.getTransactionStatus()) &&
                 condition.apply(criteria.getTransactionReference()) &&
+                condition.apply(criteria.getDescription()) &&
                 condition.apply(criteria.getRiskScore()) &&
                 condition.apply(criteria.getFraudStatus()) &&
                 condition.apply(criteria.getCreatedAt()) &&
                 condition.apply(criteria.getUpdatedAt()) &&
+                condition.apply(criteria.getTransactionDate()) &&
                 condition.apply(criteria.getSenderId()) &&
                 condition.apply(criteria.getReceiverId()) &&
                 condition.apply(criteria.getDistinct()),
@@ -128,16 +130,17 @@ class TransactionRecordCriteriaTest {
                 condition.apply(criteria.getTransactionType(), copy.getTransactionType()) &&
                 condition.apply(criteria.getSendAmount(), copy.getSendAmount()) &&
                 condition.apply(criteria.getReceiveAmount(), copy.getReceiveAmount()) &&
-                condition.apply(criteria.getTransactionDate(), copy.getTransactionDate()) &&
-                condition.apply(criteria.getDescription(), copy.getDescription()) &&
+                condition.apply(criteria.getExchangeRate(), copy.getExchangeRate()) &&
                 condition.apply(criteria.getCurrencySendAmount(), copy.getCurrencySendAmount()) &&
                 condition.apply(criteria.getCurrencyReceiveAmount(), copy.getCurrencyReceiveAmount()) &&
                 condition.apply(criteria.getTransactionStatus(), copy.getTransactionStatus()) &&
                 condition.apply(criteria.getTransactionReference(), copy.getTransactionReference()) &&
+                condition.apply(criteria.getDescription(), copy.getDescription()) &&
                 condition.apply(criteria.getRiskScore(), copy.getRiskScore()) &&
                 condition.apply(criteria.getFraudStatus(), copy.getFraudStatus()) &&
                 condition.apply(criteria.getCreatedAt(), copy.getCreatedAt()) &&
                 condition.apply(criteria.getUpdatedAt(), copy.getUpdatedAt()) &&
+                condition.apply(criteria.getTransactionDate(), copy.getTransactionDate()) &&
                 condition.apply(criteria.getSenderId(), copy.getSenderId()) &&
                 condition.apply(criteria.getReceiverId(), copy.getReceiverId()) &&
                 condition.apply(criteria.getDistinct(), copy.getDistinct()),

@@ -1,5 +1,6 @@
 package com.zekodnix.zaramoney.service.criteria;
 
+import com.zekodnix.zaramoney.domain.enumeration.AccountStatus;
 import com.zekodnix.zaramoney.domain.enumeration.Currency;
 import java.io.Serializable;
 import java.util.Objects;
@@ -38,6 +39,23 @@ public class BankAccountCriteria implements Serializable, Criteria {
         }
     }
 
+    /**
+     * Class for filtering AccountStatus
+     */
+    public static class AccountStatusFilter extends Filter<AccountStatus> {
+
+        public AccountStatusFilter() {}
+
+        public AccountStatusFilter(AccountStatusFilter filter) {
+            super(filter);
+        }
+
+        @Override
+        public AccountStatusFilter copy() {
+            return new AccountStatusFilter(this);
+        }
+    }
+
     private static final long serialVersionUID = 1L;
 
     private LongFilter id;
@@ -48,7 +66,13 @@ public class BankAccountCriteria implements Serializable, Criteria {
 
     private CurrencyFilter currency;
 
+    private AccountStatusFilter status;
+
+    private InstantFilter createdAt;
+
     private LongFilter userId;
+
+    private LongFilter transactionLimitId;
 
     private Boolean distinct;
 
@@ -59,7 +83,10 @@ public class BankAccountCriteria implements Serializable, Criteria {
         this.accountNumber = other.optionalAccountNumber().map(StringFilter::copy).orElse(null);
         this.balance = other.optionalBalance().map(BigDecimalFilter::copy).orElse(null);
         this.currency = other.optionalCurrency().map(CurrencyFilter::copy).orElse(null);
+        this.status = other.optionalStatus().map(AccountStatusFilter::copy).orElse(null);
+        this.createdAt = other.optionalCreatedAt().map(InstantFilter::copy).orElse(null);
         this.userId = other.optionalUserId().map(LongFilter::copy).orElse(null);
+        this.transactionLimitId = other.optionalTransactionLimitId().map(LongFilter::copy).orElse(null);
         this.distinct = other.distinct;
     }
 
@@ -144,6 +171,44 @@ public class BankAccountCriteria implements Serializable, Criteria {
         this.currency = currency;
     }
 
+    public AccountStatusFilter getStatus() {
+        return status;
+    }
+
+    public Optional<AccountStatusFilter> optionalStatus() {
+        return Optional.ofNullable(status);
+    }
+
+    public AccountStatusFilter status() {
+        if (status == null) {
+            setStatus(new AccountStatusFilter());
+        }
+        return status;
+    }
+
+    public void setStatus(AccountStatusFilter status) {
+        this.status = status;
+    }
+
+    public InstantFilter getCreatedAt() {
+        return createdAt;
+    }
+
+    public Optional<InstantFilter> optionalCreatedAt() {
+        return Optional.ofNullable(createdAt);
+    }
+
+    public InstantFilter createdAt() {
+        if (createdAt == null) {
+            setCreatedAt(new InstantFilter());
+        }
+        return createdAt;
+    }
+
+    public void setCreatedAt(InstantFilter createdAt) {
+        this.createdAt = createdAt;
+    }
+
     public LongFilter getUserId() {
         return userId;
     }
@@ -161,6 +226,25 @@ public class BankAccountCriteria implements Serializable, Criteria {
 
     public void setUserId(LongFilter userId) {
         this.userId = userId;
+    }
+
+    public LongFilter getTransactionLimitId() {
+        return transactionLimitId;
+    }
+
+    public Optional<LongFilter> optionalTransactionLimitId() {
+        return Optional.ofNullable(transactionLimitId);
+    }
+
+    public LongFilter transactionLimitId() {
+        if (transactionLimitId == null) {
+            setTransactionLimitId(new LongFilter());
+        }
+        return transactionLimitId;
+    }
+
+    public void setTransactionLimitId(LongFilter transactionLimitId) {
+        this.transactionLimitId = transactionLimitId;
     }
 
     public Boolean getDistinct() {
@@ -196,14 +280,17 @@ public class BankAccountCriteria implements Serializable, Criteria {
             Objects.equals(accountNumber, that.accountNumber) &&
             Objects.equals(balance, that.balance) &&
             Objects.equals(currency, that.currency) &&
+            Objects.equals(status, that.status) &&
+            Objects.equals(createdAt, that.createdAt) &&
             Objects.equals(userId, that.userId) &&
+            Objects.equals(transactionLimitId, that.transactionLimitId) &&
             Objects.equals(distinct, that.distinct)
         );
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, accountNumber, balance, currency, userId, distinct);
+        return Objects.hash(id, accountNumber, balance, currency, status, createdAt, userId, transactionLimitId, distinct);
     }
 
     // prettier-ignore
@@ -214,7 +301,10 @@ public class BankAccountCriteria implements Serializable, Criteria {
             optionalAccountNumber().map(f -> "accountNumber=" + f + ", ").orElse("") +
             optionalBalance().map(f -> "balance=" + f + ", ").orElse("") +
             optionalCurrency().map(f -> "currency=" + f + ", ").orElse("") +
+            optionalStatus().map(f -> "status=" + f + ", ").orElse("") +
+            optionalCreatedAt().map(f -> "createdAt=" + f + ", ").orElse("") +
             optionalUserId().map(f -> "userId=" + f + ", ").orElse("") +
+            optionalTransactionLimitId().map(f -> "transactionLimitId=" + f + ", ").orElse("") +
             optionalDistinct().map(f -> "distinct=" + f + ", ").orElse("") +
         "}";
     }

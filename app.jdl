@@ -3,15 +3,25 @@
 /////////////////////////////////////////////////////////////
 
 enum TransactionType {
-  DEPOSIT, WITHDRAWAL, TRANSFER
+  DEPOSIT,
+  WITHDRAWAL,
+  TRANSFER,
+  PAYMENT,
+  REFUND,
+  FEE,
+  REVERSAL
 }
 
 enum TransactionStatus {
-  PENDING, COMPLETED, FAILED
+  PENDING,
+  COMPLETED,
+  FAILED
 }
 
 enum FraudStatus {
-  CLEAN, SUSPICIOUS, BLOCKED
+  CLEAN,
+  SUSPICIOUS,
+  BLOCKED
 }
 
 enum Currency {
@@ -19,14 +29,63 @@ enum Currency {
   TND
 }
 
+enum AccountStatus {
+  ACTIVE,
+  SUSPENDED,
+  CLOSED
+}
+
+enum EntryType {
+  DEBIT,
+  CREDIT
+}
+
+enum KycStatus {
+  PENDING,
+  VERIFIED,
+  REJECTED
+}
+
+enum NotificationType {
+  TRANSACTION_ALERT,
+  SECURITY_ALERT,
+  FRAUD_ALERT,
+  SYSTEM,
+  PROMOTION
+}
+
+enum NotificationChannel {
+  EMAIL,
+  SMS,
+  PUSH
+}
+
+enum NotificationStatus {
+  PENDING,
+  SENT,
+  FAILED
+}
+
 /////////////////////////////////////////////////////////////
 // ENTITIES
 /////////////////////////////////////////////////////////////
+
+entity UserDetailsAccount {
+  phoneNumber String required
+  facePicture String required
+  idCardPicture String required
+  country String required
+  address String required
+  isAgent Boolean required
+  kycStatus KycStatus required
+}
 
 entity BankAccount {
   accountNumber String required unique minlength(8) maxlength(16)
   balance BigDecimal required
   currency Currency required
+  status AccountStatus required
+  createdAt Instant required
 }
 
 entity TransactionRecord {
@@ -35,23 +94,40 @@ entity TransactionRecord {
   sendAmount BigDecimal required min(1.00)
   receiveAmount BigDecimal required min(1.00)
 
-  transactionDate Instant required
-  description String maxlength(255)
+  exchangeRate BigDecimal required
 
   currencySendAmount Currency required
   currencyReceiveAmount Currency required
 
   transactionStatus TransactionStatus required
-
   transactionReference String required unique minlength(10) maxlength(64)
 
-  // Fraud engine
+  description String maxlength(255)
+
   riskScore Integer required min(0) max(100)
   fraudStatus FraudStatus required
 
-  // Audit
   createdAt Instant required
   updatedAt Instant
+  transactionDate Instant required
+}
+
+entity LedgerEntry {
+  amount BigDecimal required
+  currency Currency required
+  entryType EntryType required
+  createdAt Instant required
+}
+
+entity TransactionFee {
+  amount BigDecimal required
+  currency Currency required
+  type String required
+}
+
+entity TransactionLimit {
+  dailyLimit BigDecimal
+  monthlyLimit BigDecimal
 }
 
 entity IdempotencyRecord {
@@ -65,13 +141,22 @@ entity IdempotencyRecord {
   transactionReference String maxlength(64)
 }
 
-entity UserDetailsAccount {
-  phoneNumber String required
-  facePicture String required
-  IdCardPicture String required
-  country String required
-  address String required
-  isAgent Boolean required
+entity Notification {
+  title String required maxlength(100)
+  message String required maxlength(500)
+
+  type NotificationType required
+  channel NotificationChannel required
+  status NotificationStatus required
+
+  isRead Boolean required
+
+  deepLink String maxlength(255)
+
+  createdAt Instant required
+  sentAt Instant
+
+  data TextBlob
 }
 
 /////////////////////////////////////////////////////////////
@@ -79,13 +164,27 @@ entity UserDetailsAccount {
 /////////////////////////////////////////////////////////////
 
 relationship ManyToOne {
+
   BankAccount{user(login)} to User with builtInEntity
+
   TransactionRecord{sender(accountNumber)} to BankAccount
   TransactionRecord{receiver(accountNumber)} to BankAccount
+
+  LedgerEntry{account(accountNumber)} to BankAccount
+  LedgerEntry{transaction(transactionReference)} to TransactionRecord
+
+  TransactionFee{transaction(transactionReference)} to TransactionRecord
+
+  Notification{user(login)} to User with builtInEntity
+
+  Notification{transaction(transactionReference)} to TransactionRecord
 }
 
 relationship OneToOne {
+
   UserDetailsAccount{user} to User with builtInEntity
+
+  TransactionLimit{account(accountNumber)} to BankAccount
 }
 
 /////////////////////////////////////////////////////////////

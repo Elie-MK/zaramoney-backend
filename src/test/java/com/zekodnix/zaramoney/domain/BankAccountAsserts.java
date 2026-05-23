@@ -52,7 +52,9 @@ public class BankAccountAsserts {
             .satisfies(a ->
                 assertThat(a.getBalance()).as("check balance").usingComparator(bigDecimalCompareTo).isEqualTo(expected.getBalance())
             )
-            .satisfies(a -> assertThat(a.getCurrency()).as("check currency").isEqualTo(expected.getCurrency()));
+            .satisfies(a -> assertThat(a.getCurrency()).as("check currency").isEqualTo(expected.getCurrency()))
+            .satisfies(a -> assertThat(a.getStatus()).as("check status").isEqualTo(expected.getStatus()))
+            .satisfies(a -> assertThat(a.getCreatedAt()).as("check createdAt").isEqualTo(expected.getCreatedAt()));
     }
 
     /**

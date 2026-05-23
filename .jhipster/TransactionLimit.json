@@ -1,0 +1,31 @@
+{
+  "annotations": {
+    "changelogDate": "20260523104730"
+  },
+  "applications": "*",
+  "dto": "mapstruct",
+  "fields": [
+    {
+      "fieldName": "dailyLimit",
+      "fieldType": "BigDecimal"
+    },
+    {
+      "fieldName": "monthlyLimit",
+      "fieldType": "BigDecimal"
+    }
+  ],
+  "jpaMetamodelFiltering": true,
+  "name": "TransactionLimit",
+  "pagination": "pagination",
+  "relationships": [
+    {
+      "otherEntityField": "accountNumber",
+      "otherEntityName": "bankAccount",
+      "relationshipName": "account",
+      "relationshipSide": "left",
+      "relationshipType": "one-to-one"
+    }
+  ],
+  "searchEngine": "no",
+  "service": "serviceClass"
+}

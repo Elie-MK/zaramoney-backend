@@ -82,6 +82,7 @@ class UserDetailsAccountCriteriaTest {
         userDetailsAccountCriteria.country();
         userDetailsAccountCriteria.address();
         userDetailsAccountCriteria.isAgent();
+        userDetailsAccountCriteria.kycStatus();
         userDetailsAccountCriteria.userId();
         userDetailsAccountCriteria.distinct();
     }
@@ -96,6 +97,7 @@ class UserDetailsAccountCriteriaTest {
                 condition.apply(criteria.getCountry()) &&
                 condition.apply(criteria.getAddress()) &&
                 condition.apply(criteria.getIsAgent()) &&
+                condition.apply(criteria.getKycStatus()) &&
                 condition.apply(criteria.getUserId()) &&
                 condition.apply(criteria.getDistinct()),
             "every filter matches"
@@ -115,6 +117,7 @@ class UserDetailsAccountCriteriaTest {
                 condition.apply(criteria.getCountry(), copy.getCountry()) &&
                 condition.apply(criteria.getAddress(), copy.getAddress()) &&
                 condition.apply(criteria.getIsAgent(), copy.getIsAgent()) &&
+                condition.apply(criteria.getKycStatus(), copy.getKycStatus()) &&
                 condition.apply(criteria.getUserId(), copy.getUserId()) &&
                 condition.apply(criteria.getDistinct(), copy.getDistinct()),
             "every filter matches"

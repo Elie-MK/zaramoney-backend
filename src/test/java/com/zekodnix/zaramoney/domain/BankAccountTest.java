@@ -1,6 +1,7 @@
 package com.zekodnix.zaramoney.domain;
 
 import static com.zekodnix.zaramoney.domain.BankAccountTestSamples.*;
+import static com.zekodnix.zaramoney.domain.TransactionLimitTestSamples.*;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.zekodnix.zaramoney.web.rest.TestUtil;
@@ -20,5 +21,19 @@ class BankAccountTest {
 
         bankAccount2 = getBankAccountSample2();
         assertThat(bankAccount1).isNotEqualTo(bankAccount2);
+    }
+
+    @Test
+    void transactionLimitTest() {
+        BankAccount bankAccount = getBankAccountRandomSampleGenerator();
+        TransactionLimit transactionLimitBack = getTransactionLimitRandomSampleGenerator();
+
+        bankAccount.setTransactionLimit(transactionLimitBack);
+        assertThat(bankAccount.getTransactionLimit()).isEqualTo(transactionLimitBack);
+        assertThat(transactionLimitBack.getAccount()).isEqualTo(bankAccount);
+
+        bankAccount.transactionLimit(null);
+        assertThat(bankAccount.getTransactionLimit()).isNull();
+        assertThat(transactionLimitBack.getAccount()).isNull();
     }
 }

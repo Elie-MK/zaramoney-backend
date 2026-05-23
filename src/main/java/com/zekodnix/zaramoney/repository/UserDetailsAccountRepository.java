@@ -12,6 +12,7 @@ import org.springframework.stereotype.Repository;
 /**
  * Spring Data JPA repository for the UserDetailsAccount entity.
  */
+@SuppressWarnings("unused")
 @Repository
 public interface UserDetailsAccountRepository
     extends JpaRepository<UserDetailsAccount, Long>, JpaSpecificationExecutor<UserDetailsAccount> {

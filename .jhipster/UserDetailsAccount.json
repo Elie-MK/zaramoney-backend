@@ -34,6 +34,12 @@
       "fieldName": "isAgent",
       "fieldType": "Boolean",
       "fieldValidateRules": ["required"]
+    },
+    {
+      "fieldName": "kycStatus",
+      "fieldType": "KycStatus",
+      "fieldValidateRules": ["required"],
+      "fieldValues": "PENDING,VERIFIED,REJECTED"
     }
   ],
   "jpaMetamodelFiltering": true,

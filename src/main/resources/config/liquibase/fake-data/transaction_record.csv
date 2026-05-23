@@ -1,11 +1,11 @@
-id;transaction_type;send_amount;receive_amount;transaction_date;description;sender_account_number;receiver_account_number;currency_send_amount;currency_receive_amount;transaction_status;transaction_reference;risk_score;fraud_status;created_at;updated_at
-1;WITHDRAWAL;32508.9;14172.74;2025-12-15T13:09:10;bah hello healthily;behind ouch;assured well-doc;TND;USD;FAILED;forageXXXX;68;CLEAN;2025-12-15T17:01:19;2025-12-14T17:20:30
-2;WITHDRAWAL;18932.43;29373.04;2025-12-15T08:38:57;near grimy;chilly however d;pfft boiling rel;USD;USD;PENDING;than wootX;56;CLEAN;2025-12-15T12:52:11;2025-12-14T17:46:25
-3;DEPOSIT;28628.81;23685.15;2025-12-15T14:37:55;really;absent oval;usher sans after;USD;TND;PENDING;throughXXX;42;SUSPICIOUS;2025-12-15T05:26:44;2025-12-15T13:08:25
-4;TRANSFER;32443.76;32648.39;2025-12-15T07:53:10;unsightly so why;jam-packed bleak;nearly that trom;TND;USD;FAILED;witty uh-huh unless;48;CLEAN;2025-12-15T09:01:02;2025-12-14T22:53:16
-5;DEPOSIT;25952.45;24291;2025-12-15T11:04:21;openly;since optimal;consequently;TND;USD;PENDING;mom caring;76;CLEAN;2025-12-15T05:26:09;2025-12-15T06:31:24
-6;TRANSFER;31663.84;26885.15;2025-12-14T20:31:39;whether;wedge yet;banish gee even;USD;TND;COMPLETED;settlerXXX;79;BLOCKED;2025-12-15T07:41:19;2025-12-15T06:43:32
-7;TRANSFER;1872.63;20101.82;2025-12-15T07:58:48;drat along because;flood stay;whatXXXX;USD;USD;FAILED;who adumbrate supposing;48;CLEAN;2025-12-15T15:42:32;2025-12-15T09:59:49
-8;DEPOSIT;21878.92;18931.57;2025-12-14T23:17:49;colorfully scruple warp;wootXXXX;oddXXXXX;TND;USD;FAILED;drive right sustenance;14;BLOCKED;2025-12-15T00:17:25;2025-12-15T02:58:58
-9;DEPOSIT;5611.77;24203.3;2025-12-15T03:55:26;schematise insidious;midXXXXX;recommendation;TND;TND;PENDING;till likewise anenst;70;SUSPICIOUS;2025-12-15T13:59:17;2025-12-15T01:43:47
-10;TRANSFER;7639.33;18412.29;2025-12-15T16:05:50;till informal anenst;custodyX;outsideX;USD;USD;FAILED;ick provided gleefully;30;CLEAN;2025-12-14T22:29:48;2025-12-14T18:12:36
+id;transaction_type;send_amount;receive_amount;exchange_rate;currency_send_amount;currency_receive_amount;transaction_status;transaction_reference;description;risk_score;fraud_status;created_at;updated_at;transaction_date
+1;TRANSFER;32508.9;14172.74;27369.93;TND;TND;PENDING;hydrolyse minister;huzzah ah;25;CLEAN;2025-12-15T01:00:51;2025-12-15T11:12:18;2025-12-15T12:05:32
+2;PAYMENT;15900.23;6801.8;16279.81;USD;TND;PENDING;winged reward;psst;15;SUSPICIOUS;2025-12-15T09:15:54;2025-12-15T01:05:39;2025-12-15T17:01:19
+3;DEPOSIT;17748.82;18932.43;29372.93;TND;USD;COMPLETED;evilXXXXXX;skateboard versus behind;87;CLEAN;2025-12-15T01:50:37;2025-12-15T05:32:13;2025-12-15T09:36:37
+4;FEE;31999.57;8768.33;10339.7;USD;USD;FAILED;boilingXXX;euphonium writ fortunately;74;CLEAN;2025-12-15T03:28:05;2025-12-15T06:34:49;2025-12-14T19:42:10
+5;FEE;912.6;9395.21;28628.68;TND;TND;PENDING;interchange absent;robust usher;95;SUSPICIOUS;2025-12-15T06:20:21;2025-12-14T20:42:52;2025-12-15T09:49:36
+6;REFUND;25235.13;10176.58;12471.4;TND;USD;PENDING;fooey poorly realistic;unique;27;SUSPICIOUS;2025-12-14T19:04:47;2025-12-14T20:07:05;2025-12-15T14:06:37
+7;REFUND;8323.88;2418.36;5696.51;TND;USD;PENDING;second-hand fabricate alongside;behold tremendously from;94;BLOCKED;2025-12-15T02:00:54;2025-12-15T14:38:24;2025-12-15T15:17:01
+8;REVERSAL;21539.25;14981.75;14413.16;TND;TND;FAILED;kick meh simplistic;openly;64;BLOCKED;2025-12-14T19:15:17;2025-12-15T08:28:52;2025-12-14T17:07:05
+9;TRANSFER;6918.32;18619.65;32562.08;TND;USD;COMPLETED;defiantlyX;whose;57;CLEAN;2025-12-15T08:23:25;2025-12-15T14:08:55;2025-12-15T09:58:43
+10;REFUND;30139.7;22376.28;21630.53;TND;TND;FAILED;sugaryXXXX;oddly;85;SUSPICIOUS;2025-12-15T11:17:11;2025-12-15T03:55:48;2025-12-15T09:05:40

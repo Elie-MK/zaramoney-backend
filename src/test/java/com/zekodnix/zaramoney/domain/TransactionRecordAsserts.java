@@ -61,8 +61,12 @@ public class TransactionRecordAsserts {
                     .usingComparator(bigDecimalCompareTo)
                     .isEqualTo(expected.getReceiveAmount())
             )
-            .satisfies(a -> assertThat(a.getTransactionDate()).as("check transactionDate").isEqualTo(expected.getTransactionDate()))
-            .satisfies(a -> assertThat(a.getDescription()).as("check description").isEqualTo(expected.getDescription()))
+            .satisfies(a ->
+                assertThat(a.getExchangeRate())
+                    .as("check exchangeRate")
+                    .usingComparator(bigDecimalCompareTo)
+                    .isEqualTo(expected.getExchangeRate())
+            )
             .satisfies(a -> assertThat(a.getCurrencySendAmount()).as("check currencySendAmount").isEqualTo(expected.getCurrencySendAmount())
             )
             .satisfies(a ->
@@ -72,10 +76,12 @@ public class TransactionRecordAsserts {
             .satisfies(a ->
                 assertThat(a.getTransactionReference()).as("check transactionReference").isEqualTo(expected.getTransactionReference())
             )
+            .satisfies(a -> assertThat(a.getDescription()).as("check description").isEqualTo(expected.getDescription()))
             .satisfies(a -> assertThat(a.getRiskScore()).as("check riskScore").isEqualTo(expected.getRiskScore()))
             .satisfies(a -> assertThat(a.getFraudStatus()).as("check fraudStatus").isEqualTo(expected.getFraudStatus()))
             .satisfies(a -> assertThat(a.getCreatedAt()).as("check createdAt").isEqualTo(expected.getCreatedAt()))
-            .satisfies(a -> assertThat(a.getUpdatedAt()).as("check updatedAt").isEqualTo(expected.getUpdatedAt()));
+            .satisfies(a -> assertThat(a.getUpdatedAt()).as("check updatedAt").isEqualTo(expected.getUpdatedAt()))
+            .satisfies(a -> assertThat(a.getTransactionDate()).as("check transactionDate").isEqualTo(expected.getTransactionDate()));
     }
 
     /**

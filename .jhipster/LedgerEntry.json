@@ -1,0 +1,52 @@
+{
+  "annotations": {
+    "changelogDate": "20260523104728"
+  },
+  "applications": "*",
+  "dto": "mapstruct",
+  "fields": [
+    {
+      "fieldName": "amount",
+      "fieldType": "BigDecimal",
+      "fieldValidateRules": ["required"]
+    },
+    {
+      "fieldName": "currency",
+      "fieldType": "Currency",
+      "fieldValidateRules": ["required"],
+      "fieldValues": "USD,TND"
+    },
+    {
+      "fieldName": "entryType",
+      "fieldType": "EntryType",
+      "fieldValidateRules": ["required"],
+      "fieldValues": "DEBIT,CREDIT"
+    },
+    {
+      "fieldName": "createdAt",
+      "fieldType": "Instant",
+      "fieldValidateRules": ["required"]
+    }
+  ],
+  "jpaMetamodelFiltering": true,
+  "name": "LedgerEntry",
+  "pagination": "pagination",
+  "relationships": [
+    {
+      "otherEntityField": "accountNumber",
+      "otherEntityName": "bankAccount",
+      "relationshipName": "account",
+      "relationshipSide": "left",
+      "relationshipType": "many-to-one"
+    },
+    {
+      "otherEntityField": "transactionReference",
+      "otherEntityName": "transactionRecord",
+      "relationshipName": "transaction",
+      "relationshipSide": "left",
+      "relationshipType": "many-to-one"
+    }
+  ],
+  "searchEngine": "no",
+  "service": "serviceClass"
+}

@@ -4,7 +4,6 @@ import static com.zekodnix.zaramoney.domain.UserDetailsAccountAsserts.*;
 import static com.zekodnix.zaramoney.web.rest.TestUtil.createUpdateProxyForBean;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasItem;
-import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -12,25 +11,19 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zekodnix.zaramoney.IntegrationTest;
 import com.zekodnix.zaramoney.domain.User;
 import com.zekodnix.zaramoney.domain.UserDetailsAccount;
+import com.zekodnix.zaramoney.domain.enumeration.KycStatus;
 import com.zekodnix.zaramoney.repository.UserDetailsAccountRepository;
 import com.zekodnix.zaramoney.repository.UserRepository;
-import com.zekodnix.zaramoney.service.UserDetailsAccountService;
 import com.zekodnix.zaramoney.service.dto.UserDetailsAccountDTO;
 import com.zekodnix.zaramoney.service.mapper.UserDetailsAccountMapper;
 import jakarta.persistence.EntityManager;
-import java.util.ArrayList;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
@@ -40,7 +33,6 @@ import org.springframework.transaction.annotation.Transactional;
  * Integration tests for the {@link UserDetailsAccountResource} REST controller.
  */
 @IntegrationTest
-@ExtendWith(MockitoExtension.class)
 @AutoConfigureMockMvc
 @WithMockUser
 class UserDetailsAccountResourceIT {
@@ -63,6 +55,9 @@ class UserDetailsAccountResourceIT {
     private static final Boolean DEFAULT_IS_AGENT = false;
     private static final Boolean UPDATED_IS_AGENT = true;
 
+    private static final KycStatus DEFAULT_KYC_STATUS = KycStatus.PENDING;
+    private static final KycStatus UPDATED_KYC_STATUS = KycStatus.VERIFIED;
+
     private static final String ENTITY_API_URL = "/api/user-details-accounts";
     private static final String ENTITY_API_URL_ID = ENTITY_API_URL + "/{id}";
 
@@ -78,14 +73,8 @@ class UserDetailsAccountResourceIT {
     @Autowired
     private UserRepository userRepository;
 
-    @Mock
-    private UserDetailsAccountRepository userDetailsAccountRepositoryMock;
-
     @Autowired
     private UserDetailsAccountMapper userDetailsAccountMapper;
-
-    @Mock
-    private UserDetailsAccountService userDetailsAccountServiceMock;
 
     @Autowired
     private EntityManager em;
@@ -110,7 +99,8 @@ class UserDetailsAccountResourceIT {
             .idCardPicture(DEFAULT_ID_CARD_PICTURE)
             .country(DEFAULT_COUNTRY)
             .address(DEFAULT_ADDRESS)
-            .isAgent(DEFAULT_IS_AGENT);
+            .isAgent(DEFAULT_IS_AGENT)
+            .kycStatus(DEFAULT_KYC_STATUS);
     }
 
     /**
@@ -126,7 +116,8 @@ class UserDetailsAccountResourceIT {
             .idCardPicture(UPDATED_ID_CARD_PICTURE)
             .country(UPDATED_COUNTRY)
             .address(UPDATED_ADDRESS)
-            .isAgent(UPDATED_IS_AGENT);
+            .isAgent(UPDATED_IS_AGENT)
+            .kycStatus(UPDATED_KYC_STATUS);
     }
 
     @BeforeEach
@@ -291,6 +282,23 @@ class UserDetailsAccountResourceIT {
 
     @Test
     @Transactional
+    void checkKycStatusIsRequired() throws Exception {
+        long databaseSizeBeforeTest = getRepositoryCount();
+        // set the field null
+        userDetailsAccount.setKycStatus(null);
+
+        // Create the UserDetailsAccount, which fails.
+        UserDetailsAccountDTO userDetailsAccountDTO = userDetailsAccountMapper.toDto(userDetailsAccount);
+
+        restUserDetailsAccountMockMvc
+            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(userDetailsAccountDTO)))
+            .andExpect(status().isBadRequest());
+
+        assertSameRepositoryCount(databaseSizeBeforeTest);
+    }
+
+    @Test
+    @Transactional
     void getAllUserDetailsAccounts() throws Exception {
         // Initialize the database
         insertedUserDetailsAccount = userDetailsAccountRepository.saveAndFlush(userDetailsAccount);
@@ -306,24 +314,8 @@ class UserDetailsAccountResourceIT {
             .andExpect(jsonPath("$.[*].idCardPicture").value(hasItem(DEFAULT_ID_CARD_PICTURE)))
             .andExpect(jsonPath("$.[*].country").value(hasItem(DEFAULT_COUNTRY)))
             .andExpect(jsonPath("$.[*].address").value(hasItem(DEFAULT_ADDRESS)))
-            .andExpect(jsonPath("$.[*].isAgent").value(hasItem(DEFAULT_IS_AGENT)));
-    }
-
-    @SuppressWarnings({ "unchecked" })
-    void getAllUserDetailsAccountsWithEagerRelationshipsIsEnabled() throws Exception {
-        when(userDetailsAccountServiceMock.findAllWithEagerRelationships(any())).thenReturn(new PageImpl(new ArrayList<>()));
-
-        restUserDetailsAccountMockMvc.perform(get(ENTITY_API_URL + "?eagerload=true")).andExpect(status().isOk());
-
-        verify(userDetailsAccountServiceMock, times(1)).findAllWithEagerRelationships(any());
-    }
-
-    @SuppressWarnings({ "unchecked" })
-    void getAllUserDetailsAccountsWithEagerRelationshipsIsNotEnabled() throws Exception {
-        when(userDetailsAccountServiceMock.findAllWithEagerRelationships(any())).thenReturn(new PageImpl(new ArrayList<>()));
-
-        restUserDetailsAccountMockMvc.perform(get(ENTITY_API_URL + "?eagerload=false")).andExpect(status().isOk());
-        verify(userDetailsAccountRepositoryMock, times(1)).findAll(any(Pageable.class));
+            .andExpect(jsonPath("$.[*].isAgent").value(hasItem(DEFAULT_IS_AGENT)))
+            .andExpect(jsonPath("$.[*].kycStatus").value(hasItem(DEFAULT_KYC_STATUS.toString())));
     }
 
     @Test
@@ -343,7 +335,8 @@ class UserDetailsAccountResourceIT {
             .andExpect(jsonPath("$.idCardPicture").value(DEFAULT_ID_CARD_PICTURE))
             .andExpect(jsonPath("$.country").value(DEFAULT_COUNTRY))
             .andExpect(jsonPath("$.address").value(DEFAULT_ADDRESS))
-            .andExpect(jsonPath("$.isAgent").value(DEFAULT_IS_AGENT));
+            .andExpect(jsonPath("$.isAgent").value(DEFAULT_IS_AGENT))
+            .andExpect(jsonPath("$.kycStatus").value(DEFAULT_KYC_STATUS.toString()));
     }
 
     @Test
@@ -667,6 +660,39 @@ class UserDetailsAccountResourceIT {
 
     @Test
     @Transactional
+    void getAllUserDetailsAccountsByKycStatusIsEqualToSomething() throws Exception {
+        // Initialize the database
+        insertedUserDetailsAccount = userDetailsAccountRepository.saveAndFlush(userDetailsAccount);
+
+        // Get all the userDetailsAccountList where kycStatus equals to
+        defaultUserDetailsAccountFiltering("kycStatus.equals=" + DEFAULT_KYC_STATUS, "kycStatus.equals=" + UPDATED_KYC_STATUS);
+    }
+
+    @Test
+    @Transactional
+    void getAllUserDetailsAccountsByKycStatusIsInShouldWork() throws Exception {
+        // Initialize the database
+        insertedUserDetailsAccount = userDetailsAccountRepository.saveAndFlush(userDetailsAccount);
+
+        // Get all the userDetailsAccountList where kycStatus in
+        defaultUserDetailsAccountFiltering(
+            "kycStatus.in=" + DEFAULT_KYC_STATUS + "," + UPDATED_KYC_STATUS,
+            "kycStatus.in=" + UPDATED_KYC_STATUS
+        );
+    }
+
+    @Test
+    @Transactional
+    void getAllUserDetailsAccountsByKycStatusIsNullOrNotNull() throws Exception {
+        // Initialize the database
+        insertedUserDetailsAccount = userDetailsAccountRepository.saveAndFlush(userDetailsAccount);
+
+        // Get all the userDetailsAccountList where kycStatus is not null
+        defaultUserDetailsAccountFiltering("kycStatus.specified=true", "kycStatus.specified=false");
+    }
+
+    @Test
+    @Transactional
     void getAllUserDetailsAccountsByUserIsEqualToSomething() throws Exception {
         User user;
         if (TestUtil.findAll(em, User.class).isEmpty()) {
@@ -706,7 +732,8 @@ class UserDetailsAccountResourceIT {
             .andExpect(jsonPath("$.[*].idCardPicture").value(hasItem(DEFAULT_ID_CARD_PICTURE)))
             .andExpect(jsonPath("$.[*].country").value(hasItem(DEFAULT_COUNTRY)))
             .andExpect(jsonPath("$.[*].address").value(hasItem(DEFAULT_ADDRESS)))
-            .andExpect(jsonPath("$.[*].isAgent").value(hasItem(DEFAULT_IS_AGENT)));
+            .andExpect(jsonPath("$.[*].isAgent").value(hasItem(DEFAULT_IS_AGENT)))
+            .andExpect(jsonPath("$.[*].kycStatus").value(hasItem(DEFAULT_KYC_STATUS.toString())));
 
         // Check, that the count call also returns 1
         restUserDetailsAccountMockMvc
@@ -760,7 +787,8 @@ class UserDetailsAccountResourceIT {
             .idCardPicture(UPDATED_ID_CARD_PICTURE)
             .country(UPDATED_COUNTRY)
             .address(UPDATED_ADDRESS)
-            .isAgent(UPDATED_IS_AGENT);
+            .isAgent(UPDATED_IS_AGENT)
+            .kycStatus(UPDATED_KYC_STATUS);
         UserDetailsAccountDTO userDetailsAccountDTO = userDetailsAccountMapper.toDto(updatedUserDetailsAccount);
 
         restUserDetailsAccountMockMvc
@@ -850,7 +878,13 @@ class UserDetailsAccountResourceIT {
         UserDetailsAccount partialUpdatedUserDetailsAccount = new UserDetailsAccount();
         partialUpdatedUserDetailsAccount.setId(userDetailsAccount.getId());
 
-        partialUpdatedUserDetailsAccount.country(UPDATED_COUNTRY).address(UPDATED_ADDRESS).isAgent(UPDATED_IS_AGENT);
+        partialUpdatedUserDetailsAccount
+            .phoneNumber(UPDATED_PHONE_NUMBER)
+            .idCardPicture(UPDATED_ID_CARD_PICTURE)
+            .country(UPDATED_COUNTRY)
+            .address(UPDATED_ADDRESS)
+            .isAgent(UPDATED_IS_AGENT)
+            .kycStatus(UPDATED_KYC_STATUS);
 
         restUserDetailsAccountMockMvc
             .perform(
@@ -887,7 +921,8 @@ class UserDetailsAccountResourceIT {
             .idCardPicture(UPDATED_ID_CARD_PICTURE)
             .country(UPDATED_COUNTRY)
             .address(UPDATED_ADDRESS)
-            .isAgent(UPDATED_IS_AGENT);
+            .isAgent(UPDATED_IS_AGENT)
+            .kycStatus(UPDATED_KYC_STATUS);
 
         restUserDetailsAccountMockMvc
             .perform(

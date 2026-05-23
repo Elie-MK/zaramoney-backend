@@ -79,7 +79,10 @@ class BankAccountCriteriaTest {
         bankAccountCriteria.accountNumber();
         bankAccountCriteria.balance();
         bankAccountCriteria.currency();
+        bankAccountCriteria.status();
+        bankAccountCriteria.createdAt();
         bankAccountCriteria.userId();
+        bankAccountCriteria.transactionLimitId();
         bankAccountCriteria.distinct();
     }
 
@@ -90,7 +93,10 @@ class BankAccountCriteriaTest {
                 condition.apply(criteria.getAccountNumber()) &&
                 condition.apply(criteria.getBalance()) &&
                 condition.apply(criteria.getCurrency()) &&
+                condition.apply(criteria.getStatus()) &&
+                condition.apply(criteria.getCreatedAt()) &&
                 condition.apply(criteria.getUserId()) &&
+                condition.apply(criteria.getTransactionLimitId()) &&
                 condition.apply(criteria.getDistinct()),
             "every filter matches"
         );
@@ -103,7 +109,10 @@ class BankAccountCriteriaTest {
                 condition.apply(criteria.getAccountNumber(), copy.getAccountNumber()) &&
                 condition.apply(criteria.getBalance(), copy.getBalance()) &&
                 condition.apply(criteria.getCurrency(), copy.getCurrency()) &&
+                condition.apply(criteria.getStatus(), copy.getStatus()) &&
+                condition.apply(criteria.getCreatedAt(), copy.getCreatedAt()) &&
                 condition.apply(criteria.getUserId(), copy.getUserId()) &&
+                condition.apply(criteria.getTransactionLimitId(), copy.getTransactionLimitId()) &&
                 condition.apply(criteria.getDistinct(), copy.getDistinct()),
             "every filter matches"
         );

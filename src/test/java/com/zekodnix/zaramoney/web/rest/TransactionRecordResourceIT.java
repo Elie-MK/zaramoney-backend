@@ -64,11 +64,9 @@ class TransactionRecordResourceIT {
     private static final BigDecimal UPDATED_RECEIVE_AMOUNT = new BigDecimal(2);
     private static final BigDecimal SMALLER_RECEIVE_AMOUNT = new BigDecimal(1 - 1);
 
-    private static final Instant DEFAULT_TRANSACTION_DATE = Instant.ofEpochMilli(0L);
-    private static final Instant UPDATED_TRANSACTION_DATE = Instant.now().truncatedTo(ChronoUnit.MILLIS);
-
-    private static final String DEFAULT_DESCRIPTION = "AAAAAAAAAA";
-    private static final String UPDATED_DESCRIPTION = "BBBBBBBBBB";
+    private static final BigDecimal DEFAULT_EXCHANGE_RATE = new BigDecimal(1);
+    private static final BigDecimal UPDATED_EXCHANGE_RATE = new BigDecimal(2);
+    private static final BigDecimal SMALLER_EXCHANGE_RATE = new BigDecimal(1 - 1);
 
     private static final Currency DEFAULT_CURRENCY_SEND_AMOUNT = Currency.USD;
     private static final Currency UPDATED_CURRENCY_SEND_AMOUNT = Currency.TND;
@@ -82,6 +80,9 @@ class TransactionRecordResourceIT {
     private static final String DEFAULT_TRANSACTION_REFERENCE = "AAAAAAAAAA";
     private static final String UPDATED_TRANSACTION_REFERENCE = "BBBBBBBBBB";
 
+    private static final String DEFAULT_DESCRIPTION = "AAAAAAAAAA";
+    private static final String UPDATED_DESCRIPTION = "BBBBBBBBBB";
+
     private static final Integer DEFAULT_RISK_SCORE = 0;
     private static final Integer UPDATED_RISK_SCORE = 1;
     private static final Integer SMALLER_RISK_SCORE = 0 - 1;
@@ -94,6 +95,9 @@ class TransactionRecordResourceIT {
 
     private static final Instant DEFAULT_UPDATED_AT = Instant.ofEpochMilli(0L);
     private static final Instant UPDATED_UPDATED_AT = Instant.now().truncatedTo(ChronoUnit.MILLIS);
+
+    private static final Instant DEFAULT_TRANSACTION_DATE = Instant.ofEpochMilli(0L);
+    private static final Instant UPDATED_TRANSACTION_DATE = Instant.now().truncatedTo(ChronoUnit.MILLIS);
 
     private static final String ENTITY_API_URL = "/api/transaction-records";
     private static final String ENTITY_API_URL_ID = ENTITY_API_URL + "/{id}";
@@ -137,16 +141,17 @@ class TransactionRecordResourceIT {
             .transactionType(DEFAULT_TRANSACTION_TYPE)
             .sendAmount(DEFAULT_SEND_AMOUNT)
             .receiveAmount(DEFAULT_RECEIVE_AMOUNT)
-            .transactionDate(DEFAULT_TRANSACTION_DATE)
-            .description(DEFAULT_DESCRIPTION)
+            .exchangeRate(DEFAULT_EXCHANGE_RATE)
             .currencySendAmount(DEFAULT_CURRENCY_SEND_AMOUNT)
             .currencyReceiveAmount(DEFAULT_CURRENCY_RECEIVE_AMOUNT)
             .transactionStatus(DEFAULT_TRANSACTION_STATUS)
             .transactionReference(DEFAULT_TRANSACTION_REFERENCE)
+            .description(DEFAULT_DESCRIPTION)
             .riskScore(DEFAULT_RISK_SCORE)
             .fraudStatus(DEFAULT_FRAUD_STATUS)
             .createdAt(DEFAULT_CREATED_AT)
-            .updatedAt(DEFAULT_UPDATED_AT);
+            .updatedAt(DEFAULT_UPDATED_AT)
+            .transactionDate(DEFAULT_TRANSACTION_DATE);
     }
 
     /**
@@ -160,16 +165,17 @@ class TransactionRecordResourceIT {
             .transactionType(UPDATED_TRANSACTION_TYPE)
             .sendAmount(UPDATED_SEND_AMOUNT)
             .receiveAmount(UPDATED_RECEIVE_AMOUNT)
-            .transactionDate(UPDATED_TRANSACTION_DATE)
-            .description(UPDATED_DESCRIPTION)
+            .exchangeRate(UPDATED_EXCHANGE_RATE)
             .currencySendAmount(UPDATED_CURRENCY_SEND_AMOUNT)
             .currencyReceiveAmount(UPDATED_CURRENCY_RECEIVE_AMOUNT)
             .transactionStatus(UPDATED_TRANSACTION_STATUS)
             .transactionReference(UPDATED_TRANSACTION_REFERENCE)
+            .description(UPDATED_DESCRIPTION)
             .riskScore(UPDATED_RISK_SCORE)
             .fraudStatus(UPDATED_FRAUD_STATUS)
             .createdAt(UPDATED_CREATED_AT)
-            .updatedAt(UPDATED_UPDATED_AT);
+            .updatedAt(UPDATED_UPDATED_AT)
+            .transactionDate(UPDATED_TRANSACTION_DATE);
     }
 
     @BeforeEach
@@ -280,10 +286,10 @@ class TransactionRecordResourceIT {
 
     @Test
     @Transactional
-    void checkTransactionDateIsRequired() throws Exception {
+    void checkExchangeRateIsRequired() throws Exception {
         long databaseSizeBeforeTest = getRepositoryCount();
         // set the field null
-        transactionRecord.setTransactionDate(null);
+        transactionRecord.setExchangeRate(null);
 
         // Create the TransactionRecord, which fails.
         TransactionRecordDTO transactionRecordDTO = transactionRecordMapper.toDto(transactionRecord);
@@ -416,6 +422,23 @@ class TransactionRecordResourceIT {
 
     @Test
     @Transactional
+    void checkTransactionDateIsRequired() throws Exception {
+        long databaseSizeBeforeTest = getRepositoryCount();
+        // set the field null
+        transactionRecord.setTransactionDate(null);
+
+        // Create the TransactionRecord, which fails.
+        TransactionRecordDTO transactionRecordDTO = transactionRecordMapper.toDto(transactionRecord);
+
+        restTransactionRecordMockMvc
+            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(transactionRecordDTO)))
+            .andExpect(status().isBadRequest());
+
+        assertSameRepositoryCount(databaseSizeBeforeTest);
+    }
+
+    @Test
+    @Transactional
     void getAllTransactionRecords() throws Exception {
         // Initialize the database
         insertedTransactionRecord = transactionRecordRepository.saveAndFlush(transactionRecord);
@@ -429,16 +452,17 @@ class TransactionRecordResourceIT {
             .andExpect(jsonPath("$.[*].transactionType").value(hasItem(DEFAULT_TRANSACTION_TYPE.toString())))
             .andExpect(jsonPath("$.[*].sendAmount").value(hasItem(sameNumber(DEFAULT_SEND_AMOUNT))))
             .andExpect(jsonPath("$.[*].receiveAmount").value(hasItem(sameNumber(DEFAULT_RECEIVE_AMOUNT))))
-            .andExpect(jsonPath("$.[*].transactionDate").value(hasItem(DEFAULT_TRANSACTION_DATE.toString())))
-            .andExpect(jsonPath("$.[*].description").value(hasItem(DEFAULT_DESCRIPTION)))
+            .andExpect(jsonPath("$.[*].exchangeRate").value(hasItem(sameNumber(DEFAULT_EXCHANGE_RATE))))
             .andExpect(jsonPath("$.[*].currencySendAmount").value(hasItem(DEFAULT_CURRENCY_SEND_AMOUNT.toString())))
             .andExpect(jsonPath("$.[*].currencyReceiveAmount").value(hasItem(DEFAULT_CURRENCY_RECEIVE_AMOUNT.toString())))
             .andExpect(jsonPath("$.[*].transactionStatus").value(hasItem(DEFAULT_TRANSACTION_STATUS.toString())))
             .andExpect(jsonPath("$.[*].transactionReference").value(hasItem(DEFAULT_TRANSACTION_REFERENCE)))
+            .andExpect(jsonPath("$.[*].description").value(hasItem(DEFAULT_DESCRIPTION)))
             .andExpect(jsonPath("$.[*].riskScore").value(hasItem(DEFAULT_RISK_SCORE)))
             .andExpect(jsonPath("$.[*].fraudStatus").value(hasItem(DEFAULT_FRAUD_STATUS.toString())))
             .andExpect(jsonPath("$.[*].createdAt").value(hasItem(DEFAULT_CREATED_AT.toString())))
-            .andExpect(jsonPath("$.[*].updatedAt").value(hasItem(DEFAULT_UPDATED_AT.toString())));
+            .andExpect(jsonPath("$.[*].updatedAt").value(hasItem(DEFAULT_UPDATED_AT.toString())))
+            .andExpect(jsonPath("$.[*].transactionDate").value(hasItem(DEFAULT_TRANSACTION_DATE.toString())));
     }
 
     @SuppressWarnings({ "unchecked" })
@@ -473,16 +497,17 @@ class TransactionRecordResourceIT {
             .andExpect(jsonPath("$.transactionType").value(DEFAULT_TRANSACTION_TYPE.toString()))
             .andExpect(jsonPath("$.sendAmount").value(sameNumber(DEFAULT_SEND_AMOUNT)))
             .andExpect(jsonPath("$.receiveAmount").value(sameNumber(DEFAULT_RECEIVE_AMOUNT)))
-            .andExpect(jsonPath("$.transactionDate").value(DEFAULT_TRANSACTION_DATE.toString()))
-            .andExpect(jsonPath("$.description").value(DEFAULT_DESCRIPTION))
+            .andExpect(jsonPath("$.exchangeRate").value(sameNumber(DEFAULT_EXCHANGE_RATE)))
             .andExpect(jsonPath("$.currencySendAmount").value(DEFAULT_CURRENCY_SEND_AMOUNT.toString()))
             .andExpect(jsonPath("$.currencyReceiveAmount").value(DEFAULT_CURRENCY_RECEIVE_AMOUNT.toString()))
             .andExpect(jsonPath("$.transactionStatus").value(DEFAULT_TRANSACTION_STATUS.toString()))
             .andExpect(jsonPath("$.transactionReference").value(DEFAULT_TRANSACTION_REFERENCE))
+            .andExpect(jsonPath("$.description").value(DEFAULT_DESCRIPTION))
             .andExpect(jsonPath("$.riskScore").value(DEFAULT_RISK_SCORE))
             .andExpect(jsonPath("$.fraudStatus").value(DEFAULT_FRAUD_STATUS.toString()))
             .andExpect(jsonPath("$.createdAt").value(DEFAULT_CREATED_AT.toString()))
-            .andExpect(jsonPath("$.updatedAt").value(DEFAULT_UPDATED_AT.toString()));
+            .andExpect(jsonPath("$.updatedAt").value(DEFAULT_UPDATED_AT.toString()))
+            .andExpect(jsonPath("$.transactionDate").value(DEFAULT_TRANSACTION_DATE.toString()));
     }
 
     @Test
@@ -705,93 +730,86 @@ class TransactionRecordResourceIT {
 
     @Test
     @Transactional
-    void getAllTransactionRecordsByTransactionDateIsEqualToSomething() throws Exception {
+    void getAllTransactionRecordsByExchangeRateIsEqualToSomething() throws Exception {
         // Initialize the database
         insertedTransactionRecord = transactionRecordRepository.saveAndFlush(transactionRecord);
 
-        // Get all the transactionRecordList where transactionDate equals to
+        // Get all the transactionRecordList where exchangeRate equals to
+        defaultTransactionRecordFiltering("exchangeRate.equals=" + DEFAULT_EXCHANGE_RATE, "exchangeRate.equals=" + UPDATED_EXCHANGE_RATE);
+    }
+
+    @Test
+    @Transactional
+    void getAllTransactionRecordsByExchangeRateIsInShouldWork() throws Exception {
+        // Initialize the database
+        insertedTransactionRecord = transactionRecordRepository.saveAndFlush(transactionRecord);
+
+        // Get all the transactionRecordList where exchangeRate in
         defaultTransactionRecordFiltering(
-            "transactionDate.equals=" + DEFAULT_TRANSACTION_DATE,
-            "transactionDate.equals=" + UPDATED_TRANSACTION_DATE
+            "exchangeRate.in=" + DEFAULT_EXCHANGE_RATE + "," + UPDATED_EXCHANGE_RATE,
+            "exchangeRate.in=" + UPDATED_EXCHANGE_RATE
         );
     }
 
     @Test
     @Transactional
-    void getAllTransactionRecordsByTransactionDateIsInShouldWork() throws Exception {
+    void getAllTransactionRecordsByExchangeRateIsNullOrNotNull() throws Exception {
         // Initialize the database
         insertedTransactionRecord = transactionRecordRepository.saveAndFlush(transactionRecord);
 
-        // Get all the transactionRecordList where transactionDate in
+        // Get all the transactionRecordList where exchangeRate is not null
+        defaultTransactionRecordFiltering("exchangeRate.specified=true", "exchangeRate.specified=false");
+    }
+
+    @Test
+    @Transactional
+    void getAllTransactionRecordsByExchangeRateIsGreaterThanOrEqualToSomething() throws Exception {
+        // Initialize the database
+        insertedTransactionRecord = transactionRecordRepository.saveAndFlush(transactionRecord);
+
+        // Get all the transactionRecordList where exchangeRate is greater than or equal to
         defaultTransactionRecordFiltering(
-            "transactionDate.in=" + DEFAULT_TRANSACTION_DATE + "," + UPDATED_TRANSACTION_DATE,
-            "transactionDate.in=" + UPDATED_TRANSACTION_DATE
+            "exchangeRate.greaterThanOrEqual=" + DEFAULT_EXCHANGE_RATE,
+            "exchangeRate.greaterThanOrEqual=" + UPDATED_EXCHANGE_RATE
         );
     }
 
     @Test
     @Transactional
-    void getAllTransactionRecordsByTransactionDateIsNullOrNotNull() throws Exception {
+    void getAllTransactionRecordsByExchangeRateIsLessThanOrEqualToSomething() throws Exception {
         // Initialize the database
         insertedTransactionRecord = transactionRecordRepository.saveAndFlush(transactionRecord);
 
-        // Get all the transactionRecordList where transactionDate is not null
-        defaultTransactionRecordFiltering("transactionDate.specified=true", "transactionDate.specified=false");
-    }
-
-    @Test
-    @Transactional
-    void getAllTransactionRecordsByDescriptionIsEqualToSomething() throws Exception {
-        // Initialize the database
-        insertedTransactionRecord = transactionRecordRepository.saveAndFlush(transactionRecord);
-
-        // Get all the transactionRecordList where description equals to
-        defaultTransactionRecordFiltering("description.equals=" + DEFAULT_DESCRIPTION, "description.equals=" + UPDATED_DESCRIPTION);
-    }
-
-    @Test
-    @Transactional
-    void getAllTransactionRecordsByDescriptionIsInShouldWork() throws Exception {
-        // Initialize the database
-        insertedTransactionRecord = transactionRecordRepository.saveAndFlush(transactionRecord);
-
-        // Get all the transactionRecordList where description in
+        // Get all the transactionRecordList where exchangeRate is less than or equal to
         defaultTransactionRecordFiltering(
-            "description.in=" + DEFAULT_DESCRIPTION + "," + UPDATED_DESCRIPTION,
-            "description.in=" + UPDATED_DESCRIPTION
+            "exchangeRate.lessThanOrEqual=" + DEFAULT_EXCHANGE_RATE,
+            "exchangeRate.lessThanOrEqual=" + SMALLER_EXCHANGE_RATE
         );
     }
 
     @Test
     @Transactional
-    void getAllTransactionRecordsByDescriptionIsNullOrNotNull() throws Exception {
+    void getAllTransactionRecordsByExchangeRateIsLessThanSomething() throws Exception {
         // Initialize the database
         insertedTransactionRecord = transactionRecordRepository.saveAndFlush(transactionRecord);
 
-        // Get all the transactionRecordList where description is not null
-        defaultTransactionRecordFiltering("description.specified=true", "description.specified=false");
-    }
-
-    @Test
-    @Transactional
-    void getAllTransactionRecordsByDescriptionContainsSomething() throws Exception {
-        // Initialize the database
-        insertedTransactionRecord = transactionRecordRepository.saveAndFlush(transactionRecord);
-
-        // Get all the transactionRecordList where description contains
-        defaultTransactionRecordFiltering("description.contains=" + DEFAULT_DESCRIPTION, "description.contains=" + UPDATED_DESCRIPTION);
-    }
-
-    @Test
-    @Transactional
-    void getAllTransactionRecordsByDescriptionNotContainsSomething() throws Exception {
-        // Initialize the database
-        insertedTransactionRecord = transactionRecordRepository.saveAndFlush(transactionRecord);
-
-        // Get all the transactionRecordList where description does not contain
+        // Get all the transactionRecordList where exchangeRate is less than
         defaultTransactionRecordFiltering(
-            "description.doesNotContain=" + UPDATED_DESCRIPTION,
-            "description.doesNotContain=" + DEFAULT_DESCRIPTION
+            "exchangeRate.lessThan=" + UPDATED_EXCHANGE_RATE,
+            "exchangeRate.lessThan=" + DEFAULT_EXCHANGE_RATE
+        );
+    }
+
+    @Test
+    @Transactional
+    void getAllTransactionRecordsByExchangeRateIsGreaterThanSomething() throws Exception {
+        // Initialize the database
+        insertedTransactionRecord = transactionRecordRepository.saveAndFlush(transactionRecord);
+
+        // Get all the transactionRecordList where exchangeRate is greater than
+        defaultTransactionRecordFiltering(
+            "exchangeRate.greaterThan=" + SMALLER_EXCHANGE_RATE,
+            "exchangeRate.greaterThan=" + DEFAULT_EXCHANGE_RATE
         );
     }
 
@@ -962,6 +980,62 @@ class TransactionRecordResourceIT {
         defaultTransactionRecordFiltering(
             "transactionReference.doesNotContain=" + UPDATED_TRANSACTION_REFERENCE,
             "transactionReference.doesNotContain=" + DEFAULT_TRANSACTION_REFERENCE
+        );
+    }
+
+    @Test
+    @Transactional
+    void getAllTransactionRecordsByDescriptionIsEqualToSomething() throws Exception {
+        // Initialize the database
+        insertedTransactionRecord = transactionRecordRepository.saveAndFlush(transactionRecord);
+
+        // Get all the transactionRecordList where description equals to
+        defaultTransactionRecordFiltering("description.equals=" + DEFAULT_DESCRIPTION, "description.equals=" + UPDATED_DESCRIPTION);
+    }
+
+    @Test
+    @Transactional
+    void getAllTransactionRecordsByDescriptionIsInShouldWork() throws Exception {
+        // Initialize the database
+        insertedTransactionRecord = transactionRecordRepository.saveAndFlush(transactionRecord);
+
+        // Get all the transactionRecordList where description in
+        defaultTransactionRecordFiltering(
+            "description.in=" + DEFAULT_DESCRIPTION + "," + UPDATED_DESCRIPTION,
+            "description.in=" + UPDATED_DESCRIPTION
+        );
+    }
+
+    @Test
+    @Transactional
+    void getAllTransactionRecordsByDescriptionIsNullOrNotNull() throws Exception {
+        // Initialize the database
+        insertedTransactionRecord = transactionRecordRepository.saveAndFlush(transactionRecord);
+
+        // Get all the transactionRecordList where description is not null
+        defaultTransactionRecordFiltering("description.specified=true", "description.specified=false");
+    }
+
+    @Test
+    @Transactional
+    void getAllTransactionRecordsByDescriptionContainsSomething() throws Exception {
+        // Initialize the database
+        insertedTransactionRecord = transactionRecordRepository.saveAndFlush(transactionRecord);
+
+        // Get all the transactionRecordList where description contains
+        defaultTransactionRecordFiltering("description.contains=" + DEFAULT_DESCRIPTION, "description.contains=" + UPDATED_DESCRIPTION);
+    }
+
+    @Test
+    @Transactional
+    void getAllTransactionRecordsByDescriptionNotContainsSomething() throws Exception {
+        // Initialize the database
+        insertedTransactionRecord = transactionRecordRepository.saveAndFlush(transactionRecord);
+
+        // Get all the transactionRecordList where description does not contain
+        defaultTransactionRecordFiltering(
+            "description.doesNotContain=" + UPDATED_DESCRIPTION,
+            "description.doesNotContain=" + DEFAULT_DESCRIPTION
         );
     }
 
@@ -1145,6 +1219,42 @@ class TransactionRecordResourceIT {
 
     @Test
     @Transactional
+    void getAllTransactionRecordsByTransactionDateIsEqualToSomething() throws Exception {
+        // Initialize the database
+        insertedTransactionRecord = transactionRecordRepository.saveAndFlush(transactionRecord);
+
+        // Get all the transactionRecordList where transactionDate equals to
+        defaultTransactionRecordFiltering(
+            "transactionDate.equals=" + DEFAULT_TRANSACTION_DATE,
+            "transactionDate.equals=" + UPDATED_TRANSACTION_DATE
+        );
+    }
+
+    @Test
+    @Transactional
+    void getAllTransactionRecordsByTransactionDateIsInShouldWork() throws Exception {
+        // Initialize the database
+        insertedTransactionRecord = transactionRecordRepository.saveAndFlush(transactionRecord);
+
+        // Get all the transactionRecordList where transactionDate in
+        defaultTransactionRecordFiltering(
+            "transactionDate.in=" + DEFAULT_TRANSACTION_DATE + "," + UPDATED_TRANSACTION_DATE,
+            "transactionDate.in=" + UPDATED_TRANSACTION_DATE
+        );
+    }
+
+    @Test
+    @Transactional
+    void getAllTransactionRecordsByTransactionDateIsNullOrNotNull() throws Exception {
+        // Initialize the database
+        insertedTransactionRecord = transactionRecordRepository.saveAndFlush(transactionRecord);
+
+        // Get all the transactionRecordList where transactionDate is not null
+        defaultTransactionRecordFiltering("transactionDate.specified=true", "transactionDate.specified=false");
+    }
+
+    @Test
+    @Transactional
     void getAllTransactionRecordsBySenderIsEqualToSomething() throws Exception {
         BankAccount sender;
         if (TestUtil.findAll(em, BankAccount.class).isEmpty()) {
@@ -1204,16 +1314,17 @@ class TransactionRecordResourceIT {
             .andExpect(jsonPath("$.[*].transactionType").value(hasItem(DEFAULT_TRANSACTION_TYPE.toString())))
             .andExpect(jsonPath("$.[*].sendAmount").value(hasItem(sameNumber(DEFAULT_SEND_AMOUNT))))
             .andExpect(jsonPath("$.[*].receiveAmount").value(hasItem(sameNumber(DEFAULT_RECEIVE_AMOUNT))))
-            .andExpect(jsonPath("$.[*].transactionDate").value(hasItem(DEFAULT_TRANSACTION_DATE.toString())))
-            .andExpect(jsonPath("$.[*].description").value(hasItem(DEFAULT_DESCRIPTION)))
+            .andExpect(jsonPath("$.[*].exchangeRate").value(hasItem(sameNumber(DEFAULT_EXCHANGE_RATE))))
             .andExpect(jsonPath("$.[*].currencySendAmount").value(hasItem(DEFAULT_CURRENCY_SEND_AMOUNT.toString())))
             .andExpect(jsonPath("$.[*].currencyReceiveAmount").value(hasItem(DEFAULT_CURRENCY_RECEIVE_AMOUNT.toString())))
             .andExpect(jsonPath("$.[*].transactionStatus").value(hasItem(DEFAULT_TRANSACTION_STATUS.toString())))
             .andExpect(jsonPath("$.[*].transactionReference").value(hasItem(DEFAULT_TRANSACTION_REFERENCE)))
+            .andExpect(jsonPath("$.[*].description").value(hasItem(DEFAULT_DESCRIPTION)))
             .andExpect(jsonPath("$.[*].riskScore").value(hasItem(DEFAULT_RISK_SCORE)))
             .andExpect(jsonPath("$.[*].fraudStatus").value(hasItem(DEFAULT_FRAUD_STATUS.toString())))
             .andExpect(jsonPath("$.[*].createdAt").value(hasItem(DEFAULT_CREATED_AT.toString())))
-            .andExpect(jsonPath("$.[*].updatedAt").value(hasItem(DEFAULT_UPDATED_AT.toString())));
+            .andExpect(jsonPath("$.[*].updatedAt").value(hasItem(DEFAULT_UPDATED_AT.toString())))
+            .andExpect(jsonPath("$.[*].transactionDate").value(hasItem(DEFAULT_TRANSACTION_DATE.toString())));
 
         // Check, that the count call also returns 1
         restTransactionRecordMockMvc
@@ -1265,16 +1376,17 @@ class TransactionRecordResourceIT {
             .transactionType(UPDATED_TRANSACTION_TYPE)
             .sendAmount(UPDATED_SEND_AMOUNT)
             .receiveAmount(UPDATED_RECEIVE_AMOUNT)
-            .transactionDate(UPDATED_TRANSACTION_DATE)
-            .description(UPDATED_DESCRIPTION)
+            .exchangeRate(UPDATED_EXCHANGE_RATE)
             .currencySendAmount(UPDATED_CURRENCY_SEND_AMOUNT)
             .currencyReceiveAmount(UPDATED_CURRENCY_RECEIVE_AMOUNT)
             .transactionStatus(UPDATED_TRANSACTION_STATUS)
             .transactionReference(UPDATED_TRANSACTION_REFERENCE)
+            .description(UPDATED_DESCRIPTION)
             .riskScore(UPDATED_RISK_SCORE)
             .fraudStatus(UPDATED_FRAUD_STATUS)
             .createdAt(UPDATED_CREATED_AT)
-            .updatedAt(UPDATED_UPDATED_AT);
+            .updatedAt(UPDATED_UPDATED_AT)
+            .transactionDate(UPDATED_TRANSACTION_DATE);
         TransactionRecordDTO transactionRecordDTO = transactionRecordMapper.toDto(updatedTransactionRecord);
 
         restTransactionRecordMockMvc
@@ -1365,11 +1477,12 @@ class TransactionRecordResourceIT {
         partialUpdatedTransactionRecord.setId(transactionRecord.getId());
 
         partialUpdatedTransactionRecord
-            .sendAmount(UPDATED_SEND_AMOUNT)
             .receiveAmount(UPDATED_RECEIVE_AMOUNT)
-            .description(UPDATED_DESCRIPTION)
-            .currencySendAmount(UPDATED_CURRENCY_SEND_AMOUNT)
-            .riskScore(UPDATED_RISK_SCORE);
+            .exchangeRate(UPDATED_EXCHANGE_RATE)
+            .currencyReceiveAmount(UPDATED_CURRENCY_RECEIVE_AMOUNT)
+            .transactionReference(UPDATED_TRANSACTION_REFERENCE)
+            .riskScore(UPDATED_RISK_SCORE)
+            .fraudStatus(UPDATED_FRAUD_STATUS);
 
         restTransactionRecordMockMvc
             .perform(
@@ -1404,16 +1517,17 @@ class TransactionRecordResourceIT {
             .transactionType(UPDATED_TRANSACTION_TYPE)
             .sendAmount(UPDATED_SEND_AMOUNT)
             .receiveAmount(UPDATED_RECEIVE_AMOUNT)
-            .transactionDate(UPDATED_TRANSACTION_DATE)
-            .description(UPDATED_DESCRIPTION)
+            .exchangeRate(UPDATED_EXCHANGE_RATE)
             .currencySendAmount(UPDATED_CURRENCY_SEND_AMOUNT)
             .currencyReceiveAmount(UPDATED_CURRENCY_RECEIVE_AMOUNT)
             .transactionStatus(UPDATED_TRANSACTION_STATUS)
             .transactionReference(UPDATED_TRANSACTION_REFERENCE)
+            .description(UPDATED_DESCRIPTION)
             .riskScore(UPDATED_RISK_SCORE)
             .fraudStatus(UPDATED_FRAUD_STATUS)
             .createdAt(UPDATED_CREATED_AT)
-            .updatedAt(UPDATED_UPDATED_AT);
+            .updatedAt(UPDATED_UPDATED_AT)
+            .transactionDate(UPDATED_TRANSACTION_DATE);
 
         restTransactionRecordMockMvc
             .perform(

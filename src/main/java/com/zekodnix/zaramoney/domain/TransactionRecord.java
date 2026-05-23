@@ -46,12 +46,8 @@ public class TransactionRecord implements Serializable {
     private BigDecimal receiveAmount;
 
     @NotNull
-    @Column(name = "transaction_date", nullable = false)
-    private Instant transactionDate;
-
-    @Size(max = 255)
-    @Column(name = "description", length = 255)
-    private String description;
+    @Column(name = "exchange_rate", precision = 21, scale = 2, nullable = false)
+    private BigDecimal exchangeRate;
 
     @NotNull
     @Enumerated(EnumType.STRING)
@@ -73,6 +69,10 @@ public class TransactionRecord implements Serializable {
     @Column(name = "transaction_reference", length = 64, nullable = false, unique = true)
     private String transactionReference;
 
+    @Size(max = 255)
+    @Column(name = "description", length = 255)
+    private String description;
+
     @NotNull
     @Min(value = 0)
     @Max(value = 100)
@@ -91,12 +91,16 @@ public class TransactionRecord implements Serializable {
     @Column(name = "updated_at")
     private Instant updatedAt;
 
+    @NotNull
+    @Column(name = "transaction_date", nullable = false)
+    private Instant transactionDate;
+
     @ManyToOne(fetch = FetchType.LAZY)
-    @JsonIgnoreProperties(value = { "user" }, allowSetters = true)
+    @JsonIgnoreProperties(value = { "user", "transactionLimit" }, allowSetters = true)
     private BankAccount sender;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JsonIgnoreProperties(value = { "user" }, allowSetters = true)
+    @JsonIgnoreProperties(value = { "user", "transactionLimit" }, allowSetters = true)
     private BankAccount receiver;
 
     // jhipster-needle-entity-add-field - JHipster will add fields here
@@ -153,30 +157,17 @@ public class TransactionRecord implements Serializable {
         this.receiveAmount = receiveAmount;
     }
 
-    public Instant getTransactionDate() {
-        return this.transactionDate;
+    public BigDecimal getExchangeRate() {
+        return this.exchangeRate;
     }
 
-    public TransactionRecord transactionDate(Instant transactionDate) {
-        this.setTransactionDate(transactionDate);
+    public TransactionRecord exchangeRate(BigDecimal exchangeRate) {
+        this.setExchangeRate(exchangeRate);
         return this;
     }
 
-    public void setTransactionDate(Instant transactionDate) {
-        this.transactionDate = transactionDate;
-    }
-
-    public String getDescription() {
-        return this.description;
-    }
-
-    public TransactionRecord description(String description) {
-        this.setDescription(description);
-        return this;
-    }
-
-    public void setDescription(String description) {
-        this.description = description;
+    public void setExchangeRate(BigDecimal exchangeRate) {
+        this.exchangeRate = exchangeRate;
     }
 
     public Currency getCurrencySendAmount() {
@@ -231,6 +222,19 @@ public class TransactionRecord implements Serializable {
         this.transactionReference = transactionReference;
     }
 
+    public String getDescription() {
+        return this.description;
+    }
+
+    public TransactionRecord description(String description) {
+        this.setDescription(description);
+        return this;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
     public Integer getRiskScore() {
         return this.riskScore;
     }
@@ -283,6 +287,19 @@ public class TransactionRecord implements Serializable {
         this.updatedAt = updatedAt;
     }
 
+    public Instant getTransactionDate() {
+        return this.transactionDate;
+    }
+
+    public TransactionRecord transactionDate(Instant transactionDate) {
+        this.setTransactionDate(transactionDate);
+        return this;
+    }
+
+    public void setTransactionDate(Instant transactionDate) {
+        this.transactionDate = transactionDate;
+    }
+
     public BankAccount getSender() {
         return this.sender;
     }
@@ -307,14 +324,6 @@ public class TransactionRecord implements Serializable {
     public TransactionRecord receiver(BankAccount bankAccount) {
         this.setReceiver(bankAccount);
         return this;
-    }
-
-    @PrePersist
-    public void prePersist() {
-        Instant now = Instant.now();
-        this.createdAt = now;
-        this.updatedAt = now;
-        this.transactionDate = now;
     }
 
     // jhipster-needle-entity-add-getters-setters - JHipster will add getters and setters here
@@ -344,16 +353,17 @@ public class TransactionRecord implements Serializable {
             ", transactionType='" + getTransactionType() + "'" +
             ", sendAmount=" + getSendAmount() +
             ", receiveAmount=" + getReceiveAmount() +
-            ", transactionDate='" + getTransactionDate() + "'" +
-            ", description='" + getDescription() + "'" +
+            ", exchangeRate=" + getExchangeRate() +
             ", currencySendAmount='" + getCurrencySendAmount() + "'" +
             ", currencyReceiveAmount='" + getCurrencyReceiveAmount() + "'" +
             ", transactionStatus='" + getTransactionStatus() + "'" +
             ", transactionReference='" + getTransactionReference() + "'" +
+            ", description='" + getDescription() + "'" +
             ", riskScore=" + getRiskScore() +
             ", fraudStatus='" + getFraudStatus() + "'" +
             ", createdAt='" + getCreatedAt() + "'" +
             ", updatedAt='" + getUpdatedAt() + "'" +
+            ", transactionDate='" + getTransactionDate() + "'" +
             "}";
     }
 }

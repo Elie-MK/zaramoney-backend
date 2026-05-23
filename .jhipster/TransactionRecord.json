@@ -9,7 +9,7 @@
       "fieldName": "transactionType",
       "fieldType": "TransactionType",
       "fieldValidateRules": ["required"],
-      "fieldValues": "DEPOSIT,WITHDRAWAL,TRANSFER"
+      "fieldValues": "DEPOSIT,WITHDRAWAL,TRANSFER,PAYMENT,REFUND,FEE,REVERSAL"
     },
     {
       "fieldName": "sendAmount",
@@ -24,15 +24,9 @@
       "fieldValidateRulesMin": "1.00"
     },
     {
-      "fieldName": "transactionDate",
-      "fieldType": "Instant",
+      "fieldName": "exchangeRate",
+      "fieldType": "BigDecimal",
       "fieldValidateRules": ["required"]
-    },
-    {
-      "fieldName": "description",
-      "fieldType": "String",
-      "fieldValidateRules": ["maxlength"],
-      "fieldValidateRulesMaxlength": "255"
     },
     {
       "fieldName": "currencySendAmount",
@@ -60,6 +54,12 @@
       "fieldValidateRulesMinlength": "10"
     },
     {
+      "fieldName": "description",
+      "fieldType": "String",
+      "fieldValidateRules": ["maxlength"],
+      "fieldValidateRulesMaxlength": "255"
+    },
+    {
       "fieldName": "riskScore",
       "fieldType": "Integer",
       "fieldValidateRules": ["required", "min", "max"],
@@ -80,6 +80,11 @@
     {
       "fieldName": "updatedAt",
       "fieldType": "Instant"
+    },
+    {
+      "fieldName": "transactionDate",
+      "fieldType": "Instant",
+      "fieldValidateRules": ["required"]
     }
   ],
   "jpaMetamodelFiltering": true,

@@ -1,11 +1,11 @@
-id;phone_number;face_picture;id_card_picture;country;address;is_agent
-1;boohoo bah inasmuch;boom modulo prickly;dwell husky;Algeria;more;true
-2;yawningly gah;shaft;fooey although;Anguilla;incomparable annually;false
-3;inasmuch;duh eek;damp;Guadeloupe;regularly;true
-4;vastly only;psst concerning brood;mmm inveigle scarification;Rwanda;apprehensive;false
-5;knickers;beautifully whoa;fit however digestive;Reunion;duh since;true
-6;demonstrate verbally;now shirk;quizzically;Gibraltar;buttery lest;true
-7;caring;unfortunately;apropos blindly;Cayman Islands;pfft with yummy;true
-8;that;alongside;fat unless supposing;Cayman Islands;blissfully quiet devil;false
-9;infinite so;playfully;distant quiet quicker;Guatemala;gleefully whoa;true
-10;until;inhibit concerning;about;Belgium;familiar;false
+id;phone_number;face_picture;id_card_picture;country;address;is_agent;kyc_status
+1;boohoo bah inasmuch;boom modulo prickly;dwell husky;Algeria;more;true;VERIFIED
+2;that ceramics shaft;fooey although;scuffle continually outside;Burkina Faso;yawningly dependable sock;false;VERIFIED
+3;skyline;cross quiet towards;towards;Suriname;incinerate pants pace;false;VERIFIED
+4;warmhearted;gosh nightlife poorly;quietly fatally yowza;Dominican Republic;uh-huh cap gentle;true;VERIFIED
+5;hoot;urban creaking;tighten;Singapore;quizzically;false;VERIFIED
+6;buttery lest;whereas;briskly;Germany;bewail so;true;REJECTED
+7;in guilt junior;that;alongside;Gambia;punctually obscure anti;false;VERIFIED
+8;or internal ghost;vastly even playfully;distant quiet quicker;Guatemala;gleefully whoa;true;PENDING
+9;likewise inhibit;as;boohoo;Anguilla;owlishly;false;PENDING
+10;yearningly aboard given;worth shear geez;jaggedly;Eritrea;foolishly;false;REJECTED

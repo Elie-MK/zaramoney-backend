@@ -1,0 +1,11 @@
+id;title;message;type;channel;status;is_read;deep_link;created_at;sent_at;data
+1;boohoo once asset;tuxedo huzzah;SYSTEM;SMS;FAILED;false;ice-cream querulous unless;2026-05-23T02:44:45;2026-05-22T12:34:55;../fake-data/blob/hipster.txt
+2;what bravely;alarmed deck highly;TRANSACTION_ALERT;SMS;PENDING;false;towards decouple admired;2026-05-22T23:41:05;2026-05-23T00:25:01;../fake-data/blob/hipster.txt
+3;incinerate;an;FRAUD_ALERT;PUSH;FAILED;false;obnoxiously;2026-05-22T20:59:27;2026-05-22T23:02:50;../fake-data/blob/hipster.txt
+4;thoroughly bowed;outside poor righteously;FRAUD_ALERT;SMS;FAILED;true;huzzah unlined willow;2026-05-22T13:35:45;2026-05-22T18:14:26;../fake-data/blob/hipster.txt
+5;wonderfully modulo recede;table and;SECURITY_ALERT;PUSH;SENT;false;though;2026-05-23T08:22:46;2026-05-23T06:28:25;../fake-data/blob/hipster.txt
+6;whoever pilot;broadly powerless;TRANSACTION_ALERT;EMAIL;SENT;true;delight on;2026-05-22T17:15:10;2026-05-22T17:33:36;../fake-data/blob/hipster.txt
+7;near upside-down before;devoted creator boohoo;SECURITY_ALERT;SMS;FAILED;true;tuba not;2026-05-22T22:27:24;2026-05-23T06:23:15;../fake-data/blob/hipster.txt
+8;boohoo;given separately;TRANSACTION_ALERT;SMS;FAILED;false;zowie;2026-05-22T22:54:34;2026-05-22T11:35:47;../fake-data/blob/hipster.txt
+9;yuck when;abaft for inasmuch;SECURITY_ALERT;EMAIL;FAILED;true;mooch priesthood;2026-05-22T21:36:43;2026-05-23T10:39:30;../fake-data/blob/hipster.txt
+10;true meh unusual;sunbeam;SECURITY_ALERT;EMAIL;FAILED;false;throughout;2026-05-23T05:00:09;2026-05-23T06:42:24;../fake-data/blob/hipster.txt

@@ -1,9 +1,11 @@
 package com.zekodnix.zaramoney.service.dto;
 
+import com.zekodnix.zaramoney.domain.enumeration.AccountStatus;
 import com.zekodnix.zaramoney.domain.enumeration.Currency;
 import jakarta.validation.constraints.*;
 import java.io.Serializable;
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.Objects;
 
 /**
@@ -23,6 +25,12 @@ public class BankAccountDTO implements Serializable {
 
     @NotNull
     private Currency currency;
+
+    @NotNull
+    private AccountStatus status;
+
+    @NotNull
+    private Instant createdAt;
 
     private UserDTO user;
 
@@ -56,6 +64,22 @@ public class BankAccountDTO implements Serializable {
 
     public void setCurrency(Currency currency) {
         this.currency = currency;
+    }
+
+    public AccountStatus getStatus() {
+        return status;
+    }
+
+    public void setStatus(AccountStatus status) {
+        this.status = status;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(Instant createdAt) {
+        this.createdAt = createdAt;
     }
 
     public UserDTO getUser() {
@@ -95,6 +119,8 @@ public class BankAccountDTO implements Serializable {
             ", accountNumber='" + getAccountNumber() + "'" +
             ", balance=" + getBalance() +
             ", currency='" + getCurrency() + "'" +
+            ", status='" + getStatus() + "'" +
+            ", createdAt='" + getCreatedAt() + "'" +
             ", user=" + getUser() +
             "}";
     }

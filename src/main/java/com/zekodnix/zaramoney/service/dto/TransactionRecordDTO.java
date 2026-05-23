@@ -30,10 +30,7 @@ public class TransactionRecordDTO implements Serializable {
     private BigDecimal receiveAmount;
 
     @NotNull
-    private Instant transactionDate;
-
-    @Size(max = 255)
-    private String description;
+    private BigDecimal exchangeRate;
 
     @NotNull
     private Currency currencySendAmount;
@@ -48,6 +45,9 @@ public class TransactionRecordDTO implements Serializable {
     @Size(min = 10, max = 64)
     private String transactionReference;
 
+    @Size(max = 255)
+    private String description;
+
     @NotNull
     @Min(value = 0)
     @Max(value = 100)
@@ -60,6 +60,9 @@ public class TransactionRecordDTO implements Serializable {
     private Instant createdAt;
 
     private Instant updatedAt;
+
+    @NotNull
+    private Instant transactionDate;
 
     private BankAccountDTO sender;
 
@@ -97,20 +100,12 @@ public class TransactionRecordDTO implements Serializable {
         this.receiveAmount = receiveAmount;
     }
 
-    public Instant getTransactionDate() {
-        return transactionDate;
+    public BigDecimal getExchangeRate() {
+        return exchangeRate;
     }
 
-    public void setTransactionDate(Instant transactionDate) {
-        this.transactionDate = transactionDate;
-    }
-
-    public String getDescription() {
-        return description;
-    }
-
-    public void setDescription(String description) {
-        this.description = description;
+    public void setExchangeRate(BigDecimal exchangeRate) {
+        this.exchangeRate = exchangeRate;
     }
 
     public Currency getCurrencySendAmount() {
@@ -145,6 +140,14 @@ public class TransactionRecordDTO implements Serializable {
         this.transactionReference = transactionReference;
     }
 
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
     public Integer getRiskScore() {
         return riskScore;
     }
@@ -175,6 +178,14 @@ public class TransactionRecordDTO implements Serializable {
 
     public void setUpdatedAt(Instant updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public Instant getTransactionDate() {
+        return transactionDate;
+    }
+
+    public void setTransactionDate(Instant transactionDate) {
+        this.transactionDate = transactionDate;
     }
 
     public BankAccountDTO getSender() {
@@ -222,16 +233,17 @@ public class TransactionRecordDTO implements Serializable {
             ", transactionType='" + getTransactionType() + "'" +
             ", sendAmount=" + getSendAmount() +
             ", receiveAmount=" + getReceiveAmount() +
-            ", transactionDate='" + getTransactionDate() + "'" +
-            ", description='" + getDescription() + "'" +
+            ", exchangeRate=" + getExchangeRate() +
             ", currencySendAmount='" + getCurrencySendAmount() + "'" +
             ", currencyReceiveAmount='" + getCurrencyReceiveAmount() + "'" +
             ", transactionStatus='" + getTransactionStatus() + "'" +
             ", transactionReference='" + getTransactionReference() + "'" +
+            ", description='" + getDescription() + "'" +
             ", riskScore=" + getRiskScore() +
             ", fraudStatus='" + getFraudStatus() + "'" +
             ", createdAt='" + getCreatedAt() + "'" +
             ", updatedAt='" + getUpdatedAt() + "'" +
+            ", transactionDate='" + getTransactionDate() + "'" +
             ", sender=" + getSender() +
             ", receiver=" + getReceiver() +
             "}";

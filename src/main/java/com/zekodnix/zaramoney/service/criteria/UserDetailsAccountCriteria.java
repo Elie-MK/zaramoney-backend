@@ -1,5 +1,6 @@
 package com.zekodnix.zaramoney.service.criteria;
 
+import com.zekodnix.zaramoney.domain.enumeration.KycStatus;
 import java.io.Serializable;
 import java.util.Objects;
 import java.util.Optional;
@@ -20,6 +21,23 @@ import tech.jhipster.service.filter.*;
 @SuppressWarnings("common-java:DuplicatedBlocks")
 public class UserDetailsAccountCriteria implements Serializable, Criteria {
 
+    /**
+     * Class for filtering KycStatus
+     */
+    public static class KycStatusFilter extends Filter<KycStatus> {
+
+        public KycStatusFilter() {}
+
+        public KycStatusFilter(KycStatusFilter filter) {
+            super(filter);
+        }
+
+        @Override
+        public KycStatusFilter copy() {
+            return new KycStatusFilter(this);
+        }
+    }
+
     private static final long serialVersionUID = 1L;
 
     private LongFilter id;
@@ -36,6 +54,8 @@ public class UserDetailsAccountCriteria implements Serializable, Criteria {
 
     private BooleanFilter isAgent;
 
+    private KycStatusFilter kycStatus;
+
     private LongFilter userId;
 
     private Boolean distinct;
@@ -50,6 +70,7 @@ public class UserDetailsAccountCriteria implements Serializable, Criteria {
         this.country = other.optionalCountry().map(StringFilter::copy).orElse(null);
         this.address = other.optionalAddress().map(StringFilter::copy).orElse(null);
         this.isAgent = other.optionalIsAgent().map(BooleanFilter::copy).orElse(null);
+        this.kycStatus = other.optionalKycStatus().map(KycStatusFilter::copy).orElse(null);
         this.userId = other.optionalUserId().map(LongFilter::copy).orElse(null);
         this.distinct = other.distinct;
     }
@@ -192,6 +213,25 @@ public class UserDetailsAccountCriteria implements Serializable, Criteria {
         this.isAgent = isAgent;
     }
 
+    public KycStatusFilter getKycStatus() {
+        return kycStatus;
+    }
+
+    public Optional<KycStatusFilter> optionalKycStatus() {
+        return Optional.ofNullable(kycStatus);
+    }
+
+    public KycStatusFilter kycStatus() {
+        if (kycStatus == null) {
+            setKycStatus(new KycStatusFilter());
+        }
+        return kycStatus;
+    }
+
+    public void setKycStatus(KycStatusFilter kycStatus) {
+        this.kycStatus = kycStatus;
+    }
+
     public LongFilter getUserId() {
         return userId;
     }
@@ -247,6 +287,7 @@ public class UserDetailsAccountCriteria implements Serializable, Criteria {
             Objects.equals(country, that.country) &&
             Objects.equals(address, that.address) &&
             Objects.equals(isAgent, that.isAgent) &&
+            Objects.equals(kycStatus, that.kycStatus) &&
             Objects.equals(userId, that.userId) &&
             Objects.equals(distinct, that.distinct)
         );
@@ -254,7 +295,7 @@ public class UserDetailsAccountCriteria implements Serializable, Criteria {
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, phoneNumber, facePicture, idCardPicture, country, address, isAgent, userId, distinct);
+        return Objects.hash(id, phoneNumber, facePicture, idCardPicture, country, address, isAgent, kycStatus, userId, distinct);
     }
 
     // prettier-ignore
@@ -268,6 +309,7 @@ public class UserDetailsAccountCriteria implements Serializable, Criteria {
             optionalCountry().map(f -> "country=" + f + ", ").orElse("") +
             optionalAddress().map(f -> "address=" + f + ", ").orElse("") +
             optionalIsAgent().map(f -> "isAgent=" + f + ", ").orElse("") +
+            optionalKycStatus().map(f -> "kycStatus=" + f + ", ").orElse("") +
             optionalUserId().map(f -> "userId=" + f + ", ").orElse("") +
             optionalDistinct().map(f -> "distinct=" + f + ", ").orElse("") +
         "}";

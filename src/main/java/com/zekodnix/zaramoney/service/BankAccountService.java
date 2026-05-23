@@ -4,14 +4,15 @@ import com.zekodnix.zaramoney.domain.BankAccount;
 import com.zekodnix.zaramoney.repository.BankAccountRepository;
 import com.zekodnix.zaramoney.service.dto.BankAccountDTO;
 import com.zekodnix.zaramoney.service.mapper.BankAccountMapper;
-import jakarta.persistence.LockModeType;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.repository.Lock;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -86,6 +87,19 @@ public class BankAccountService {
      */
     public Page<BankAccountDTO> findAllWithEagerRelationships(Pageable pageable) {
         return bankAccountRepository.findAllWithEagerRelationships(pageable).map(bankAccountMapper::toDto);
+    }
+
+    /**
+     *  Get all the bankAccounts where TransactionLimit is {@code null}.
+     *  @return the list of entities.
+     */
+    @Transactional(readOnly = true)
+    public List<BankAccountDTO> findAllWhereTransactionLimitIsNull() {
+        LOG.debug("Request to get all bankAccounts where TransactionLimit is null");
+        return StreamSupport.stream(bankAccountRepository.findAll().spliterator(), false)
+            .filter(bankAccount -> bankAccount.getTransactionLimit() == null)
+            .map(bankAccountMapper::toDto)
+            .collect(Collectors.toCollection(LinkedList::new));
     }
 
     /**

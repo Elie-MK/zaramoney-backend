@@ -1,11 +1,11 @@
-id;account_number;balance;currency
-1;frantically exce;21151;USD
-2;whitewash likewi;18436.22;USD
-3;proXXXXX;19640.24;USD
-4;log consequently;26264.59;USD
-5;lumbering readil;6861.8;USD
-6;defragXX;14407.91;TND
-7;gerbilXX;18726;TND
-8;finally while sn;15938.87;USD
-9;valiantly becaus;25762.84;USD
-10;gadzooks singe i;52.36;TND
+id;account_number;balance;currency;status;created_at
+1;frantically exce;21151;USD;CLOSED;2026-03-16T20:04:56
+2;apropos however;18130.67;USD;SUSPENDED;2026-03-17T13:29:10
+3;battle internali;345.68;TND;CLOSED;2026-03-17T05:07:58
+4;awXXXXXX;16308.82;TND;ACTIVE;2026-03-17T14:20:06
+5;whenever;22101.38;TND;ACTIVE;2026-03-17T13:11:02
+6;seemingly obedie;32344.35;USD;ACTIVE;2026-03-16T23:33:25
+7;affiliate stupen;21157.22;TND;SUSPENDED;2026-03-16T22:54:13
+8;whileXXX;15660.93;TND;CLOSED;2026-03-17T02:55:14
+9;march cross if;21891.01;TND;ACTIVE;2026-03-16T20:32:00
+10;considering thro;16366.77;USD;SUSPENDED;2026-03-16T18:28:12

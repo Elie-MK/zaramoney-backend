@@ -13,6 +13,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zekodnix.zaramoney.IntegrationTest;
 import com.zekodnix.zaramoney.domain.BankAccount;
 import com.zekodnix.zaramoney.domain.User;
+import com.zekodnix.zaramoney.domain.enumeration.AccountStatus;
 import com.zekodnix.zaramoney.domain.enumeration.Currency;
 import com.zekodnix.zaramoney.repository.BankAccountRepository;
 import com.zekodnix.zaramoney.repository.UserRepository;
@@ -21,6 +22,8 @@ import com.zekodnix.zaramoney.service.dto.BankAccountDTO;
 import com.zekodnix.zaramoney.service.mapper.BankAccountMapper;
 import jakarta.persistence.EntityManager;
 import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicLong;
@@ -57,6 +60,12 @@ class BankAccountResourceIT {
 
     private static final Currency DEFAULT_CURRENCY = Currency.USD;
     private static final Currency UPDATED_CURRENCY = Currency.TND;
+
+    private static final AccountStatus DEFAULT_STATUS = AccountStatus.ACTIVE;
+    private static final AccountStatus UPDATED_STATUS = AccountStatus.SUSPENDED;
+
+    private static final Instant DEFAULT_CREATED_AT = Instant.ofEpochMilli(0L);
+    private static final Instant UPDATED_CREATED_AT = Instant.now().truncatedTo(ChronoUnit.MILLIS);
 
     private static final String ENTITY_API_URL = "/api/bank-accounts";
     private static final String ENTITY_API_URL_ID = ENTITY_API_URL + "/{id}";
@@ -99,7 +108,12 @@ class BankAccountResourceIT {
      * if they test an entity which requires the current entity.
      */
     public static BankAccount createEntity() {
-        return new BankAccount().accountNumber(DEFAULT_ACCOUNT_NUMBER).balance(DEFAULT_BALANCE).currency(DEFAULT_CURRENCY);
+        return new BankAccount()
+            .accountNumber(DEFAULT_ACCOUNT_NUMBER)
+            .balance(DEFAULT_BALANCE)
+            .currency(DEFAULT_CURRENCY)
+            .status(DEFAULT_STATUS)
+            .createdAt(DEFAULT_CREATED_AT);
     }
 
     /**
@@ -109,7 +123,12 @@ class BankAccountResourceIT {
      * if they test an entity which requires the current entity.
      */
     public static BankAccount createUpdatedEntity() {
-        return new BankAccount().accountNumber(UPDATED_ACCOUNT_NUMBER).balance(UPDATED_BALANCE).currency(UPDATED_CURRENCY);
+        return new BankAccount()
+            .accountNumber(UPDATED_ACCOUNT_NUMBER)
+            .balance(UPDATED_BALANCE)
+            .currency(UPDATED_CURRENCY)
+            .status(UPDATED_STATUS)
+            .createdAt(UPDATED_CREATED_AT);
     }
 
     @BeforeEach
@@ -220,6 +239,40 @@ class BankAccountResourceIT {
 
     @Test
     @Transactional
+    void checkStatusIsRequired() throws Exception {
+        long databaseSizeBeforeTest = getRepositoryCount();
+        // set the field null
+        bankAccount.setStatus(null);
+
+        // Create the BankAccount, which fails.
+        BankAccountDTO bankAccountDTO = bankAccountMapper.toDto(bankAccount);
+
+        restBankAccountMockMvc
+            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(bankAccountDTO)))
+            .andExpect(status().isBadRequest());
+
+        assertSameRepositoryCount(databaseSizeBeforeTest);
+    }
+
+    @Test
+    @Transactional
+    void checkCreatedAtIsRequired() throws Exception {
+        long databaseSizeBeforeTest = getRepositoryCount();
+        // set the field null
+        bankAccount.setCreatedAt(null);
+
+        // Create the BankAccount, which fails.
+        BankAccountDTO bankAccountDTO = bankAccountMapper.toDto(bankAccount);
+
+        restBankAccountMockMvc
+            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(bankAccountDTO)))
+            .andExpect(status().isBadRequest());
+
+        assertSameRepositoryCount(databaseSizeBeforeTest);
+    }
+
+    @Test
+    @Transactional
     void getAllBankAccounts() throws Exception {
         // Initialize the database
         insertedBankAccount = bankAccountRepository.saveAndFlush(bankAccount);
@@ -232,7 +285,9 @@ class BankAccountResourceIT {
             .andExpect(jsonPath("$.[*].id").value(hasItem(bankAccount.getId().intValue())))
             .andExpect(jsonPath("$.[*].accountNumber").value(hasItem(DEFAULT_ACCOUNT_NUMBER)))
             .andExpect(jsonPath("$.[*].balance").value(hasItem(sameNumber(DEFAULT_BALANCE))))
-            .andExpect(jsonPath("$.[*].currency").value(hasItem(DEFAULT_CURRENCY.toString())));
+            .andExpect(jsonPath("$.[*].currency").value(hasItem(DEFAULT_CURRENCY.toString())))
+            .andExpect(jsonPath("$.[*].status").value(hasItem(DEFAULT_STATUS.toString())))
+            .andExpect(jsonPath("$.[*].createdAt").value(hasItem(DEFAULT_CREATED_AT.toString())));
     }
 
     @SuppressWarnings({ "unchecked" })
@@ -266,7 +321,9 @@ class BankAccountResourceIT {
             .andExpect(jsonPath("$.id").value(bankAccount.getId().intValue()))
             .andExpect(jsonPath("$.accountNumber").value(DEFAULT_ACCOUNT_NUMBER))
             .andExpect(jsonPath("$.balance").value(sameNumber(DEFAULT_BALANCE)))
-            .andExpect(jsonPath("$.currency").value(DEFAULT_CURRENCY.toString()));
+            .andExpect(jsonPath("$.currency").value(DEFAULT_CURRENCY.toString()))
+            .andExpect(jsonPath("$.status").value(DEFAULT_STATUS.toString()))
+            .andExpect(jsonPath("$.createdAt").value(DEFAULT_CREATED_AT.toString()));
     }
 
     @Test
@@ -442,6 +499,66 @@ class BankAccountResourceIT {
 
     @Test
     @Transactional
+    void getAllBankAccountsByStatusIsEqualToSomething() throws Exception {
+        // Initialize the database
+        insertedBankAccount = bankAccountRepository.saveAndFlush(bankAccount);
+
+        // Get all the bankAccountList where status equals to
+        defaultBankAccountFiltering("status.equals=" + DEFAULT_STATUS, "status.equals=" + UPDATED_STATUS);
+    }
+
+    @Test
+    @Transactional
+    void getAllBankAccountsByStatusIsInShouldWork() throws Exception {
+        // Initialize the database
+        insertedBankAccount = bankAccountRepository.saveAndFlush(bankAccount);
+
+        // Get all the bankAccountList where status in
+        defaultBankAccountFiltering("status.in=" + DEFAULT_STATUS + "," + UPDATED_STATUS, "status.in=" + UPDATED_STATUS);
+    }
+
+    @Test
+    @Transactional
+    void getAllBankAccountsByStatusIsNullOrNotNull() throws Exception {
+        // Initialize the database
+        insertedBankAccount = bankAccountRepository.saveAndFlush(bankAccount);
+
+        // Get all the bankAccountList where status is not null
+        defaultBankAccountFiltering("status.specified=true", "status.specified=false");
+    }
+
+    @Test
+    @Transactional
+    void getAllBankAccountsByCreatedAtIsEqualToSomething() throws Exception {
+        // Initialize the database
+        insertedBankAccount = bankAccountRepository.saveAndFlush(bankAccount);
+
+        // Get all the bankAccountList where createdAt equals to
+        defaultBankAccountFiltering("createdAt.equals=" + DEFAULT_CREATED_AT, "createdAt.equals=" + UPDATED_CREATED_AT);
+    }
+
+    @Test
+    @Transactional
+    void getAllBankAccountsByCreatedAtIsInShouldWork() throws Exception {
+        // Initialize the database
+        insertedBankAccount = bankAccountRepository.saveAndFlush(bankAccount);
+
+        // Get all the bankAccountList where createdAt in
+        defaultBankAccountFiltering("createdAt.in=" + DEFAULT_CREATED_AT + "," + UPDATED_CREATED_AT, "createdAt.in=" + UPDATED_CREATED_AT);
+    }
+
+    @Test
+    @Transactional
+    void getAllBankAccountsByCreatedAtIsNullOrNotNull() throws Exception {
+        // Initialize the database
+        insertedBankAccount = bankAccountRepository.saveAndFlush(bankAccount);
+
+        // Get all the bankAccountList where createdAt is not null
+        defaultBankAccountFiltering("createdAt.specified=true", "createdAt.specified=false");
+    }
+
+    @Test
+    @Transactional
     void getAllBankAccountsByUserIsEqualToSomething() throws Exception {
         User user;
         if (TestUtil.findAll(em, User.class).isEmpty()) {
@@ -478,7 +595,9 @@ class BankAccountResourceIT {
             .andExpect(jsonPath("$.[*].id").value(hasItem(bankAccount.getId().intValue())))
             .andExpect(jsonPath("$.[*].accountNumber").value(hasItem(DEFAULT_ACCOUNT_NUMBER)))
             .andExpect(jsonPath("$.[*].balance").value(hasItem(sameNumber(DEFAULT_BALANCE))))
-            .andExpect(jsonPath("$.[*].currency").value(hasItem(DEFAULT_CURRENCY.toString())));
+            .andExpect(jsonPath("$.[*].currency").value(hasItem(DEFAULT_CURRENCY.toString())))
+            .andExpect(jsonPath("$.[*].status").value(hasItem(DEFAULT_STATUS.toString())))
+            .andExpect(jsonPath("$.[*].createdAt").value(hasItem(DEFAULT_CREATED_AT.toString())));
 
         // Check, that the count call also returns 1
         restBankAccountMockMvc
@@ -526,7 +645,12 @@ class BankAccountResourceIT {
         BankAccount updatedBankAccount = bankAccountRepository.findById(bankAccount.getId()).orElseThrow();
         // Disconnect from session so that the updates on updatedBankAccount are not directly saved in db
         em.detach(updatedBankAccount);
-        updatedBankAccount.accountNumber(UPDATED_ACCOUNT_NUMBER).balance(UPDATED_BALANCE).currency(UPDATED_CURRENCY);
+        updatedBankAccount
+            .accountNumber(UPDATED_ACCOUNT_NUMBER)
+            .balance(UPDATED_BALANCE)
+            .currency(UPDATED_CURRENCY)
+            .status(UPDATED_STATUS)
+            .createdAt(UPDATED_CREATED_AT);
         BankAccountDTO bankAccountDTO = bankAccountMapper.toDto(updatedBankAccount);
 
         restBankAccountMockMvc
@@ -616,7 +740,7 @@ class BankAccountResourceIT {
         BankAccount partialUpdatedBankAccount = new BankAccount();
         partialUpdatedBankAccount.setId(bankAccount.getId());
 
-        partialUpdatedBankAccount.currency(UPDATED_CURRENCY);
+        partialUpdatedBankAccount.balance(UPDATED_BALANCE).currency(UPDATED_CURRENCY).status(UPDATED_STATUS);
 
         restBankAccountMockMvc
             .perform(
@@ -647,7 +771,12 @@ class BankAccountResourceIT {
         BankAccount partialUpdatedBankAccount = new BankAccount();
         partialUpdatedBankAccount.setId(bankAccount.getId());
 
-        partialUpdatedBankAccount.accountNumber(UPDATED_ACCOUNT_NUMBER).balance(UPDATED_BALANCE).currency(UPDATED_CURRENCY);
+        partialUpdatedBankAccount
+            .accountNumber(UPDATED_ACCOUNT_NUMBER)
+            .balance(UPDATED_BALANCE)
+            .currency(UPDATED_CURRENCY)
+            .status(UPDATED_STATUS)
+            .createdAt(UPDATED_CREATED_AT);
 
         restBankAccountMockMvc
             .perform(

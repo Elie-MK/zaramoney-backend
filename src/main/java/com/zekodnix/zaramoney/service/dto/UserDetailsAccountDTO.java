@@ -1,5 +1,6 @@
 package com.zekodnix.zaramoney.service.dto;
 
+import com.zekodnix.zaramoney.domain.enumeration.KycStatus;
 import jakarta.validation.constraints.*;
 import java.io.Serializable;
 import java.util.Objects;
@@ -29,6 +30,9 @@ public class UserDetailsAccountDTO implements Serializable {
 
     @NotNull
     private Boolean isAgent;
+
+    @NotNull
+    private KycStatus kycStatus;
 
     private UserDTO user;
 
@@ -88,6 +92,14 @@ public class UserDetailsAccountDTO implements Serializable {
         this.isAgent = isAgent;
     }
 
+    public KycStatus getKycStatus() {
+        return kycStatus;
+    }
+
+    public void setKycStatus(KycStatus kycStatus) {
+        this.kycStatus = kycStatus;
+    }
+
     public UserDTO getUser() {
         return user;
     }
@@ -128,6 +140,7 @@ public class UserDetailsAccountDTO implements Serializable {
             ", country='" + getCountry() + "'" +
             ", address='" + getAddress() + "'" +
             ", isAgent='" + getIsAgent() + "'" +
+            ", kycStatus='" + getKycStatus() + "'" +
             ", user=" + getUser() +
             "}";
     }

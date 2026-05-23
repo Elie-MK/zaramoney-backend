@@ -1,10 +1,13 @@
 package com.zekodnix.zaramoney.domain;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.zekodnix.zaramoney.domain.enumeration.AccountStatus;
 import com.zekodnix.zaramoney.domain.enumeration.Currency;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
 import java.io.Serializable;
 import java.math.BigDecimal;
+import java.time.Instant;
 import org.hibernate.annotations.Cache;
 import org.hibernate.annotations.CacheConcurrencyStrategy;
 
@@ -39,9 +42,21 @@ public class BankAccount implements Serializable {
     @Column(name = "currency", nullable = false)
     private Currency currency;
 
+    @NotNull
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false)
+    private AccountStatus status;
+
+    @NotNull
+    @Column(name = "created_at", nullable = false)
+    private Instant createdAt;
+
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
     private User user;
+
+    @JsonIgnoreProperties(value = { "account" }, allowSetters = true)
+    @OneToOne(fetch = FetchType.LAZY, mappedBy = "account")
+    private TransactionLimit transactionLimit;
 
     // jhipster-needle-entity-add-field - JHipster will add fields here
 
@@ -97,6 +112,32 @@ public class BankAccount implements Serializable {
         this.currency = currency;
     }
 
+    public AccountStatus getStatus() {
+        return this.status;
+    }
+
+    public BankAccount status(AccountStatus status) {
+        this.setStatus(status);
+        return this;
+    }
+
+    public void setStatus(AccountStatus status) {
+        this.status = status;
+    }
+
+    public Instant getCreatedAt() {
+        return this.createdAt;
+    }
+
+    public BankAccount createdAt(Instant createdAt) {
+        this.setCreatedAt(createdAt);
+        return this;
+    }
+
+    public void setCreatedAt(Instant createdAt) {
+        this.createdAt = createdAt;
+    }
+
     public User getUser() {
         return this.user;
     }
@@ -107,6 +148,25 @@ public class BankAccount implements Serializable {
 
     public BankAccount user(User user) {
         this.setUser(user);
+        return this;
+    }
+
+    public TransactionLimit getTransactionLimit() {
+        return this.transactionLimit;
+    }
+
+    public void setTransactionLimit(TransactionLimit transactionLimit) {
+        if (this.transactionLimit != null) {
+            this.transactionLimit.setAccount(null);
+        }
+        if (transactionLimit != null) {
+            transactionLimit.setAccount(this);
+        }
+        this.transactionLimit = transactionLimit;
+    }
+
+    public BankAccount transactionLimit(TransactionLimit transactionLimit) {
+        this.setTransactionLimit(transactionLimit);
         return this;
     }
 
@@ -137,6 +197,8 @@ public class BankAccount implements Serializable {
             ", accountNumber='" + getAccountNumber() + "'" +
             ", balance=" + getBalance() +
             ", currency='" + getCurrency() + "'" +
+            ", status='" + getStatus() + "'" +
+            ", createdAt='" + getCreatedAt() + "'" +
             "}";
     }
 }

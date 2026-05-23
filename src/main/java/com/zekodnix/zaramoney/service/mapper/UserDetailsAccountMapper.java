@@ -11,12 +11,11 @@ import org.mapstruct.*;
  */
 @Mapper(componentModel = "spring")
 public interface UserDetailsAccountMapper extends EntityMapper<UserDetailsAccountDTO, UserDetailsAccount> {
-    @Mapping(target = "user", source = "user", qualifiedByName = "userLogin")
+    @Mapping(target = "user", source = "user", qualifiedByName = "userId")
     UserDetailsAccountDTO toDto(UserDetailsAccount s);
 
-    @Named("userLogin")
+    @Named("userId")
     @BeanMapping(ignoreByDefault = true)
     @Mapping(target = "id", source = "id")
-    @Mapping(target = "login", source = "login")
-    UserDTO toDtoUserLogin(User user);
+    UserDTO toDtoUserId(User user);
 }

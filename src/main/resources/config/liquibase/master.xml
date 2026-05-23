@@ -29,7 +29,24 @@
   <include file="config/liquibase/changelog/20251215170623_added_entity_IdempotencyRecord.xml"
            relativeToChangelogFile="false"/>
 
-<!-- 21-03-2026  -->
+<!-- 23-05-2026  -->
+  <include file="config/liquibase/changelog/20260523104728_added_entity_LedgerEntry.xml"
+           relativeToChangelogFile="false"/>
+  <include file="config/liquibase/changelog/20260523104729_added_entity_TransactionFee.xml"
+           relativeToChangelogFile="false"/>
+  <include file="config/liquibase/changelog/20260523104730_added_entity_TransactionLimit.xml"
+           relativeToChangelogFile="false"/>
+  <include file="config/liquibase/changelog/20260523104731_added_entity_Notification.xml"
+           relativeToChangelogFile="false"/>
+  <include file="config/liquibase/changelog/20260523104728_added_entity_constraints_LedgerEntry.xml"
+           relativeToChangelogFile="false"/>
+  <include file="config/liquibase/changelog/20260523104729_added_entity_constraints_TransactionFee.xml"
+           relativeToChangelogFile="false"/>
+  <include file="config/liquibase/changelog/20260523104730_added_entity_constraints_TransactionLimit.xml"
+           relativeToChangelogFile="false"/>
+  <include file="config/liquibase/changelog/20260523104731_added_entity_constraints_Notification.xml"
+           relativeToChangelogFile="false"/>
+
 
   <!-- jhipster-needle-liquibase-add-changelog - JHipster will add liquibase changelogs here -->
   <!-- jhipster-needle-liquibase-add-constraints-changelog - JHipster will add liquibase constraints changelogs here -->

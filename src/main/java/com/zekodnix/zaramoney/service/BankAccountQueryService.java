@@ -77,7 +77,12 @@ public class BankAccountQueryService extends QueryService<BankAccount> {
                 buildStringSpecification(criteria.getAccountNumber(), BankAccount_.accountNumber),
                 buildRangeSpecification(criteria.getBalance(), BankAccount_.balance),
                 buildSpecification(criteria.getCurrency(), BankAccount_.currency),
-                buildSpecification(criteria.getUserId(), root -> root.join(BankAccount_.user, JoinType.LEFT).get(User_.id))
+                buildSpecification(criteria.getStatus(), BankAccount_.status),
+                buildRangeSpecification(criteria.getCreatedAt(), BankAccount_.createdAt),
+                buildSpecification(criteria.getUserId(), root -> root.join(BankAccount_.user, JoinType.LEFT).get(User_.id)),
+                buildSpecification(criteria.getTransactionLimitId(), root ->
+                    root.join(BankAccount_.transactionLimit, JoinType.LEFT).get(TransactionLimit_.id)
+                )
             );
         }
         return specification;

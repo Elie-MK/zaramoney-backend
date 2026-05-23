@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:ext="http://www.liquibase.org/xml/ns/dbchangelog-ext"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd
+                        http://www.liquibase.org/xml/ns/dbchangelog-ext http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-ext.xsd">
+    <!--
+        Added the constraints for entity LedgerEntry.
+    -->
+    <changeSet id="20260523104728-2" author="jhipster">
+
+        <addForeignKeyConstraint baseColumnNames="account_id"
+                                 baseTableName="ledger_entry"
+                                 constraintName="fk_ledger_entry__account_id"
+                                 referencedColumnNames="id"
+                                 referencedTableName="bank_account"
+                                 />
+
+        <addForeignKeyConstraint baseColumnNames="transaction_id"
+                                 baseTableName="ledger_entry"
+                                 constraintName="fk_ledger_entry__transaction_id"
+                                 referencedColumnNames="id"
+                                 referencedTableName="transaction_record"
+                                 />
+    </changeSet>
+</databaseChangeLog>

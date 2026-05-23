@@ -1,5 +1,6 @@
 package com.zekodnix.zaramoney.domain;
 
+import com.zekodnix.zaramoney.domain.enumeration.KycStatus;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
 import java.io.Serializable;
@@ -47,8 +48,13 @@ public class UserDetailsAccount implements Serializable {
     @Column(name = "is_agent", nullable = false)
     private Boolean isAgent;
 
+    @NotNull
+    @Enumerated(EnumType.STRING)
+    @Column(name = "kyc_status", nullable = false)
+    private KycStatus kycStatus;
+
     @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_login_id", unique = true)
+    @JoinColumn(unique = true)
     private User user;
 
     // jhipster-needle-entity-add-field - JHipster will add fields here
@@ -144,6 +150,19 @@ public class UserDetailsAccount implements Serializable {
         this.isAgent = isAgent;
     }
 
+    public KycStatus getKycStatus() {
+        return this.kycStatus;
+    }
+
+    public UserDetailsAccount kycStatus(KycStatus kycStatus) {
+        this.setKycStatus(kycStatus);
+        return this;
+    }
+
+    public void setKycStatus(KycStatus kycStatus) {
+        this.kycStatus = kycStatus;
+    }
+
     public User getUser() {
         return this.user;
     }
@@ -187,6 +206,7 @@ public class UserDetailsAccount implements Serializable {
             ", country='" + getCountry() + "'" +
             ", address='" + getAddress() + "'" +
             ", isAgent='" + getIsAgent() + "'" +
+            ", kycStatus='" + getKycStatus() + "'" +
             "}";
     }
 }

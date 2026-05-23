@@ -103,9 +103,7 @@ public class TransactionRecordCriteria implements Serializable, Criteria {
 
     private BigDecimalFilter receiveAmount;
 
-    private InstantFilter transactionDate;
-
-    private StringFilter description;
+    private BigDecimalFilter exchangeRate;
 
     private CurrencyFilter currencySendAmount;
 
@@ -115,6 +113,8 @@ public class TransactionRecordCriteria implements Serializable, Criteria {
 
     private StringFilter transactionReference;
 
+    private StringFilter description;
+
     private IntegerFilter riskScore;
 
     private FraudStatusFilter fraudStatus;
@@ -122,6 +122,8 @@ public class TransactionRecordCriteria implements Serializable, Criteria {
     private InstantFilter createdAt;
 
     private InstantFilter updatedAt;
+
+    private InstantFilter transactionDate;
 
     private LongFilter senderId;
 
@@ -136,16 +138,17 @@ public class TransactionRecordCriteria implements Serializable, Criteria {
         this.transactionType = other.optionalTransactionType().map(TransactionTypeFilter::copy).orElse(null);
         this.sendAmount = other.optionalSendAmount().map(BigDecimalFilter::copy).orElse(null);
         this.receiveAmount = other.optionalReceiveAmount().map(BigDecimalFilter::copy).orElse(null);
-        this.transactionDate = other.optionalTransactionDate().map(InstantFilter::copy).orElse(null);
-        this.description = other.optionalDescription().map(StringFilter::copy).orElse(null);
+        this.exchangeRate = other.optionalExchangeRate().map(BigDecimalFilter::copy).orElse(null);
         this.currencySendAmount = other.optionalCurrencySendAmount().map(CurrencyFilter::copy).orElse(null);
         this.currencyReceiveAmount = other.optionalCurrencyReceiveAmount().map(CurrencyFilter::copy).orElse(null);
         this.transactionStatus = other.optionalTransactionStatus().map(TransactionStatusFilter::copy).orElse(null);
         this.transactionReference = other.optionalTransactionReference().map(StringFilter::copy).orElse(null);
+        this.description = other.optionalDescription().map(StringFilter::copy).orElse(null);
         this.riskScore = other.optionalRiskScore().map(IntegerFilter::copy).orElse(null);
         this.fraudStatus = other.optionalFraudStatus().map(FraudStatusFilter::copy).orElse(null);
         this.createdAt = other.optionalCreatedAt().map(InstantFilter::copy).orElse(null);
         this.updatedAt = other.optionalUpdatedAt().map(InstantFilter::copy).orElse(null);
+        this.transactionDate = other.optionalTransactionDate().map(InstantFilter::copy).orElse(null);
         this.senderId = other.optionalSenderId().map(LongFilter::copy).orElse(null);
         this.receiverId = other.optionalReceiverId().map(LongFilter::copy).orElse(null);
         this.distinct = other.distinct;
@@ -232,42 +235,23 @@ public class TransactionRecordCriteria implements Serializable, Criteria {
         this.receiveAmount = receiveAmount;
     }
 
-    public InstantFilter getTransactionDate() {
-        return transactionDate;
+    public BigDecimalFilter getExchangeRate() {
+        return exchangeRate;
     }
 
-    public Optional<InstantFilter> optionalTransactionDate() {
-        return Optional.ofNullable(transactionDate);
+    public Optional<BigDecimalFilter> optionalExchangeRate() {
+        return Optional.ofNullable(exchangeRate);
     }
 
-    public InstantFilter transactionDate() {
-        if (transactionDate == null) {
-            setTransactionDate(new InstantFilter());
+    public BigDecimalFilter exchangeRate() {
+        if (exchangeRate == null) {
+            setExchangeRate(new BigDecimalFilter());
         }
-        return transactionDate;
+        return exchangeRate;
     }
 
-    public void setTransactionDate(InstantFilter transactionDate) {
-        this.transactionDate = transactionDate;
-    }
-
-    public StringFilter getDescription() {
-        return description;
-    }
-
-    public Optional<StringFilter> optionalDescription() {
-        return Optional.ofNullable(description);
-    }
-
-    public StringFilter description() {
-        if (description == null) {
-            setDescription(new StringFilter());
-        }
-        return description;
-    }
-
-    public void setDescription(StringFilter description) {
-        this.description = description;
+    public void setExchangeRate(BigDecimalFilter exchangeRate) {
+        this.exchangeRate = exchangeRate;
     }
 
     public CurrencyFilter getCurrencySendAmount() {
@@ -346,6 +330,25 @@ public class TransactionRecordCriteria implements Serializable, Criteria {
         this.transactionReference = transactionReference;
     }
 
+    public StringFilter getDescription() {
+        return description;
+    }
+
+    public Optional<StringFilter> optionalDescription() {
+        return Optional.ofNullable(description);
+    }
+
+    public StringFilter description() {
+        if (description == null) {
+            setDescription(new StringFilter());
+        }
+        return description;
+    }
+
+    public void setDescription(StringFilter description) {
+        this.description = description;
+    }
+
     public IntegerFilter getRiskScore() {
         return riskScore;
     }
@@ -422,6 +425,25 @@ public class TransactionRecordCriteria implements Serializable, Criteria {
         this.updatedAt = updatedAt;
     }
 
+    public InstantFilter getTransactionDate() {
+        return transactionDate;
+    }
+
+    public Optional<InstantFilter> optionalTransactionDate() {
+        return Optional.ofNullable(transactionDate);
+    }
+
+    public InstantFilter transactionDate() {
+        if (transactionDate == null) {
+            setTransactionDate(new InstantFilter());
+        }
+        return transactionDate;
+    }
+
+    public void setTransactionDate(InstantFilter transactionDate) {
+        this.transactionDate = transactionDate;
+    }
+
     public LongFilter getSenderId() {
         return senderId;
     }
@@ -493,16 +515,17 @@ public class TransactionRecordCriteria implements Serializable, Criteria {
             Objects.equals(transactionType, that.transactionType) &&
             Objects.equals(sendAmount, that.sendAmount) &&
             Objects.equals(receiveAmount, that.receiveAmount) &&
-            Objects.equals(transactionDate, that.transactionDate) &&
-            Objects.equals(description, that.description) &&
+            Objects.equals(exchangeRate, that.exchangeRate) &&
             Objects.equals(currencySendAmount, that.currencySendAmount) &&
             Objects.equals(currencyReceiveAmount, that.currencyReceiveAmount) &&
             Objects.equals(transactionStatus, that.transactionStatus) &&
             Objects.equals(transactionReference, that.transactionReference) &&
+            Objects.equals(description, that.description) &&
             Objects.equals(riskScore, that.riskScore) &&
             Objects.equals(fraudStatus, that.fraudStatus) &&
             Objects.equals(createdAt, that.createdAt) &&
             Objects.equals(updatedAt, that.updatedAt) &&
+            Objects.equals(transactionDate, that.transactionDate) &&
             Objects.equals(senderId, that.senderId) &&
             Objects.equals(receiverId, that.receiverId) &&
             Objects.equals(distinct, that.distinct)
@@ -516,16 +539,17 @@ public class TransactionRecordCriteria implements Serializable, Criteria {
             transactionType,
             sendAmount,
             receiveAmount,
-            transactionDate,
-            description,
+            exchangeRate,
             currencySendAmount,
             currencyReceiveAmount,
             transactionStatus,
             transactionReference,
+            description,
             riskScore,
             fraudStatus,
             createdAt,
             updatedAt,
+            transactionDate,
             senderId,
             receiverId,
             distinct
@@ -540,16 +564,17 @@ public class TransactionRecordCriteria implements Serializable, Criteria {
             optionalTransactionType().map(f -> "transactionType=" + f + ", ").orElse("") +
             optionalSendAmount().map(f -> "sendAmount=" + f + ", ").orElse("") +
             optionalReceiveAmount().map(f -> "receiveAmount=" + f + ", ").orElse("") +
-            optionalTransactionDate().map(f -> "transactionDate=" + f + ", ").orElse("") +
-            optionalDescription().map(f -> "description=" + f + ", ").orElse("") +
+            optionalExchangeRate().map(f -> "exchangeRate=" + f + ", ").orElse("") +
             optionalCurrencySendAmount().map(f -> "currencySendAmount=" + f + ", ").orElse("") +
             optionalCurrencyReceiveAmount().map(f -> "currencyReceiveAmount=" + f + ", ").orElse("") +
             optionalTransactionStatus().map(f -> "transactionStatus=" + f + ", ").orElse("") +
             optionalTransactionReference().map(f -> "transactionReference=" + f + ", ").orElse("") +
+            optionalDescription().map(f -> "description=" + f + ", ").orElse("") +
             optionalRiskScore().map(f -> "riskScore=" + f + ", ").orElse("") +
             optionalFraudStatus().map(f -> "fraudStatus=" + f + ", ").orElse("") +
             optionalCreatedAt().map(f -> "createdAt=" + f + ", ").orElse("") +
             optionalUpdatedAt().map(f -> "updatedAt=" + f + ", ").orElse("") +
+            optionalTransactionDate().map(f -> "transactionDate=" + f + ", ").orElse("") +
             optionalSenderId().map(f -> "senderId=" + f + ", ").orElse("") +
             optionalReceiverId().map(f -> "receiverId=" + f + ", ").orElse("") +
             optionalDistinct().map(f -> "distinct=" + f + ", ").orElse("") +
