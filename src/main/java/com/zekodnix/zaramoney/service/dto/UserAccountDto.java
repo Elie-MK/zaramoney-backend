@@ -1,5 +1,6 @@
 package com.zekodnix.zaramoney.service.dto;
 
+import com.zekodnix.zaramoney.domain.enumeration.KycStatus;
 import jakarta.validation.constraints.Size;
 
 public class UserAccountDto {
@@ -14,15 +15,20 @@ public class UserAccountDto {
 
     private String phoneNumber;
 
+    private KycStatus kycStatus;
+
     private BankAccountDTO usdAccount;
 
-    public UserAccountDto(String firstName, String lastName, String email, BankAccountDTO usdAccount, String phoneNumber) {
+    public UserAccountDto(String firstName, String lastName, String email, BankAccountDTO usdAccount, String phoneNumber, KycStatus kycStatus) {
         this.firstName = firstName;
         this.lastName = lastName;
         this.email = email;
         this.usdAccount = usdAccount;
         this.phoneNumber = phoneNumber;
+        this.kycStatus = kycStatus;
     }
+
+
 
     public String getPhoneNumber() {
         return phoneNumber;
@@ -62,5 +68,13 @@ public class UserAccountDto {
 
     public void setUsdAccount(BankAccountDTO usdAccount) {
         this.usdAccount = usdAccount;
+    }
+
+    public KycStatus getKycStatus() {
+        return kycStatus;
+    }
+
+    public void setKycStatus(KycStatus kycStatus) {
+        this.kycStatus = kycStatus;
     }
 }

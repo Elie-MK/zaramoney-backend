@@ -1,10 +1,9 @@
 package com.zekodnix.zaramoney.service;
 
+import com.zekodnix.zaramoney.domain.enumeration.AccountStatus;
 import com.zekodnix.zaramoney.domain.enumeration.Currency;
-import com.zekodnix.zaramoney.service.dto.BankAccountDTO;
-import com.zekodnix.zaramoney.service.dto.UserAccountDto;
-import com.zekodnix.zaramoney.service.dto.UserDTO;
-import com.zekodnix.zaramoney.service.dto.UserDetailsAccountDTO;
+import com.zekodnix.zaramoney.domain.enumeration.KycStatus;
+import com.zekodnix.zaramoney.service.dto.*;
 import com.zekodnix.zaramoney.service.exception.UserDetailsAccountNotFoundException;
 import com.zekodnix.zaramoney.service.mapper.UserMapper;
 import com.zekodnix.zaramoney.web.rest.vm.UserAccountVM;
@@ -53,7 +52,8 @@ public class UserAccountService {
             currentUser.getLastName(),
             currentUser.getEmail(),
             usdAccount,
-            userDetails.getPhoneNumber()
+            userDetails.getPhoneNumber(),
+            userDetails.getKycStatus()
         );
     }
 
@@ -63,6 +63,7 @@ public class UserAccountService {
         bankAccountDTO.setBalance(BigDecimal.valueOf(5.00));
         bankAccountDTO.setAccountNumber(generateAccountNumber().toString());
         bankAccountDTO.setCurrency(Currency.USD);
+        bankAccountDTO.setStatus(AccountStatus.ACTIVE);
 
         return bankAccountService.save(bankAccountDTO);
     }
@@ -80,6 +81,7 @@ public class UserAccountService {
         userDetailsAccountDTO.setCountry(userAccountVM.getCountry());
         userDetailsAccountDTO.setAddress(userAccountVM.getAddress());
         userDetailsAccountDTO.setPhoneNumber(userAccountVM.getPhoneNumber());
+        userDetailsAccountDTO.setKycStatus(KycStatus.VERIFIED);
         return userDetailsAccountService.save(userDetailsAccountDTO);
     }
 
@@ -99,16 +101,23 @@ public class UserAccountService {
             currentUser.getLastName(),
             currentUser.getEmail(),
             usdBankAccount,
-            userDetails.getPhoneNumber()
+            userDetails.getPhoneNumber(),
+            userDetails.getKycStatus()
         );
     }
 
-    private BigDecimal generateAccountNumber() {
-        long randomPart = (long) (Math.random() * 100_000_000L);
-        String accountNumberStr = "2512" + String.format("%08d", randomPart);
-        return new BigDecimal(accountNumberStr);
-    }
+    private String generateAccountNumber() {
+        String prefix = "2512";
 
+        int remainingLength = 16 - prefix.length();
+
+        long max = (long) Math.pow(10, remainingLength);
+        long randomPart = (long) (Math.random() * max);
+
+        String randomStr = String.format("%0" + remainingLength + "d", randomPart);
+
+        return prefix + randomStr;
+    }
     private Map<String, Map<String, String>> getUploadedPictures(UserAccountVM userAccountVM) {
         Map<String, Map<String, String>> pictures = new HashMap<>();
 

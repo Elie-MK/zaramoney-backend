@@ -32,9 +32,12 @@
           <column name="is_agent" type="boolean">
             <constraints nullable="false" />
           </column>
-            <column name="user_login_id" type="bigint">
-                <constraints nullable="true" unique="true" uniqueConstraintName="ux_user_details_account__user_login_id" />
+            <column name="user_id" type="bigint">
+                <constraints nullable="true" unique="true" uniqueConstraintName="ux_user_details_account__user_id" />
             </column>
+          <column name="kyc_status" type="varchar(50)">
+            <constraints nullable="false" />
+          </column>
             <!-- jhipster-needle-liquibase-add-column - JHipster will add columns here -->
         </createTable>
     </changeSet>
@@ -64,6 +67,7 @@
             <column name="is_agent" type="boolean"/>
             <column name="account_number" type="string"/>
             <column name="account_balance" type="numeric"/>
+            <column name="kyc_status" type="numeric"/>
             <!-- jhipster-needle-liquibase-add-loadcolumn - JHipster (and/or extensions) can add load columns here -->
         </loadData>
     </changeSet>

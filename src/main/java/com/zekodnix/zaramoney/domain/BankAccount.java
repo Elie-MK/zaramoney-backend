@@ -60,6 +60,11 @@ public class BankAccount implements Serializable {
 
     // jhipster-needle-entity-add-field - JHipster will add fields here
 
+    @PrePersist
+    public void prePersist() {
+        this.createdAt = Instant.now();
+    }
+
     public Long getId() {
         return this.id;
     }
