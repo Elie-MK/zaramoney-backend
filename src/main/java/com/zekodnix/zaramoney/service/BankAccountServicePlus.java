@@ -5,17 +5,18 @@ import com.zekodnix.zaramoney.domain.enumeration.Currency;
 import com.zekodnix.zaramoney.service.dto.BankAccountDTO;
 import com.zekodnix.zaramoney.service.dto.LockedAccountsDTO;
 import com.zekodnix.zaramoney.service.dto.UserDTO;
-import org.springframework.stereotype.Service;
-
 import java.math.BigDecimal;
+import org.springframework.stereotype.Service;
 
 @Service
 public class BankAccountServicePlus {
 
     private final BankAccountService bankAccountService;
+    private final TransactionLimitServicePlus transactionLimitServicePlus;
 
-    public BankAccountServicePlus(BankAccountService bankAccountService) {
+    public BankAccountServicePlus(BankAccountService bankAccountService, TransactionLimitServicePlus transactionLimitServicePlus) {
         this.bankAccountService = bankAccountService;
+        this.transactionLimitServicePlus = transactionLimitServicePlus;
     }
 
     public LockedAccountsDTO lockAccounts(String senderAcc, String receiverAcc) {
@@ -44,7 +45,9 @@ public class BankAccountServicePlus {
         bankAccountDTO.setCurrency(Currency.USD);
         bankAccountDTO.setStatus(AccountStatus.ACTIVE);
 
-        return bankAccountService.save(bankAccountDTO);
+        var account = bankAccountService.save(bankAccountDTO);
+        transactionLimitServicePlus.createBankAccountLimit(account);
+        return account;
     }
 
     private String generateAccountNumber() {
