@@ -34,6 +34,8 @@ public class UserDetailsAccountDTO implements Serializable {
     @NotNull
     private KycStatus kycStatus;
 
+    private String expoPushToken;
+
     private UserDTO user;
 
     public Long getId() {
@@ -100,6 +102,14 @@ public class UserDetailsAccountDTO implements Serializable {
         this.kycStatus = kycStatus;
     }
 
+    public String getExpoPushToken() {
+        return expoPushToken;
+    }
+
+    public void setExpoPushToken(String expoPushToken) {
+        this.expoPushToken = expoPushToken;
+    }
+
     public UserDTO getUser() {
         return user;
     }
@@ -141,6 +151,7 @@ public class UserDetailsAccountDTO implements Serializable {
             ", address='" + getAddress() + "'" +
             ", isAgent='" + getIsAgent() + "'" +
             ", kycStatus='" + getKycStatus() + "'" +
+            ", expoPushToken='" + getExpoPushToken() + "'" +
             ", user=" + getUser() +
             "}";
     }

@@ -40,6 +40,10 @@
       "fieldType": "KycStatus",
       "fieldValidateRules": ["required"],
       "fieldValues": "PENDING,VERIFIED,REJECTED"
+    },
+    {
+      "fieldName": "expoPushToken",
+      "fieldType": "String"
     }
   ],
   "jpaMetamodelFiltering": true,

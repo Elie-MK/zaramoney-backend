@@ -54,6 +54,11 @@ public class LedgerEntry implements Serializable {
     @JsonIgnoreProperties(value = { "sender", "receiver" }, allowSetters = true)
     private TransactionRecord transaction;
 
+    @PrePersist
+    public void prePersist() {
+        this.createdAt = Instant.now();
+    }
+
     // jhipster-needle-entity-add-field - JHipster will add fields here
 
     public Long getId() {

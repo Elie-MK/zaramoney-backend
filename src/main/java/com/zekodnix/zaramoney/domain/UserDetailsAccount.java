@@ -53,6 +53,9 @@ public class UserDetailsAccount implements Serializable {
     @Column(name = "kyc_status", nullable = false)
     private KycStatus kycStatus;
 
+    @Column(name = "expo_push_token")
+    private String expoPushToken;
+
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(unique = true)
     private User user;
@@ -163,6 +166,19 @@ public class UserDetailsAccount implements Serializable {
         this.kycStatus = kycStatus;
     }
 
+    public String getExpoPushToken() {
+        return this.expoPushToken;
+    }
+
+    public UserDetailsAccount expoPushToken(String expoPushToken) {
+        this.setExpoPushToken(expoPushToken);
+        return this;
+    }
+
+    public void setExpoPushToken(String expoPushToken) {
+        this.expoPushToken = expoPushToken;
+    }
+
     public User getUser() {
         return this.user;
     }
@@ -207,6 +223,7 @@ public class UserDetailsAccount implements Serializable {
             ", address='" + getAddress() + "'" +
             ", isAgent='" + getIsAgent() + "'" +
             ", kycStatus='" + getKycStatus() + "'" +
+            ", expoPushToken='" + getExpoPushToken() + "'" +
             "}";
     }
 }

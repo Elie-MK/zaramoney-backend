@@ -84,6 +84,7 @@ public class UserDetailsAccountQueryService extends QueryService<UserDetailsAcco
                 buildStringSpecification(criteria.getAddress(), UserDetailsAccount_.address),
                 buildSpecification(criteria.getIsAgent(), UserDetailsAccount_.isAgent),
                 buildSpecification(criteria.getKycStatus(), UserDetailsAccount_.kycStatus),
+                buildStringSpecification(criteria.getExpoPushToken(), UserDetailsAccount_.expoPushToken),
                 buildSpecification(criteria.getUserId(), root -> root.join(UserDetailsAccount_.user, JoinType.LEFT).get(User_.id))
             );
         }

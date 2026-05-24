@@ -59,14 +59,15 @@ public class TransactionValidatorService {
         }
     }
 
-    public TransactionRecordDTO process(TransactionRecordVM vm, LockedAccountsDTO accounts) {
+    public TransactionRecordDTO process(TransactionRecordVM vm, LockedAccountsDTO accounts, BigDecimal fee) {
         var sender = accounts.getSenderAccount();
         var receiver = accounts.getReceiverAccount();
 
         // 1. Calculate amount
         BigDecimal receiveAmount = calculate(vm);
+        BigDecimal totalDebit = receiveAmount.add(fee);
 
-        sender.setBalance(sender.getBalance().subtract(receiveAmount).setScale(2, RoundingMode.HALF_UP));
+        sender.setBalance(sender.getBalance().subtract(totalDebit).setScale(2, RoundingMode.HALF_UP));
         receiver.setBalance(receiver.getBalance().add(receiveAmount).setScale(2, RoundingMode.HALF_UP));
 
         BankAccountDTO senderDto = bankAccountMapper.toDto(sender);
@@ -76,7 +77,7 @@ public class TransactionValidatorService {
         bankAccountService.save(senderDto);
         bankAccountService.save(receiverDto);
 
-        var transaction = buildTransaction(vm, receiveAmount, sender, receiver);
+        var transaction = buildTransaction(vm, receiveAmount, sender, receiver, fee);
         return transactionRecordService.save(transaction);
     }
 
@@ -84,7 +85,8 @@ public class TransactionValidatorService {
         TransactionRecordVM transactionRecordVM,
         BigDecimal receiveAmount,
         BankAccount currentUser,
-        BankAccount receiverBankAccount
+        BankAccount receiverBankAccount,
+        BigDecimal fee
     ) {
         TransactionRecordDTO transaction = new TransactionRecordDTO();
         transaction.setTransactionReference(generateTransactionReference());
@@ -96,6 +98,8 @@ public class TransactionValidatorService {
         transaction.setDescription(transactionRecordVM.getDescription());
         transaction.setSender(bankAccountMapper.toDto(currentUser));
         transaction.setReceiver(bankAccountMapper.toDto(receiverBankAccount));
+        transaction.setExchangeRate(fee);
+        transaction.setCreatedAt(Instant.now());
 
         // default risk score
         transaction.setTransactionStatus(TransactionStatus.COMPLETED);

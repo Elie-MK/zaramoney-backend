@@ -56,6 +56,8 @@ public class UserDetailsAccountCriteria implements Serializable, Criteria {
 
     private KycStatusFilter kycStatus;
 
+    private StringFilter expoPushToken;
+
     private LongFilter userId;
 
     private Boolean distinct;
@@ -71,6 +73,7 @@ public class UserDetailsAccountCriteria implements Serializable, Criteria {
         this.address = other.optionalAddress().map(StringFilter::copy).orElse(null);
         this.isAgent = other.optionalIsAgent().map(BooleanFilter::copy).orElse(null);
         this.kycStatus = other.optionalKycStatus().map(KycStatusFilter::copy).orElse(null);
+        this.expoPushToken = other.optionalExpoPushToken().map(StringFilter::copy).orElse(null);
         this.userId = other.optionalUserId().map(LongFilter::copy).orElse(null);
         this.distinct = other.distinct;
     }
@@ -232,6 +235,25 @@ public class UserDetailsAccountCriteria implements Serializable, Criteria {
         this.kycStatus = kycStatus;
     }
 
+    public StringFilter getExpoPushToken() {
+        return expoPushToken;
+    }
+
+    public Optional<StringFilter> optionalExpoPushToken() {
+        return Optional.ofNullable(expoPushToken);
+    }
+
+    public StringFilter expoPushToken() {
+        if (expoPushToken == null) {
+            setExpoPushToken(new StringFilter());
+        }
+        return expoPushToken;
+    }
+
+    public void setExpoPushToken(StringFilter expoPushToken) {
+        this.expoPushToken = expoPushToken;
+    }
+
     public LongFilter getUserId() {
         return userId;
     }
@@ -288,6 +310,7 @@ public class UserDetailsAccountCriteria implements Serializable, Criteria {
             Objects.equals(address, that.address) &&
             Objects.equals(isAgent, that.isAgent) &&
             Objects.equals(kycStatus, that.kycStatus) &&
+            Objects.equals(expoPushToken, that.expoPushToken) &&
             Objects.equals(userId, that.userId) &&
             Objects.equals(distinct, that.distinct)
         );
@@ -295,7 +318,19 @@ public class UserDetailsAccountCriteria implements Serializable, Criteria {
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, phoneNumber, facePicture, idCardPicture, country, address, isAgent, kycStatus, userId, distinct);
+        return Objects.hash(
+            id,
+            phoneNumber,
+            facePicture,
+            idCardPicture,
+            country,
+            address,
+            isAgent,
+            kycStatus,
+            expoPushToken,
+            userId,
+            distinct
+        );
     }
 
     // prettier-ignore
@@ -310,6 +345,7 @@ public class UserDetailsAccountCriteria implements Serializable, Criteria {
             optionalAddress().map(f -> "address=" + f + ", ").orElse("") +
             optionalIsAgent().map(f -> "isAgent=" + f + ", ").orElse("") +
             optionalKycStatus().map(f -> "kycStatus=" + f + ", ").orElse("") +
+            optionalExpoPushToken().map(f -> "expoPushToken=" + f + ", ").orElse("") +
             optionalUserId().map(f -> "userId=" + f + ", ").orElse("") +
             optionalDistinct().map(f -> "distinct=" + f + ", ").orElse("") +
         "}";

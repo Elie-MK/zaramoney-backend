@@ -1,11 +1,11 @@
-id;phone_number;face_picture;id_card_picture;country;address;is_agent;kyc_status
-1;boohoo bah inasmuch;boom modulo prickly;dwell husky;Algeria;more;true;VERIFIED
-2;that ceramics shaft;fooey although;scuffle continually outside;Burkina Faso;yawningly dependable sock;false;VERIFIED
-3;skyline;cross quiet towards;towards;Suriname;incinerate pants pace;false;VERIFIED
-4;warmhearted;gosh nightlife poorly;quietly fatally yowza;Dominican Republic;uh-huh cap gentle;true;VERIFIED
-5;hoot;urban creaking;tighten;Singapore;quizzically;false;VERIFIED
-6;buttery lest;whereas;briskly;Germany;bewail so;true;REJECTED
-7;in guilt junior;that;alongside;Gambia;punctually obscure anti;false;VERIFIED
-8;or internal ghost;vastly even playfully;distant quiet quicker;Guatemala;gleefully whoa;true;PENDING
-9;likewise inhibit;as;boohoo;Anguilla;owlishly;false;PENDING
-10;yearningly aboard given;worth shear geez;jaggedly;Eritrea;foolishly;false;REJECTED
+id;phone_number;face_picture;id_card_picture;country;address;is_agent;kyc_status;expo_push_token
+1;boohoo bah inasmuch;boom modulo prickly;dwell husky;Algeria;more;true;VERIFIED;that ceramics shaft
+2;fooey although;scuffle continually outside;uh-huh;Wallis and Futuna;whose like;false;PENDING;pace
+3;courageously;row reproachfully approximate;throughout even quiet;Vietnam;scarification meh;false;REJECTED;or
+4;viability about violently;discourse what ew;gentle;Mozambique;hoot;true;VERIFIED;verbally
+5;now shirk;quizzically;restaurant yowza;Madagascar;whereas;true;PENDING;incidentally apropos blindly
+6;about hmph;right afore department;till;Bhutan;politely;false;REJECTED;anti aha
+7;quiet;micromanage uncommon energetically;aboard positively;Comoros;although;true;REJECTED;rundown
+8;furthermore astride until;inhibit concerning;about;Belgium;familiar;false;VERIFIED;filter
+9;aboard given premier;shear geez devil;tenant frugal;Kiribati;extra-large;true;VERIFIED;daintily
+10;since fat;apropos wrongly;equal;Kiribati;throughout table under;true;VERIFIED;and while

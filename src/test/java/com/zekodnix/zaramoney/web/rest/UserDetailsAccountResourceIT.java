@@ -58,6 +58,9 @@ class UserDetailsAccountResourceIT {
     private static final KycStatus DEFAULT_KYC_STATUS = KycStatus.PENDING;
     private static final KycStatus UPDATED_KYC_STATUS = KycStatus.VERIFIED;
 
+    private static final String DEFAULT_EXPO_PUSH_TOKEN = "AAAAAAAAAA";
+    private static final String UPDATED_EXPO_PUSH_TOKEN = "BBBBBBBBBB";
+
     private static final String ENTITY_API_URL = "/api/user-details-accounts";
     private static final String ENTITY_API_URL_ID = ENTITY_API_URL + "/{id}";
 
@@ -100,7 +103,8 @@ class UserDetailsAccountResourceIT {
             .country(DEFAULT_COUNTRY)
             .address(DEFAULT_ADDRESS)
             .isAgent(DEFAULT_IS_AGENT)
-            .kycStatus(DEFAULT_KYC_STATUS);
+            .kycStatus(DEFAULT_KYC_STATUS)
+            .expoPushToken(DEFAULT_EXPO_PUSH_TOKEN);
     }
 
     /**
@@ -117,7 +121,8 @@ class UserDetailsAccountResourceIT {
             .country(UPDATED_COUNTRY)
             .address(UPDATED_ADDRESS)
             .isAgent(UPDATED_IS_AGENT)
-            .kycStatus(UPDATED_KYC_STATUS);
+            .kycStatus(UPDATED_KYC_STATUS)
+            .expoPushToken(UPDATED_EXPO_PUSH_TOKEN);
     }
 
     @BeforeEach
@@ -315,7 +320,8 @@ class UserDetailsAccountResourceIT {
             .andExpect(jsonPath("$.[*].country").value(hasItem(DEFAULT_COUNTRY)))
             .andExpect(jsonPath("$.[*].address").value(hasItem(DEFAULT_ADDRESS)))
             .andExpect(jsonPath("$.[*].isAgent").value(hasItem(DEFAULT_IS_AGENT)))
-            .andExpect(jsonPath("$.[*].kycStatus").value(hasItem(DEFAULT_KYC_STATUS.toString())));
+            .andExpect(jsonPath("$.[*].kycStatus").value(hasItem(DEFAULT_KYC_STATUS.toString())))
+            .andExpect(jsonPath("$.[*].expoPushToken").value(hasItem(DEFAULT_EXPO_PUSH_TOKEN)));
     }
 
     @Test
@@ -336,7 +342,8 @@ class UserDetailsAccountResourceIT {
             .andExpect(jsonPath("$.country").value(DEFAULT_COUNTRY))
             .andExpect(jsonPath("$.address").value(DEFAULT_ADDRESS))
             .andExpect(jsonPath("$.isAgent").value(DEFAULT_IS_AGENT))
-            .andExpect(jsonPath("$.kycStatus").value(DEFAULT_KYC_STATUS.toString()));
+            .andExpect(jsonPath("$.kycStatus").value(DEFAULT_KYC_STATUS.toString()))
+            .andExpect(jsonPath("$.expoPushToken").value(DEFAULT_EXPO_PUSH_TOKEN));
     }
 
     @Test
@@ -693,6 +700,68 @@ class UserDetailsAccountResourceIT {
 
     @Test
     @Transactional
+    void getAllUserDetailsAccountsByExpoPushTokenIsEqualToSomething() throws Exception {
+        // Initialize the database
+        insertedUserDetailsAccount = userDetailsAccountRepository.saveAndFlush(userDetailsAccount);
+
+        // Get all the userDetailsAccountList where expoPushToken equals to
+        defaultUserDetailsAccountFiltering(
+            "expoPushToken.equals=" + DEFAULT_EXPO_PUSH_TOKEN,
+            "expoPushToken.equals=" + UPDATED_EXPO_PUSH_TOKEN
+        );
+    }
+
+    @Test
+    @Transactional
+    void getAllUserDetailsAccountsByExpoPushTokenIsInShouldWork() throws Exception {
+        // Initialize the database
+        insertedUserDetailsAccount = userDetailsAccountRepository.saveAndFlush(userDetailsAccount);
+
+        // Get all the userDetailsAccountList where expoPushToken in
+        defaultUserDetailsAccountFiltering(
+            "expoPushToken.in=" + DEFAULT_EXPO_PUSH_TOKEN + "," + UPDATED_EXPO_PUSH_TOKEN,
+            "expoPushToken.in=" + UPDATED_EXPO_PUSH_TOKEN
+        );
+    }
+
+    @Test
+    @Transactional
+    void getAllUserDetailsAccountsByExpoPushTokenIsNullOrNotNull() throws Exception {
+        // Initialize the database
+        insertedUserDetailsAccount = userDetailsAccountRepository.saveAndFlush(userDetailsAccount);
+
+        // Get all the userDetailsAccountList where expoPushToken is not null
+        defaultUserDetailsAccountFiltering("expoPushToken.specified=true", "expoPushToken.specified=false");
+    }
+
+    @Test
+    @Transactional
+    void getAllUserDetailsAccountsByExpoPushTokenContainsSomething() throws Exception {
+        // Initialize the database
+        insertedUserDetailsAccount = userDetailsAccountRepository.saveAndFlush(userDetailsAccount);
+
+        // Get all the userDetailsAccountList where expoPushToken contains
+        defaultUserDetailsAccountFiltering(
+            "expoPushToken.contains=" + DEFAULT_EXPO_PUSH_TOKEN,
+            "expoPushToken.contains=" + UPDATED_EXPO_PUSH_TOKEN
+        );
+    }
+
+    @Test
+    @Transactional
+    void getAllUserDetailsAccountsByExpoPushTokenNotContainsSomething() throws Exception {
+        // Initialize the database
+        insertedUserDetailsAccount = userDetailsAccountRepository.saveAndFlush(userDetailsAccount);
+
+        // Get all the userDetailsAccountList where expoPushToken does not contain
+        defaultUserDetailsAccountFiltering(
+            "expoPushToken.doesNotContain=" + UPDATED_EXPO_PUSH_TOKEN,
+            "expoPushToken.doesNotContain=" + DEFAULT_EXPO_PUSH_TOKEN
+        );
+    }
+
+    @Test
+    @Transactional
     void getAllUserDetailsAccountsByUserIsEqualToSomething() throws Exception {
         User user;
         if (TestUtil.findAll(em, User.class).isEmpty()) {
@@ -733,7 +802,8 @@ class UserDetailsAccountResourceIT {
             .andExpect(jsonPath("$.[*].country").value(hasItem(DEFAULT_COUNTRY)))
             .andExpect(jsonPath("$.[*].address").value(hasItem(DEFAULT_ADDRESS)))
             .andExpect(jsonPath("$.[*].isAgent").value(hasItem(DEFAULT_IS_AGENT)))
-            .andExpect(jsonPath("$.[*].kycStatus").value(hasItem(DEFAULT_KYC_STATUS.toString())));
+            .andExpect(jsonPath("$.[*].kycStatus").value(hasItem(DEFAULT_KYC_STATUS.toString())))
+            .andExpect(jsonPath("$.[*].expoPushToken").value(hasItem(DEFAULT_EXPO_PUSH_TOKEN)));
 
         // Check, that the count call also returns 1
         restUserDetailsAccountMockMvc
@@ -788,7 +858,8 @@ class UserDetailsAccountResourceIT {
             .country(UPDATED_COUNTRY)
             .address(UPDATED_ADDRESS)
             .isAgent(UPDATED_IS_AGENT)
-            .kycStatus(UPDATED_KYC_STATUS);
+            .kycStatus(UPDATED_KYC_STATUS)
+            .expoPushToken(UPDATED_EXPO_PUSH_TOKEN);
         UserDetailsAccountDTO userDetailsAccountDTO = userDetailsAccountMapper.toDto(updatedUserDetailsAccount);
 
         restUserDetailsAccountMockMvc
@@ -884,7 +955,8 @@ class UserDetailsAccountResourceIT {
             .country(UPDATED_COUNTRY)
             .address(UPDATED_ADDRESS)
             .isAgent(UPDATED_IS_AGENT)
-            .kycStatus(UPDATED_KYC_STATUS);
+            .kycStatus(UPDATED_KYC_STATUS)
+            .expoPushToken(UPDATED_EXPO_PUSH_TOKEN);
 
         restUserDetailsAccountMockMvc
             .perform(
@@ -922,7 +994,8 @@ class UserDetailsAccountResourceIT {
             .country(UPDATED_COUNTRY)
             .address(UPDATED_ADDRESS)
             .isAgent(UPDATED_IS_AGENT)
-            .kycStatus(UPDATED_KYC_STATUS);
+            .kycStatus(UPDATED_KYC_STATUS)
+            .expoPushToken(UPDATED_EXPO_PUSH_TOKEN);
 
         restUserDetailsAccountMockMvc
             .perform(

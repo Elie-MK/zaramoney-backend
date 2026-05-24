@@ -53,7 +53,8 @@ public class UserDetailsAccountAsserts {
             .satisfies(a -> assertThat(a.getCountry()).as("check country").isEqualTo(expected.getCountry()))
             .satisfies(a -> assertThat(a.getAddress()).as("check address").isEqualTo(expected.getAddress()))
             .satisfies(a -> assertThat(a.getIsAgent()).as("check isAgent").isEqualTo(expected.getIsAgent()))
-            .satisfies(a -> assertThat(a.getKycStatus()).as("check kycStatus").isEqualTo(expected.getKycStatus()));
+            .satisfies(a -> assertThat(a.getKycStatus()).as("check kycStatus").isEqualTo(expected.getKycStatus()))
+            .satisfies(a -> assertThat(a.getExpoPushToken()).as("check expoPushToken").isEqualTo(expected.getExpoPushToken()));
     }
 
     /**

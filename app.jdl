@@ -78,6 +78,7 @@ entity UserDetailsAccount {
   address String required
   isAgent Boolean required
   kycStatus KycStatus required
+  expoPushToken String
 }
 
 entity BankAccount {
