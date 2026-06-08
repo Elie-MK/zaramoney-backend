@@ -1,16 +1,17 @@
 package com.zekodnix.zaramoney.service;
 
 import com.zekodnix.zaramoney.domain.BankAccount;
-import com.zekodnix.zaramoney.domain.TransactionRecord;
 import com.zekodnix.zaramoney.domain.enumeration.Currency;
 import com.zekodnix.zaramoney.domain.enumeration.FraudStatus;
 import com.zekodnix.zaramoney.domain.enumeration.TransactionStatus;
+import com.zekodnix.zaramoney.domain.enumeration.TransactionType;
 import com.zekodnix.zaramoney.service.dto.BankAccountDTO;
 import com.zekodnix.zaramoney.service.dto.LockedAccountsDTO;
 import com.zekodnix.zaramoney.service.dto.TransactionRecordDTO;
 import com.zekodnix.zaramoney.service.mapper.BankAccountMapper;
 import com.zekodnix.zaramoney.web.rest.errors.BadRequestAlertException;
 import com.zekodnix.zaramoney.web.rest.vm.TransactionRecordVM;
+import com.zekodnix.zaramoney.web.rest.vm.WithdrawalTransactionRecordVM;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
@@ -39,18 +40,16 @@ public class TransactionValidatorService {
         this.transactionRecordService = transactionRecordService;
     }
 
-    public void checkAmountValidation(TransactionRecordVM vm, LockedAccountsDTO accounts) {
-        BigDecimal amountToDebit = calculate(vm);
-
-        if (amountToDebit == null || amountToDebit.compareTo(BigDecimal.ZERO) <= 0) {
+    public void checkAmountValidation(BigDecimal amount, LockedAccountsDTO accounts) {
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new BadRequestAlertException("Invalid amount", "transaction", "invalidamount");
         }
 
-        if (accounts.getSenderAccount().getBalance().compareTo(amountToDebit) < 0) {
+        if (accounts.getSenderAccount().getBalance().compareTo(amount) < 0) {
             throw new BadRequestAlertException("Insufficient balance", "transaction", "insufficientbalance");
         }
 
-        if (accounts.getSenderAccount().getBalance().subtract(amountToDebit).compareTo(MIN_BALANCE) < 0) {
+        if (accounts.getSenderAccount().getBalance().subtract(amount).compareTo(MIN_BALANCE) < 0) {
             throw new BadRequestAlertException(
                 "Transaction denied: account must maintain a minimum balance of " + MIN_BALANCE,
                 "transaction",
@@ -64,11 +63,10 @@ public class TransactionValidatorService {
         var receiver = accounts.getReceiverAccount();
 
         // 1. Calculate amount
-        BigDecimal receiveAmount = calculate(vm);
-        BigDecimal totalDebit = receiveAmount.add(fee);
+        BigDecimal totalDebit = vm.getSendAmount().add(fee);
 
         sender.setBalance(sender.getBalance().subtract(totalDebit).setScale(2, RoundingMode.HALF_UP));
-        receiver.setBalance(receiver.getBalance().add(receiveAmount).setScale(2, RoundingMode.HALF_UP));
+        receiver.setBalance(receiver.getBalance().add(vm.getSendAmount()).setScale(2, RoundingMode.HALF_UP));
 
         BankAccountDTO senderDto = bankAccountMapper.toDto(sender);
         BankAccountDTO receiverDto = bankAccountMapper.toDto(receiver);
@@ -77,13 +75,50 @@ public class TransactionValidatorService {
         bankAccountService.save(senderDto);
         bankAccountService.save(receiverDto);
 
-        var transaction = buildTransaction(vm, receiveAmount, sender, receiver, fee);
+        var transaction = buildTransaction(vm, sender, receiver, fee);
+        return transactionRecordService.save(transaction);
+    }
+
+    public TransactionRecordDTO processWithdrawal(WithdrawalTransactionRecordVM vm, LockedAccountsDTO accounts, BigDecimal fee) {
+        var sender = accounts.getSenderAccount();
+        var receiver = accounts.getReceiverAccount();
+
+        // 1. Calculate amount
+        BigDecimal totalDebit = vm.getSendAmount().add(fee);
+
+        sender.setBalance(sender.getBalance().subtract(totalDebit).setScale(2, RoundingMode.HALF_UP));
+        receiver.setBalance(receiver.getBalance().add(vm.getSendAmount()).setScale(2, RoundingMode.HALF_UP));
+
+        BankAccountDTO senderDto = bankAccountMapper.toDto(sender);
+        BankAccountDTO receiverDto = bankAccountMapper.toDto(receiver);
+
+        // Save updated accounts
+        bankAccountService.save(senderDto);
+        bankAccountService.save(receiverDto);
+
+        TransactionRecordDTO transaction = new TransactionRecordDTO();
+        transaction.setTransactionReference(generateTransactionReference());
+        transaction.setTransactionType(TransactionType.WITHDRAWAL);
+        transaction.setSendAmount(vm.getSendAmount());
+        transaction.setReceiveAmount(vm.getSendAmount());
+        transaction.setCurrencySendAmount(Currency.USD);
+        transaction.setCurrencyReceiveAmount(Currency.USD);
+        transaction.setDescription("Retrait de " + vm.getSendAmount() + " USD");
+        transaction.setSender(bankAccountMapper.toDto(sender));
+        transaction.setReceiver(bankAccountMapper.toDto(receiver));
+        transaction.setExchangeRate(fee);
+        transaction.setCreatedAt(Instant.now());
+
+        // default risk score
+        transaction.setTransactionStatus(TransactionStatus.COMPLETED);
+        transaction.setTransactionDate(Instant.now());
+        transaction.setFraudStatus(FraudStatus.CLEAN);
+        transaction.setRiskScore(0);
         return transactionRecordService.save(transaction);
     }
 
     private TransactionRecordDTO buildTransaction(
         TransactionRecordVM transactionRecordVM,
-        BigDecimal receiveAmount,
         BankAccount currentUser,
         BankAccount receiverBankAccount,
         BigDecimal fee
@@ -92,7 +127,7 @@ public class TransactionValidatorService {
         transaction.setTransactionReference(generateTransactionReference());
         transaction.setTransactionType(transactionRecordVM.getTransactionType());
         transaction.setSendAmount(transactionRecordVM.getSendAmount());
-        transaction.setReceiveAmount(receiveAmount);
+        transaction.setReceiveAmount(transactionRecordVM.getSendAmount());
         transaction.setCurrencySendAmount(transactionRecordVM.getCurrencySendAmount());
         transaction.setCurrencyReceiveAmount(receiverBankAccount.getCurrency());
         transaction.setDescription(transactionRecordVM.getDescription());
@@ -108,35 +143,6 @@ public class TransactionValidatorService {
         transaction.setRiskScore(0);
 
         return transaction;
-    }
-
-    private BigDecimal calculate(TransactionRecordVM vm) {
-        if (vm.getSendAmount() == null || vm.getSendAmount().compareTo(BigDecimal.ZERO) <= 0) {
-            throw new IllegalArgumentException("Send amount must be greater than zero");
-        }
-
-        Currency from = vm.getCurrencySendAmount();
-        Currency to = vm.getCurrencyReceiveAmount();
-
-        if (from == null || to == null) {
-            throw new IllegalArgumentException("Currency must not be null");
-        }
-
-        if (from == Currency.TND && to == Currency.TND) {
-            throw new IllegalArgumentException("Operation not supported: TND -> TND");
-        }
-
-        // Same currency → no conversion
-        if (from == to) {
-            return vm.getSendAmount().setScale(SCALE, RoundingMode.HALF_UP);
-        }
-
-        // TND → USD
-        if (from == Currency.TND && to == Currency.USD) {
-            return vm.getSendAmount().divide(TND_TO_USD_RATE, SCALE, RoundingMode.HALF_UP);
-        }
-
-        throw new UnsupportedOperationException("Unsupported currency conversion: " + from + " -> " + to);
     }
 
     private String generateTransactionReference() {

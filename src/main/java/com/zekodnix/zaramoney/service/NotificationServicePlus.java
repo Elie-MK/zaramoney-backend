@@ -2,23 +2,29 @@ package com.zekodnix.zaramoney.service;
 
 import com.zekodnix.zaramoney.domain.User;
 import com.zekodnix.zaramoney.domain.enumeration.NotificationChannel;
+import com.zekodnix.zaramoney.domain.enumeration.NotificationStatus;
 import com.zekodnix.zaramoney.domain.enumeration.NotificationType;
 import com.zekodnix.zaramoney.service.dto.NotificationDTO;
 import com.zekodnix.zaramoney.service.dto.TransactionRecordDTO;
 import com.zekodnix.zaramoney.service.mapper.UserMapper;
-import org.springframework.stereotype.Service;
-
 import java.time.Instant;
 import java.util.Map;
+import org.springframework.stereotype.Service;
 
 @Service
 public class NotificationServicePlus {
+
     private final NotificationService notificationService;
     private final UserDetailsAccountService userDetailsAccountService;
     private final ExpoPushService expoPushService;
     private final UserMapper userMapper;
 
-    public NotificationServicePlus(NotificationService notificationService, UserDetailsAccountService userDetailsAccountService, ExpoPushService expoPushService, UserMapper userMapper) {
+    public NotificationServicePlus(
+        NotificationService notificationService,
+        UserDetailsAccountService userDetailsAccountService,
+        ExpoPushService expoPushService,
+        UserMapper userMapper
+    ) {
         this.notificationService = notificationService;
         this.userDetailsAccountService = userDetailsAccountService;
         this.expoPushService = expoPushService;
@@ -38,17 +44,15 @@ public class NotificationServicePlus {
         notification.setUser(userMapper.userToUserDTO(currentUser));
         notification.setDeepLink("transaction/" + result.getId());
         notification.setData("Transaction completed successfully");
+        notification.setStatus(NotificationStatus.SENT);
+
+        notificationService.save(notification);
 
         expoPushService.sendPush(
             findUser.getExpoPushToken(),
-            "Transaction Completed",
-            "Your transfer of " + vm.getSendAmount() + " was successful",
-            Map.of(
-                "type", "TRANSACTION_ALERT",
-                "transactionId", result.getId(),
-                "deepLink", "transaction/" + result.getId()
-            )
+            "Confirmation de transfert",
+            "Nous vous confirmons que votre transfert de " + vm.getSendAmount() + "$ a été effectué avec succès.",
+            Map.of("type", "TRANSACTION_ALERT", "transactionId", result.getId(), "deepLink", "transaction/" + result.getId())
         );
-        notificationService.save(notification);
     }
 }

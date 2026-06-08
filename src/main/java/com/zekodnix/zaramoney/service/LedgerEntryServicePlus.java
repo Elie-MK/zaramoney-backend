@@ -1,10 +1,11 @@
 package com.zekodnix.zaramoney.service;
 
+import com.zekodnix.zaramoney.domain.enumeration.Currency;
 import com.zekodnix.zaramoney.domain.enumeration.EntryType;
 import com.zekodnix.zaramoney.service.dto.BankAccountDTO;
 import com.zekodnix.zaramoney.service.dto.LedgerEntryDTO;
 import com.zekodnix.zaramoney.service.dto.TransactionRecordDTO;
-import com.zekodnix.zaramoney.web.rest.vm.TransactionRecordVM;
+import java.math.BigDecimal;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,19 +19,14 @@ public class LedgerEntryServicePlus {
     }
 
     @Transactional
-    public LedgerEntryDTO buildEntry(
-        TransactionRecordDTO tx,
-        BankAccountDTO account,
-        TransactionRecordVM vm,
-        EntryType type
-    ) {
+    public LedgerEntryDTO buildEntry(TransactionRecordDTO tx, BankAccountDTO account, BigDecimal sendAmount, EntryType type) {
         var entry = new LedgerEntryDTO();
         entry.setTransaction(tx);
         entry.setAccount(account);
-        entry.setAmount(vm.getSendAmount());
-        entry.setCurrency(vm.getCurrencySendAmount());
+        entry.setAmount(sendAmount);
+        entry.setCurrency(Currency.USD);
         entry.setEntryType(type);
-       return ledgerEntryService.save(entry);
+        return ledgerEntryService.save(entry);
     }
 
     public void validateDoubleEntry(LedgerEntryDTO debit, LedgerEntryDTO credit) {
@@ -38,7 +34,4 @@ public class LedgerEntryServicePlus {
             throw new IllegalStateException("Unbalanced transaction");
         }
     }
-
-
-
 }
