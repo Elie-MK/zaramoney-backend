@@ -324,8 +324,8 @@ public class UserService {
         }
     }
 
-    public void validateTransactionPassword(TransactionRecordVM vm, User currentUser) {
-        if (vm.getPassword() == null || !passwordEncoder.matches(vm.getPassword(), currentUser.getPassword())) {
+    public void validateTransactionPassword(String password, User currentUser) {
+        if (password == null || !passwordEncoder.matches(password, currentUser.getPassword())) {
             throw new BadRequestAlertException("Invalid transaction password", "transaction", "invalidpassword");
         }
     }

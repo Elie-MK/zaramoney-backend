@@ -18,6 +18,9 @@ public class UserAccountVM {
     @NotBlank
     private String address;
 
+    @NotBlank
+    private String expoPushToken;
+
     public String getPhoneNumber() {
         return phoneNumber;
     }
@@ -56,5 +59,13 @@ public class UserAccountVM {
 
     public void setAddress(String address) {
         this.address = address;
+    }
+
+    public String getExpoPushToken() {
+        return expoPushToken;
+    }
+
+    public void setExpoPushToken(String expoPushToken) {
+        this.expoPushToken = expoPushToken;
     }
 }

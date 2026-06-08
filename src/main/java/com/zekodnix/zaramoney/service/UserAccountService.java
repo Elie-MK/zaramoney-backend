@@ -25,7 +25,9 @@ public class UserAccountService {
         UserDetailsAccountService userDetailsAccountService,
         UserMapper userMapper,
         UploadFileService uploadFileService,
-        BankAccountService bankAccountService, BankAccountServicePlus bankAccountServicePlus, CloudinaryService cloudinaryService
+        BankAccountService bankAccountService,
+        BankAccountServicePlus bankAccountServicePlus,
+        CloudinaryService cloudinaryService
     ) {
         this.userService = userService;
         this.userDetailsAccountService = userDetailsAccountService;
@@ -70,6 +72,7 @@ public class UserAccountService {
         userDetailsAccountDTO.setAddress(userAccountVM.getAddress());
         userDetailsAccountDTO.setPhoneNumber(userAccountVM.getPhoneNumber());
         userDetailsAccountDTO.setKycStatus(KycStatus.VERIFIED);
+        userDetailsAccountDTO.setExpoPushToken(userAccountVM.getExpoPushToken());
         return userDetailsAccountService.save(userDetailsAccountDTO);
     }
 
@@ -93,7 +96,4 @@ public class UserAccountService {
             userDetails.getKycStatus()
         );
     }
-
-
-
 }
