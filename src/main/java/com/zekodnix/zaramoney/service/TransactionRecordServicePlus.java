@@ -121,6 +121,10 @@ public class TransactionRecordServicePlus {
         var agentAccount = bankAccountService.findByAccountNumber(vm.getAgentAccountNumber()).orElseThrow();
         var agentDetails = userDetailsAccountService.findByUserEmail(agentAccount.getUser().getLogin()).orElseThrow();
 
+        if (sender.getAccountNumber().equals(vm.getAgentAccountNumber())) {
+            throw new AccessDeniedException("Operation not permitted: sender and receiver accounts must be different.");
+        }
+
         if (!agentDetails.getIsAgent()) {
             throw new AccessDeniedException("The account is not an agent account");
         }

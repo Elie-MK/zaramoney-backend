@@ -5,6 +5,7 @@ import com.zekodnix.zaramoney.service.TransactionRecordServicePlus;
 import com.zekodnix.zaramoney.service.dto.TransactionDetails;
 import com.zekodnix.zaramoney.service.dto.TransactionRecordDTO;
 import com.zekodnix.zaramoney.web.rest.vm.TransactionRecordVM;
+import com.zekodnix.zaramoney.web.rest.vm.WithdrawalTransactionRecordVM;
 import jakarta.validation.Valid;
 import java.math.BigDecimal;
 import java.nio.file.AccessDeniedException;
@@ -32,6 +33,14 @@ public class TransactionRecordResourcePlus {
         throws AccessDeniedException, InterruptedException, JsonProcessingException {
         LOG.debug("REST request to send TransactionRecord : {}", transactionRecordVM);
         var response = transactionRecordServicePlus.createTransactionRecord(transactionRecordVM);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/withdrawal")
+    public ResponseEntity<TransactionRecordDTO> withdrawalTransaction(@Valid @RequestBody WithdrawalTransactionRecordVM vm)
+        throws AccessDeniedException, JsonProcessingException {
+        LOG.debug("REST request to withdrawal TransactionRecord : {}", vm);
+        var response = transactionRecordServicePlus.withdrawalTransaction(vm);
         return ResponseEntity.ok(response);
     }
 
