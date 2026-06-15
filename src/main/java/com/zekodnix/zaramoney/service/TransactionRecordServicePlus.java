@@ -26,6 +26,7 @@ public class TransactionRecordServicePlus {
     private final TransactionFeeServicePlus transactionFeeServicePlus;
     private final NotificationServicePlus notificationServicePlus;
     private final UserDetailsAccountService userDetailsAccountService;
+    private final UserServicePlus userServicePlus;
 
     public TransactionRecordServicePlus(
         UserService userService,
@@ -37,7 +38,8 @@ public class TransactionRecordServicePlus {
         LedgerEntryServicePlus ledgerEntryServicePlus,
         TransactionFeeServicePlus transactionFeeServicePlus,
         NotificationServicePlus notificationServicePlus,
-        UserDetailsAccountService userDetailsAccountService
+        UserDetailsAccountService userDetailsAccountService,
+        UserServicePlus userServicePlus
     ) {
         this.userService = userService;
         this.bankAccountService = bankAccountService;
@@ -49,6 +51,7 @@ public class TransactionRecordServicePlus {
         this.transactionFeeServicePlus = transactionFeeServicePlus;
         this.notificationServicePlus = notificationServicePlus;
         this.userDetailsAccountService = userDetailsAccountService;
+        this.userServicePlus = userServicePlus;
     }
 
     @Transactional
@@ -61,6 +64,9 @@ public class TransactionRecordServicePlus {
         var currentUser = userService.getUserWithAuthorities().orElseThrow(() -> new AccessDeniedException("Unauthorized"));
 
         var sender = bankAccountService.findByUserIsCurrentUser().stream().findFirst().orElseThrow();
+
+        var receiver = bankAccountService.findByAccountNumber(vm.getReceiverAccountNumber()).orElseThrow();
+        var currentReceiver = userServicePlus.findOneByLogin(receiver.getUser().getLogin());
 
         // Security check
         userService.validateTransactionPassword(vm.getPassword(), currentUser);
@@ -95,7 +101,8 @@ public class TransactionRecordServicePlus {
         // Complete idempotency
         idempotencyRecordServicePlus.completeIdempotency(reservation, result);
 
-        notificationServicePlus.createNotification(result, currentUser, result);
+        notificationServicePlus.createTransactionNotification(result, currentUser, result.getSendAmount(), true);
+        notificationServicePlus.createTransactionNotification(result, currentReceiver, result.getReceiveAmount(), false);
 
         return result;
     }
@@ -120,6 +127,7 @@ public class TransactionRecordServicePlus {
 
         var agentAccount = bankAccountService.findByAccountNumber(vm.getAgentAccountNumber()).orElseThrow();
         var agentDetails = userDetailsAccountService.findByUserEmail(agentAccount.getUser().getLogin()).orElseThrow();
+        var currentAgentReceiver = userServicePlus.findOneByLogin(agentAccount.getUser().getLogin());
 
         if (sender.getAccountNumber().equals(vm.getAgentAccountNumber())) {
             throw new AccessDeniedException("Operation not permitted: sender and receiver accounts must be different.");
@@ -154,7 +162,8 @@ public class TransactionRecordServicePlus {
         // Complete idempotency
         idempotencyRecordServicePlus.completeIdempotency(reservation, result);
 
-        notificationServicePlus.createNotification(result, currentUser, result);
+        notificationServicePlus.createTransactionNotification(result, currentUser, result.getSendAmount(), true);
+        notificationServicePlus.createTransactionNotification(result, currentAgentReceiver, result.getReceiveAmount(), false);
 
         return result;
     }
