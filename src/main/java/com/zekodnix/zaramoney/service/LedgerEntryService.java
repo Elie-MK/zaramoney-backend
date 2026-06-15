@@ -2,6 +2,7 @@ package com.zekodnix.zaramoney.service;
 
 import com.zekodnix.zaramoney.domain.LedgerEntry;
 import com.zekodnix.zaramoney.repository.LedgerEntryRepository;
+import com.zekodnix.zaramoney.security.SecurityUtils;
 import com.zekodnix.zaramoney.service.dto.LedgerEntryDTO;
 import com.zekodnix.zaramoney.service.mapper.LedgerEntryMapper;
 import java.util.Optional;
@@ -95,6 +96,13 @@ public class LedgerEntryService {
     public Optional<LedgerEntryDTO> findOne(Long id) {
         LOG.debug("Request to get LedgerEntry : {}", id);
         return ledgerEntryRepository.findOneWithEagerRelationships(id).map(ledgerEntryMapper::toDto);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<LedgerEntryDTO> getCurrentUserEntries(Pageable pageable) {
+        String login = SecurityUtils.getCurrentUserLogin().orElseThrow(() -> new RuntimeException("User not authenticated"));
+
+        return ledgerEntryRepository.findAllByCurrentUserLogin(login, pageable).map(ledgerEntryMapper::toDto);
     }
 
     /**

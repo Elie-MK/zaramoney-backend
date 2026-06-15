@@ -4,8 +4,11 @@ import com.zekodnix.zaramoney.domain.enumeration.Currency;
 import com.zekodnix.zaramoney.domain.enumeration.EntryType;
 import com.zekodnix.zaramoney.service.dto.BankAccountDTO;
 import com.zekodnix.zaramoney.service.dto.LedgerEntryDTO;
+import com.zekodnix.zaramoney.service.dto.LedgerWithTransactionDTO;
 import com.zekodnix.zaramoney.service.dto.TransactionRecordDTO;
 import java.math.BigDecimal;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -13,9 +16,11 @@ import org.springframework.transaction.annotation.Transactional;
 public class LedgerEntryServicePlus {
 
     private final LedgerEntryService ledgerEntryService;
+    private final TransactionRecordService transactionRecordService;
 
-    public LedgerEntryServicePlus(LedgerEntryService ledgerEntryService) {
+    public LedgerEntryServicePlus(LedgerEntryService ledgerEntryService, TransactionRecordService transactionRecordService) {
         this.ledgerEntryService = ledgerEntryService;
+        this.transactionRecordService = transactionRecordService;
     }
 
     @Transactional
@@ -27,6 +32,19 @@ public class LedgerEntryServicePlus {
         entry.setCurrency(Currency.USD);
         entry.setEntryType(type);
         return ledgerEntryService.save(entry);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<LedgerWithTransactionDTO> getCurrentUserEntries(Pageable pageable) {
+        Page<LedgerEntryDTO> entries = ledgerEntryService.getCurrentUserEntries(pageable);
+
+        return entries.map(e -> {
+            LedgerWithTransactionDTO dto = new LedgerWithTransactionDTO();
+            var transaction = transactionRecordService.findOne(e.getTransaction().getId()).orElseThrow();
+            dto.setEntryType(e.getEntryType());
+            dto.setTransactionRecord(transaction);
+            return dto;
+        });
     }
 
     public void validateDoubleEntry(LedgerEntryDTO debit, LedgerEntryDTO credit) {
