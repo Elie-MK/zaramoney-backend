@@ -51,4 +51,14 @@ public interface LedgerEntryRepository extends JpaRepository<LedgerEntry, Long>,
         """
     )
     Page<LedgerEntry> findAllByCurrentUserLogin(@Param("login") String login, Pageable pageable);
+
+    @Query("""
+            select le
+            from LedgerEntry le
+            left join fetch le.account a
+            left join fetch a.user
+            left join fetch le.transaction t
+            where t.id = :id AND a.user.login = :login
+            """)
+    Optional<LedgerEntry> findOneByTransactionId(Long id, @Param("login") String login );
 }

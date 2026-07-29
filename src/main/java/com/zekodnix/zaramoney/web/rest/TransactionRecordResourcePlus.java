@@ -50,4 +50,11 @@ public class TransactionRecordResourcePlus {
         var response = transactionRecordServicePlus.getAllTransactionRecords(pageable);
         return ResponseEntity.ok(response);
     }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<TransactionRecordDTO> getTransactionRecord(@PathVariable Long id) {
+        LOG.debug("REST request to get TransactionRecord : {}", id);
+        var response = transactionRecordServicePlus.getTransactionRecord(id);
+        return ResponseEntity.ok(response);
+    }
 }

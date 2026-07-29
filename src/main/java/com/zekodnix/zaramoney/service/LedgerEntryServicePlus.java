@@ -52,4 +52,10 @@ public class LedgerEntryServicePlus {
             throw new IllegalStateException("Unbalanced transaction");
         }
     }
+
+    public LedgerWithTransactionDTO getCurrentUserEntryById(Long id) {
+        var transaction = transactionRecordService.findOne(id).orElseThrow();
+        var ledger = ledgerEntryService.getCurrentUserEntryByTransactionId(id);
+        return new LedgerWithTransactionDTO(ledger.getEntryType(), transaction);
+    }
 }

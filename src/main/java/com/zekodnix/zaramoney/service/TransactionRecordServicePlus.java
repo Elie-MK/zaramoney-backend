@@ -215,6 +215,10 @@ public class TransactionRecordServicePlus {
     public Page<TransactionRecordDTO> getAllTransactionRecords(Pageable pageable) {
         return transactionRecordService.findAllWithEagerRelationships(pageable);
     }
+
+    public TransactionRecordDTO getTransactionRecord(Long id) {
+        return transactionRecordService.findOne(id).orElseThrow();
+    }
     //    public TransactionDetails checkAccountNumber(String accountNumber, BigDecimal sendAmount) throws AccessDeniedException {
     //        var currentUser = userService.getUserWithAuthorities().orElseThrow(() -> new AccessDeniedException("Unauthorized"));
     //

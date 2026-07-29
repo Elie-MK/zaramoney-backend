@@ -5,7 +5,9 @@ import com.zekodnix.zaramoney.repository.LedgerEntryRepository;
 import com.zekodnix.zaramoney.security.SecurityUtils;
 import com.zekodnix.zaramoney.service.dto.LedgerEntryDTO;
 import com.zekodnix.zaramoney.service.mapper.LedgerEntryMapper;
+
 import java.util.Optional;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
@@ -103,6 +105,14 @@ public class LedgerEntryService {
         String login = SecurityUtils.getCurrentUserLogin().orElseThrow(() -> new RuntimeException("User not authenticated"));
 
         return ledgerEntryRepository.findAllByCurrentUserLogin(login, pageable).map(ledgerEntryMapper::toDto);
+    }
+
+    @Transactional(readOnly = true)
+    public LedgerEntry getCurrentUserEntryByTransactionId(Long id) {
+        LOG.debug("Request to get LedgerEntry by transaction id : {}", id);
+        String login = SecurityUtils.getCurrentUserLogin().orElseThrow(() -> new RuntimeException("User not authenticated"));
+
+        return ledgerEntryRepository.findOneByTransactionId(id, login).orElse(null);
     }
 
     /**

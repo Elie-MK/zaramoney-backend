@@ -25,4 +25,11 @@ public class LedgerWithTransactionDTO {
     public void setEntryType(EntryType entryType) {
         this.entryType = entryType;
     }
+
+    public LedgerWithTransactionDTO(EntryType entryType, TransactionRecordDTO transactionRecord) {
+        this.entryType = entryType;
+        this.transactionRecord = transactionRecord;
+    }
+
+    public LedgerWithTransactionDTO() {}
 }
