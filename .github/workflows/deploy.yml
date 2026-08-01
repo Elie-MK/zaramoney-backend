@@ -41,7 +41,14 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
-            mv /opt/zaramoney/target/zaramoneybackend-0.0.1-SNAPSHOT.jar /opt/zaramoney/zaramoney.jar
-            rm -rf /opt/zaramoney/target
-            sudo systemctl restart zaramoney
-            sudo systemctl status zaramoney --no-pager
+            set -e
+            cd /opt/zaramoney
+
+            echo "📦 Déploiement JAR..."
+            mv target/zaramoneybackend-0.0.1-SNAPSHOT.jar zaramoney.jar
+
+            echo "🔁 Restart service..."
+            sudo -n systemctl restart zaramoney
+
+            echo "📊 Status:"
+            sudo -n systemctl status zaramoney --no-pager
