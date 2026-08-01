@@ -38,6 +38,21 @@ public class TransactionRecordVM {
     @NotNull
     private String password;
 
+    public TransactionRecordVM() {
+    }
+
+    public TransactionRecordVM(TransactionType transactionType, BigDecimal sendAmount, String description, String receiverAccountNumber, Currency currencySendAmount, Currency currencyReceiveAmount, String idempotencyKey, String endpoint, String password) {
+        this.transactionType = transactionType;
+        this.sendAmount = sendAmount;
+        this.description = description;
+        this.receiverAccountNumber = receiverAccountNumber;
+        this.currencySendAmount = currencySendAmount;
+        this.currencyReceiveAmount = currencyReceiveAmount;
+        this.idempotencyKey = idempotencyKey;
+        this.endpoint = endpoint;
+        this.password = password;
+    }
+
     public TransactionType getTransactionType() {
         return transactionType;
     }

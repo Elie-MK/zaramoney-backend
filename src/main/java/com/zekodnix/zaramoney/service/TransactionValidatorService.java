@@ -145,7 +145,7 @@ public class TransactionValidatorService {
         return transaction;
     }
 
-    private String generateTransactionReference() {
+    public String generateTransactionReference() {
         return "ZMCT-" + System.currentTimeMillis() + "-" + ThreadLocalRandom.current().nextInt(1000, 9999);
     }
 }
