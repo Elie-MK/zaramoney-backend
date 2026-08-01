@@ -1,7 +1,6 @@
 package com.zekodnix.zaramoney.service.dto;
 
 import jakarta.validation.constraints.NotNull;
-import org.springframework.web.bind.annotation.RequestBody;
 
 import java.math.BigDecimal;
 
