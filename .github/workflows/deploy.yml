@@ -34,7 +34,6 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           source: "target/zaramoneybackend-0.0.1-SNAPSHOT.jar"
           target: "/opt/zaramoney/"
-
       - name: Replace JAR and restart application
         uses: appleboy/ssh-action@v1
         with:
