@@ -5,6 +5,9 @@ import com.cloudinary.utils.ObjectUtils;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -20,22 +23,33 @@ public class UploadFileService {
     public UploadFileService(Cloudinary cloudinary) {
         this.cloudinary = cloudinary;
     }
-
     public Map<String, String> uploadFile(MultipartFile imgUrl) {
         validateImageFile(imgUrl);
-        try {
-            File convFile = new File(System.getProperty("java.io.tmpdir") + "/" + imgUrl.getOriginalFilename());
-            FileOutputStream fos = new FileOutputStream(convFile);
-            fos.write(imgUrl.getBytes());
-            fos.close();
 
-            var pic = cloudinary.uploader().upload(convFile, ObjectUtils.asMap("folder", "/images/"));
+        try {
+            Path filePath = Paths.get(
+                System.getProperty("java.io.tmpdir"),
+                imgUrl.getOriginalFilename()
+            );
+
+            Files.write(filePath, imgUrl.getBytes());
+
+            var pic = cloudinary.uploader()
+                .upload(filePath.toFile(), ObjectUtils.asMap("folder", "/images/"));
+
             var publicId = pic.get("public_id").toString();
             var picUrl = pic.get("url").toString();
 
-            return Map.of("publicId", publicId, "url", picUrl);
+            return Map.of(
+                "publicId", publicId,
+                "url", picUrl
+            );
+
         } catch (IOException e) {
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Failed to upload the file.");
+            throw new ResponseStatusException(
+                HttpStatus.BAD_GATEWAY,
+                "Failed to upload the file."
+            );
         }
     }
 
