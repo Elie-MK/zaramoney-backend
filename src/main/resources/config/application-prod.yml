@@ -34,8 +34,8 @@ spring:
   datasource:
     type: com.zaxxer.hikari.HikariDataSource
     url: jdbc:postgresql://localhost:5432/zaramoneybackend
-    username: zaramoneybackend
-    password:
+    username: zaramoney
+    password: Kinshasa@25@
     hikari:
       poolName: Hikari
       auto-commit: false
