@@ -3,7 +3,7 @@ name: Deploy ZaraMoney Test
 on:
   push:
     branches:
-      - main
+      - develop
 
 jobs:
 
