@@ -4,7 +4,10 @@ import com.zekodnix.zaramoney.domain.Notification;
 import com.zekodnix.zaramoney.repository.NotificationRepository;
 import com.zekodnix.zaramoney.service.dto.NotificationDTO;
 import com.zekodnix.zaramoney.service.mapper.NotificationMapper;
+
+import java.util.List;
 import java.util.Optional;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
@@ -83,6 +86,10 @@ public class NotificationService {
      */
     public Page<NotificationDTO> findAllWithEagerRelationships(Pageable pageable) {
         return notificationRepository.findAllWithEagerRelationships(pageable).map(notificationMapper::toDto);
+    }
+
+    public List<NotificationDTO> getCurrentUserNotification() {
+        return notificationRepository.findByUserIsCurrentUser().stream().map(notificationMapper::toDto).toList();
     }
 
     /**

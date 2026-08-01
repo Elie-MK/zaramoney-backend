@@ -7,14 +7,23 @@ import com.zekodnix.zaramoney.domain.enumeration.NotificationType;
 import com.zekodnix.zaramoney.service.dto.NotificationDTO;
 import com.zekodnix.zaramoney.service.dto.TransactionRecordDTO;
 import com.zekodnix.zaramoney.service.mapper.UserMapper;
+
+import java.awt.print.Pageable;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class NotificationServicePlus {
+
+    private static final Logger LOG = LoggerFactory.getLogger(NotificationServicePlus.class);
 
     private final NotificationService notificationService;
     private final UserDetailsAccountService userDetailsAccountService;
@@ -69,5 +78,10 @@ public class NotificationServicePlus {
         notification.setStatus(NotificationStatus.SENT);
 
         notificationService.save(notification);
+    }
+
+    public List<NotificationDTO> getCurrentUserNotifications() {
+        LOG.debug("Retrieving current user notifications");
+        return notificationService.getCurrentUserNotification();
     }
 }
