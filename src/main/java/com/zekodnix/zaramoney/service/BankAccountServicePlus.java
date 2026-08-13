@@ -53,7 +53,7 @@ public class BankAccountServicePlus {
     private String generateAccountNumber() {
         String prefix = "2512";
 
-        int remainingLength = 16 - prefix.length();
+        int remainingLength = 12 - prefix.length();
 
         long max = (long) Math.pow(10, remainingLength);
         long randomPart = (long) (Math.random() * max);
