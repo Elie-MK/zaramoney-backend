@@ -39,4 +39,6 @@ public interface TransactionLimitRepository extends JpaRepository<TransactionLim
         "select transactionLimit from TransactionLimit transactionLimit left join fetch transactionLimit.account where transactionLimit.id =:id"
     )
     Optional<TransactionLimit> findOneWithToOneRelationships(@Param("id") Long id);
+
+    Optional<TransactionLimit> findOneByAccountId(Long accountId);
 }

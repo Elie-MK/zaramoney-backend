@@ -9,7 +9,8 @@ enum TransactionType {
   PAYMENT,
   REFUND,
   FEE,
-  REVERSAL
+  REVERSAL,
+  BONUS
 }
 
 enum TransactionStatus {

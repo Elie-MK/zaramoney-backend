@@ -30,12 +30,12 @@ Legend: 🔴 Critical · 🟠 High · 🟡 Bug · 🔵 Improvement
 - [x] Dev loads a git-ignored `.env` (`spring.config.import: optional:file:.env[.properties]`); template in `.env.example`; `.env` added to `.gitignore`
 - [x] TLS keystore password → `${SSL_KEYSTORE_PASSWORD:password}` (the default only fits the committed self-signed dev keystore)
 - [x] Use a different JWT secret in dev and prod
-- [ ] **Manual: set the env vars on the server BEFORE the next push to `develop`** (a push deploys automatically, and the app now refuses to start without them). E.g. an `EnvironmentFile=/etc/zaramoney/zaramoney.env` (chmod 600) in the `zaramoney` systemd unit
-- [ ] **Manual: rotate everything** (old values must be treated as leaked):
-  - [ ] Postgres `zaramoney` user password
-  - [ ] New prod JWT secret (`openssl rand -base64 64`); this logs everyone out
-  - [ ] Cloudinary API secret (regenerate in the Cloudinary console)
-- [ ] Purge the old values from git history (git-filter-repo / BFG; requires a force-push and every clone to re-clone), then add gitleaks to CI (add it after the purge, or it will flag history)
+- [x] **Manual: set the env vars on the server BEFORE the next push to `develop`** (a push deploys automatically, and the app now refuses to start without them). E.g. an `EnvironmentFile=/etc/zaramoney/zaramoney.env` (chmod 600) in the `zaramoney` systemd unit
+- [x] **Manual: rotate everything** (old values must be treated as leaked):
+  - [x] Postgres `zaramoney` user password
+  - [x] New prod JWT secret (`openssl rand -base64 64`); this logs everyone out
+  - [x] Cloudinary API secret (regenerate in the Cloudinary console)
+- [x] Purge the old values from git history (git-filter-repo / BFG; requires a force-push and every clone to re-clone), then add gitleaks to CI (add it after the purge, or it will flag history)
 
 ### 🟡 Test infrastructure (found while running Phase 1 tests)
 - [ ] Testcontainers 1.20.6 (managed by Spring Boot 3.4.5) can't talk to Docker 29 ("client version 1.32 is too old"). Fix: pin `<testcontainers.version>1.21.4</testcontainers.version>` (or newer) in `pom.xml`. For now tests run with `./mvnw verify -Dtestcontainers.version=1.21.4`
@@ -45,52 +45,72 @@ Legend: 🔴 Critical · 🟠 High · 🟡 Bug · 🔵 Improvement
 
 ## Phase 2 — Money logic and data leaks
 
-### 🔴 3. The balance check ignores the fee (balances can go negative)
-- [ ] `TransactionValidatorService.checkAmountValidation` checks `balance - amount` but the code debits `amount + fee`. Example: balance 2505, send 2500, fee 23.75 → balance −18.75
-- [ ] Compute the fee **before** validating and check `balance - (amount + fee) >= MIN_BALANCE`
-- [ ] Add a DB constraint `CHECK (balance >= 0)` on `bank_account` (Liquibase changeset)
+> **Phase 2 (items 3–12) done 2026-11-12, not yet deployed.** Product decisions: KYC starts PENDING + admin review; keep the $5 bonus but fund it through the ledger; separate transaction PIN. See "Deploying Phase 2" below before pushing.
 
-### 🔴 4. The KYC / account-creation step hands out free money
-- [ ] `POST /api/user-account/create` can be called repeatedly. Each call creates a new bank account with $5.00 (`BankAccountServicePlus.createBankAccount`, line 43) and a new user-details row → allow only one per user
-- [ ] The initial $5 has no ledger entry → fund it from a "promo" system account through the ledger, or start at 0
-- [ ] KYC is set to `VERIFIED` automatically (`UserAccountService.java:77`) → start at `PENDING` and add an admin approve/reject flow
+### 🔴 3. The balance check ignores the fee (balances can go negative) — ✅ DONE
+- [x] `checkAmountValidation(amount, fee, accounts)` checks `balance - (amount + fee) >= MIN_BALANCE`; the fee is computed before validating
+- [x] DB constraint `chk_bank_account_balance_non_negative`: `CHECK (balance >= 0 OR account_type = 'SYSTEM')`, added `NOT VALID` so the migration can't fail on old rows
+- [ ] **Manual (prod):** look for negative balances (`select id, account_number, balance from bank_account where balance < 0 and account_type = 'CUSTOMER'`), fix them, then `ALTER TABLE bank_account VALIDATE CONSTRAINT chk_bank_account_balance_non_negative;`
 
-### 🔴 5. Enforce the transaction limits
-- [ ] The daily and monthly limits created by `TransactionLimitServicePlus` are never checked → enforce them in `/send` and `/withdrawal`
+### 🔴 4. The KYC / account-creation step hands out free money — ✅ DONE
+- [x] `POST /api/user-account/create` returns 409 `accountalreadyexists` if the user already has a wallet or KYC record (checked before any upload)
+- [x] The $5 bonus is kept but funded by a SYSTEM promo account (`999900000001`, auto-created at startup): BONUS transaction + DEBIT promo / CREDIT customer ledger entries. Accounts open at 0.00
+- [x] KYC starts `PENDING`; `/send` and `/withdrawal` return 403 `kycnotverified` until approved
+- [x] Admin review: `GET /api/admin/backoffice/kyc?status=PENDING`, `GET /kyc/{id}` (with 5-minute signed document links), `POST /kyc/{id}/approve`, `POST /kyc/{id}/reject`
+- [ ] Notify the user (push) when KYC is approved or rejected
+- [ ] Persist KYC decisions in an audit log (currently application log only; Phase 5)
 
-### 🟠 6. Every user's transactions are visible to everyone
-- [ ] `GET /api/plus/transaction-records` and `GET /api/plus/transaction-records/{id}` return all users' transactions (`TransactionRecordResourcePlus.java:47-59`) → filter by the current user's accounts, or restrict to admins
+### 🔴 5. Enforce the transaction limits — ✅ DONE
+- [x] `TransactionLimitServicePlus.checkLimits` checks daily and monthly totals (all COMPLETED outgoing transactions, Kinshasa time) while the sender row is locked; 400 `dailylimitexceeded` / `monthlylimitexceeded`
+- [x] Accounts without a limit row fall back to the defaults (1000 / 10000)
 
-### 🟠 7. Responses leak other users' data
-- [ ] Transfer responses embed the full `BankAccountDTO` for sender and receiver, including the **receiver's balance** and login (email)
-- [ ] Create customer-facing response DTOs (reference, amount, fee, masked counterparty name and account number, status, date)
+### 🟠 6. Every user's transactions are visible to everyone — ✅ DONE
+- [x] `GET /api/plus/transaction-records` only lists the current user's transactions; `GET /{id}` returns 404 if it isn't theirs
+- [x] `/api/ledger-entries/plus/transaction/{id}` returns 404 instead of 500 when not the user's
 
-### 🟠 8. Idempotency keys are global, not per user
-- [ ] `IdempotencyRecordServicePlus.check(key)` looks up by key hash only, so user B can replay user A's key and read A's transaction
-- [ ] Scope by `(user_id, key_hash)`: change the unique constraint and the lookup
-- [ ] Store the real endpoint (it is hard-coded to `/send` even for withdrawals)
-- [ ] Also store a hash of the request body and reject a reused key that comes with a different payload
+### 🟠 7. Responses leak other users' data — ✅ DONE
+- [x] New `TransactionReceiptDTO` (reference, type, direction SENT/RECEIVED, amount, fee, total, status, date, own account number, counterparty name + masked account number). Used by `/send`, `/withdrawal`, the transaction list/detail and the ledger endpoints
+- [x] Never contains the other party's balance, login/email or internal ids
 
-### 🟠 9. Path traversal and unsafe uploads
-- [ ] `UploadFileService.uploadFile` writes to `Path.of(tmpdir, originalFilename)`: a name like `../../x` lets the client write anywhere, and users with the same file name overwrite each other's files
-- [ ] Upload the bytes directly (`cloudinary.uploader().upload(file.getBytes(), ...)`), or use a random UUID temp file and delete it in `finally`
-- [ ] Drop SVG (stored-XSS risk)
-- [ ] Verify the real image type from the file's magic bytes instead of the client-supplied MIME type
-- [ ] Store `secure_url`, not `url`
-- [ ] Make KYC documents private (authenticated / signed URLs)
+### 🟠 8. Idempotency keys are global, not per user — ✅ DONE
+- [x] Stored hash is `SHA-256(userId + ":" + key)`: another user's key can never match
+- [x] Real endpoint stored; `request_hash` column (business fields, never the PIN) → 409 `idempotencykeyreused` on a different payload or endpoint
+- [x] Replays are rebuilt from the transaction reference (old stored JSON bodies are no longer parsed)
+- [x] Parallel duplicates: the reservation is flushed before the accounts are locked, so the second request blocks on the unique index and gets 409 (`DataIntegrityViolationException` → 409 in `ExceptionTranslator`)
 
-### 🟠 10. Transaction password and brute force
-- [ ] The transaction "password" is just the login password (`UserService.validateTransactionPassword`) → add a separate hashed PIN
-- [ ] Lock the account after N failed PIN or login attempts
-- [ ] Add rate limiting (e.g. Bucket4j) on `/api/authenticate`, `/api/register`, `/api/account/reset-password/*`, `/verify` and `/send`
+### 🟠 9. Path traversal and unsafe uploads — ✅ DONE
+- [x] Bytes uploaded directly to Cloudinary (no temp file, the client file name is never used)
+- [x] SVG dropped; real type checked from magic bytes (JPEG/PNG/WEBP); 500KB max; both pictures required
+- [x] KYC files uploaded as `type=private`; DB stores `"<publicId>.<format>"`; admins get 5-minute signed links. Uploads are deleted again if account creation rolls back
+- [ ] **Manual:** documents uploaded before this change are still public on Cloudinary (old rows hold `http://...` URLs). Move them to private (or re-upload) and update the rows
 
-### 🟠 11. Account number generation and enumeration
-- [ ] `generateAccountNumber` uses `Math.random()` for 8 digits with no retry on collision → use `SecureRandom`, retry on unique violation, and consider a check digit (Luhn)
-- [ ] `/api/bank-accounts/plus/accounts/{n}/verify` and `GET /api/users` make enumeration easy → rate-limit them and return the minimum data needed
+### 🟠 10. Transaction password and brute force — ✅ DONE
+- [x] Separate transaction PIN (`transaction_pin` table, BCrypt): `GET /api/plus/security/pin` → `{pinSet}`, `PUT /api/plus/security/pin {password, pin}` (requires the login password; rejects 1111/1234/4321-style PINs)
+- [x] `/send` and `/withdrawal` take `pin` instead of `password`
+- [x] PIN lockout: 5 wrong PINs → locked 30 min (423 `pinlocked`); the counter is saved in its own transaction so a rollback can't erase it. The PIN is verified **before** the transfer transaction opens (no nested transaction → no connection-pool starvation)
+- [x] Login lockout: 5 failures in 15 min → 429 `loginlocked` for that login (in-memory)
+- [x] Rate limiting (`RateLimitFilter`, in-memory): login 10/min/IP, register 5/h/IP, reset-password init 5/h + finish 10/h per IP, verify-account 30/min/user, send & withdrawal 10/min/user, set-PIN 5/h/user → 429 + `Retry-After`. Switch: `application.security.rate-limit-enabled`
+- [ ] With more than one app instance, move the counters to Redis (Bucket4j + Redis)
 
-### 🟠 12. Exposure through config and endpoints
-- [ ] `/management/prometheus` is publicly accessible (`SecurityConfiguration.java:54`) → restrict it to admin or the internal network
+### 🟠 11. Account number generation and enumeration — ✅ DONE
+- [x] `SecureRandom` + retry on collision (unique constraint still the final guard)
+- [x] `/verify` never reports SYSTEM accounts and is rate-limited; `GET /api/users` is admin-only
+- [ ] (Optional) Luhn check digit so the app can catch typos — would need a format change for new accounts
+
+### 🟠 12. Exposure through config and endpoints — ✅ DONE
+- [x] `/management/prometheus` now requires ROLE_ADMIN (falls under `/management/**`). If Prometheus scrapes it, give the scraper an admin token or expose metrics on an internal port only
+- [x] `server.forward-headers-strategy: native` in prod so rate limits see the real client IP behind nginx
 - [ ] JWT validity is 24h, or 30 days with remember-me → replaced by the token design in item 13
+
+### 🚀 Deploying Phase 2 (checklist)
+- [ ] **Mobile app must ship together with the backend**, because the API changed:
+  - [ ] `/send` and `/withdrawal`: send `pin` (not `password`); `idempotencyKey` is 8–128 chars (use a UUID per attempt, reuse it only for retries)
+  - [ ] New "create your PIN" screen (`GET`/`PUT /api/plus/security/pin`), shown when `pinSet` is false. **Existing users have no PIN yet and can't send until they set one**
+  - [ ] Responses of `/send`, `/withdrawal`, `GET /api/plus/transaction-records[/{id}]` and the ledger endpoints are now `TransactionReceiptDTO`s (no `sender`/`receiver` objects)
+  - [ ] Onboarding: both pictures required; show "verification pending" (KYC `PENDING`) and handle 403 `kycnotverified`, 423 `pinlocked`, 429 `loginlocked` / `ratelimited`, 409 `accountalreadyexists` / `idempotencykeyreused`
+- [ ] nginx sends `X-Forwarded-For` (see `application-prod.yml`), otherwise all users share one IP for the rate limits
+- [ ] Liquibase runs automatically on startup (new columns `account_type`, `request_hash`, table `transaction_pin`, `NOT VALID` check constraint); the promo account is created at startup
+- [ ] After deploy: approve the KYC of users who should keep sending (existing users keep their current status)
 
 ### 🟠 13. Refresh tokens, revocation and device binding (for mobile local authentication)
 Goal: the app uses local authentication (Face ID / fingerprint via `expo-local-authentication`) to unlock a refresh token kept in the device's secure storage. Any token can be revoked or blocked, and a copied token is useless on another device.
@@ -212,13 +232,13 @@ Proof of possession: every authenticated request and every refresh must be signe
 
 ## Phase 3 — Transaction-flow bugs (`TransactionRecordServicePlus`, `TransactionValidatorService`)
 
-- [ ] 🟡 Block self-transfers on `/send` (sender == receiver) (withdrawal already blocks them)
+- [x] 🟡 Block self-transfers on `/send` (sender == receiver) (done in Phase 2)
 - [ ] 🟡 Check sender and receiver `AccountStatus` (reject FROZEN or CLOSED accounts) and the sender's KYC status
 - [ ] 🟡 Validate currencies: `currencySendAmount` and `currencyReceiveAmount` are ignored
 - [ ] 🟡 Set the server side `transactionType` itself (it is currently client-supplied in `TransactionRecordVM`)
 - [ ] 🟡 Store the fee in its own column instead of `exchangeRate` (`TransactionValidatorService.java:132`); deposits also store a fake `2.81` there
 - [ ] 🟡 Check the withdrawal fee tiers in `calculateWithdrawalFee`: 5–20 → **8%** looks like a typo (0.8%?). It is non-monotonic: 20 costs $1.60, 21 costs $0.53
-- [ ] 🟡 `calculateWithdrawalFee` throws `IllegalArgumentException` → 500; return a 400 instead
+- [x] 🟡 `calculateWithdrawalFee` throws `IllegalArgumentException` → 500; return a 400 instead (done in Phase 2)
 - [ ] 🟡 Move fee rates, the minimum balance and FX rates out of the code into `BigDecimal` config or DB values (no `double`)
 - [ ] 🟡 The sender is picked with `findByUserIsCurrentUser().stream().findFirst()`, which is arbitrary when a user has several accounts → choose explicitly
 - [ ] 🟡 The ownership check is useless (the account was already fetched for the current user); check it against the account that is actually locked
@@ -227,7 +247,7 @@ Proof of possession: every authenticated request and every refresh must be signe
   - [ ] `createTransactionRecord()` / `withdrawalTransaction()`
 - [ ] 🟡 Send notifications and Expo pushes **after commit** (`@TransactionalEventListener(phase = AFTER_COMMIT)`); today a push can be sent for a transaction that later rolls back
 - [ ] 🟡 Replace bare `orElseThrow()` calls with proper 4xx errors (unknown account → 404 or 400, not 500)
-- [ ] 🟡 `LedgerEntryServicePlus.getCurrentUserEntryById` throws an NPE when the ledger entry is null
+- [x] 🟡 `LedgerEntryServicePlus.getCurrentUserEntryById` throws an NPE when the ledger entry is null (404 since Phase 2)
 - [ ] 🟡 Add `@Version` (optimistic locking) to `BankAccount` to cover the write paths that are not pessimistically locked
 
 ## Phase 3b — Back office deposit (`BackOfficeService.addMoneyToUserAccount`)

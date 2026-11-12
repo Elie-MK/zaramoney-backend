@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!-- Phase 2 security fixes (see TODO.md items 3, 4, 8, 10). -->
+
+    <!-- Item 3/4: system accounts (promo) vs customer wallets -->
+    <changeSet id="20261112000000-1" author="zaramoney">
+        <addColumn tableName="bank_account">
+            <column name="account_type" type="varchar(20)" defaultValue="CUSTOMER">
+                <constraints nullable="false" />
+            </column>
+        </addColumn>
+    </changeSet>
+
+    <!--
+        Item 3: a customer balance can never be negative.
+        NOT VALID: enforced for every new INSERT/UPDATE, but existing rows are not re-checked, so the migration
+        cannot fail on a pre-existing negative balance. After cleaning up any such rows, run:
+          ALTER TABLE bank_account VALIDATE CONSTRAINT chk_bank_account_balance_non_negative;
+    -->
+    <changeSet id="20261112000000-2" author="zaramoney" dbms="postgresql">
+        <sql>
+            ALTER TABLE bank_account
+              ADD CONSTRAINT chk_bank_account_balance_non_negative
+              CHECK (balance &gt;= 0 OR account_type = 'SYSTEM') NOT VALID;
+        </sql>
+        <rollback>
+            ALTER TABLE bank_account DROP CONSTRAINT chk_bank_account_balance_non_negative;
+        </rollback>
+    </changeSet>
+
+    <!-- Item 8: detect an idempotency key reused with a different payload -->
+    <changeSet id="20261112000000-3" author="zaramoney">
+        <addColumn tableName="idempotency_record">
+            <column name="request_hash" type="varchar(64)" />
+        </addColumn>
+    </changeSet>
+
+    <!-- Item 10: transaction PIN, separate from the login password, with lockout -->
+    <changeSet id="20261112000000-4" author="zaramoney">
+        <createTable tableName="transaction_pin">
+            <column name="id" type="bigint">
+                <constraints primaryKey="true" nullable="false" />
+            </column>
+            <column name="user_id" type="bigint">
+                <constraints nullable="false" unique="true" uniqueConstraintName="ux_transaction_pin__user_id" />
+            </column>
+            <column name="pin_hash" type="varchar(100)">
+                <constraints nullable="false" />
+            </column>
+            <column name="failed_attempts" type="integer" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="locked_until" type="${datetimeType}" />
+            <column name="updated_at" type="${datetimeType}">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+        <addForeignKeyConstraint
+            baseColumnNames="user_id"
+            baseTableName="transaction_pin"
+            constraintName="fk_transaction_pin__user_id"
+            referencedColumnNames="id"
+            referencedTableName="jhi_user"
+        />
+    </changeSet>
+</databaseChangeLog>

@@ -6,7 +6,7 @@ import com.zekodnix.zaramoney.service.dto.*;
 import com.zekodnix.zaramoney.service.exception.UserDetailsAccountNotFoundException;
 import com.zekodnix.zaramoney.service.mapper.UserMapper;
 import com.zekodnix.zaramoney.web.rest.vm.UserAccountVM;
-import java.util.Map;
+import com.zekodnix.zaramoney.web.rest.errors.ApiException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,7 +24,6 @@ public class UserAccountService {
         UserService userService,
         UserDetailsAccountService userDetailsAccountService,
         UserMapper userMapper,
-        UploadFileService uploadFileService,
         BankAccountService bankAccountService,
         BankAccountServicePlus bankAccountServicePlus,
         CloudinaryService cloudinaryService
@@ -40,13 +39,23 @@ public class UserAccountService {
     @Transactional
     public UserAccountDto createNewUserAccount(UserAccountVM userAccountVM) {
         var currentUser = userService.getUserWithAuthorities().orElseThrow();
+
+        // One wallet + one KYC record per user: re-submitting must not create extra accounts (and extra bonuses)
+        if (
+            userDetailsAccountService.findByUserEmail(currentUser.getEmail()).isPresent() ||
+            !bankAccountService.findByUserIsCurrentUser().isEmpty()
+        ) {
+            throw ApiException.conflict("An account already exists for this user", "accountalreadyexists");
+        }
+
         var userSaved = userMapper.userToUserDTO(currentUser);
+
+        // Upload first (validates both images); uploads are deleted again if this transaction rolls back
+        var documents = cloudinaryService.uploadKycDocuments(userAccountVM);
 
         var usdAccount = bankAccountServicePlus.createBankAccount(userSaved);
 
-        Map<String, Map<String, String>> files = cloudinaryService.getUploadedPictures(userAccountVM);
-
-        var userDetails = createUserDetails(userAccountVM, userSaved, files);
+        var userDetails = createUserDetails(userAccountVM, userSaved, documents);
 
         return new UserAccountDto(
             currentUser.getFirstName(),
@@ -61,17 +70,19 @@ public class UserAccountService {
     private UserDetailsAccountDTO createUserDetails(
         UserAccountVM userAccountVM,
         UserDTO userSaved,
-        Map<String, Map<String, String>> files
+        CloudinaryService.KycDocuments documents
     ) {
         var userDetailsAccountDTO = new UserDetailsAccountDTO();
         userDetailsAccountDTO.setUser(userSaved);
-        userDetailsAccountDTO.setFacePicture(files.containsKey("facePicture") ? files.get("facePicture").get("url") : null);
-        userDetailsAccountDTO.setIdCardPicture(files.containsKey("idCardPicture") ? files.get("idCardPicture").get("url") : null);
+        // Private Cloudinary references ("<publicId>.<format>"), not public URLs
+        userDetailsAccountDTO.setFacePicture(documents.facePicture());
+        userDetailsAccountDTO.setIdCardPicture(documents.idCardPicture());
         userDetailsAccountDTO.setIsAgent(false);
         userDetailsAccountDTO.setCountry(userAccountVM.getCountry());
         userDetailsAccountDTO.setAddress(userAccountVM.getAddress());
         userDetailsAccountDTO.setPhoneNumber(userAccountVM.getPhoneNumber());
-        userDetailsAccountDTO.setKycStatus(KycStatus.VERIFIED);
+        // An admin must review the documents (POST /api/admin/backoffice/kyc/{id}/approve) before the user can send money
+        userDetailsAccountDTO.setKycStatus(KycStatus.PENDING);
         userDetailsAccountDTO.setExpoPushToken(userAccountVM.getExpoPushToken());
         return userDetailsAccountService.save(userDetailsAccountDTO);
     }

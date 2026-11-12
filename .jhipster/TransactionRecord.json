@@ -9,7 +9,7 @@
       "fieldName": "transactionType",
       "fieldType": "TransactionType",
       "fieldValidateRules": ["required"],
-      "fieldValues": "DEPOSIT,WITHDRAWAL,TRANSFER,PAYMENT,REFUND,FEE,REVERSAL"
+      "fieldValues": "DEPOSIT,WITHDRAWAL,TRANSFER,PAYMENT,REFUND,FEE,REVERSAL,BONUS"
     },
     {
       "fieldName": "sendAmount",

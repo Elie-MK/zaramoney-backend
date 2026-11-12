@@ -73,6 +73,9 @@ spring:
 server:
   port: 8080
   shutdown: graceful # see https://docs.spring.io/spring-boot/docs/current/reference/html/spring-boot-features.html#boot-features-graceful-shutdown
+  # Behind nginx: trust X-Forwarded-For from internal proxies only, so rate limits see the real client IP.
+  # nginx must send: proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; proxy_set_header X-Forwarded-Proto $scheme;
+  forward-headers-strategy: native
   compression:
     enabled: true
     mime-types: text/html,text/xml,text/plain,text/css,application/javascript,application/json,image/svg+xml

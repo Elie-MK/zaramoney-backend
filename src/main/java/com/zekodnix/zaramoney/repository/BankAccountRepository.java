@@ -47,4 +47,6 @@ public interface BankAccountRepository extends JpaRepository<BankAccount, Long>,
     Optional<BankAccount> findByAccountNumberForUpdate(@Param("accountNumber") String accountNumber);
 
     Optional<BankAccount> findByAccountNumber(String accountNumber);
+
+    boolean existsByAccountNumber(String accountNumber);
 }

@@ -1,14 +1,10 @@
 package com.zekodnix.zaramoney.web.rest;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.zekodnix.zaramoney.service.TransactionRecordServicePlus;
-import com.zekodnix.zaramoney.service.dto.TransactionDetails;
-import com.zekodnix.zaramoney.service.dto.TransactionRecordDTO;
+import com.zekodnix.zaramoney.service.dto.TransactionReceiptDTO;
 import com.zekodnix.zaramoney.web.rest.vm.TransactionRecordVM;
 import com.zekodnix.zaramoney.web.rest.vm.WithdrawalTransactionRecordVM;
 import jakarta.validation.Valid;
-import java.math.BigDecimal;
-import java.nio.file.AccessDeniedException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
@@ -16,6 +12,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+/** Customer money movement. Responses are {@link TransactionReceiptDTO}s: never another user's balance or email. */
 @RestController
 @RequestMapping("/api/plus/transaction-records")
 public class TransactionRecordResourcePlus {
@@ -29,32 +26,26 @@ public class TransactionRecordResourcePlus {
     }
 
     @PostMapping("/send")
-    public ResponseEntity<TransactionRecordDTO> sendTransactionRecord(@Valid @RequestBody TransactionRecordVM transactionRecordVM)
-        throws AccessDeniedException, InterruptedException, JsonProcessingException {
-        LOG.debug("REST request to send TransactionRecord : {}", transactionRecordVM);
-        var response = transactionRecordServicePlus.createTransactionRecord(transactionRecordVM);
-        return ResponseEntity.ok(response);
+    public ResponseEntity<TransactionReceiptDTO> sendTransactionRecord(@Valid @RequestBody TransactionRecordVM transactionRecordVM) {
+        LOG.debug("REST request to send money, amount {}", transactionRecordVM.getSendAmount()); // never log the PIN
+        return ResponseEntity.ok(transactionRecordServicePlus.createTransactionRecord(transactionRecordVM));
     }
 
     @PostMapping("/withdrawal")
-    public ResponseEntity<TransactionRecordDTO> withdrawalTransaction(@Valid @RequestBody WithdrawalTransactionRecordVM vm)
-        throws AccessDeniedException, JsonProcessingException {
-        LOG.debug("REST request to withdrawal TransactionRecord : {}", vm);
-        var response = transactionRecordServicePlus.withdrawalTransaction(vm);
-        return ResponseEntity.ok(response);
+    public ResponseEntity<TransactionReceiptDTO> withdrawalTransaction(@Valid @RequestBody WithdrawalTransactionRecordVM vm) {
+        LOG.debug("REST request to withdraw, amount {}", vm.getSendAmount());
+        return ResponseEntity.ok(transactionRecordServicePlus.withdrawalTransaction(vm));
     }
 
+    /** The current user's transactions only. */
     @GetMapping("")
-    public ResponseEntity<Page<TransactionRecordDTO>> getAllTransactionRecords(Pageable pageable) {
-        LOG.debug("REST request to get TransactionRecords");
-        var response = transactionRecordServicePlus.getAllTransactionRecords(pageable);
-        return ResponseEntity.ok(response);
+    public ResponseEntity<Page<TransactionReceiptDTO>> getAllTransactionRecords(Pageable pageable) {
+        return ResponseEntity.ok(transactionRecordServicePlus.getAllTransactionRecords(pageable));
     }
 
+    /** 404 if the transaction does not belong to the current user. */
     @GetMapping("/{id}")
-    public ResponseEntity<TransactionRecordDTO> getTransactionRecord(@PathVariable Long id) {
-        LOG.debug("REST request to get TransactionRecord : {}", id);
-        var response = transactionRecordServicePlus.getTransactionRecord(id);
-        return ResponseEntity.ok(response);
+    public ResponseEntity<TransactionReceiptDTO> getTransactionRecord(@PathVariable Long id) {
+        return ResponseEntity.ok(transactionRecordServicePlus.getTransactionRecord(id));
     }
 }

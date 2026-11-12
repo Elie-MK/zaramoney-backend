@@ -1,6 +1,7 @@
 package com.zekodnix.zaramoney.service.dto;
 
 import com.zekodnix.zaramoney.domain.enumeration.AccountStatus;
+import com.zekodnix.zaramoney.domain.enumeration.BankAccountType;
 import com.zekodnix.zaramoney.domain.enumeration.Currency;
 import jakarta.validation.constraints.*;
 import java.io.Serializable;
@@ -28,6 +29,8 @@ public class BankAccountDTO implements Serializable {
 
     @NotNull
     private AccountStatus status;
+
+    private BankAccountType accountType;
 
     @NotNull
     private Instant createdAt;
@@ -72,6 +75,14 @@ public class BankAccountDTO implements Serializable {
 
     public void setStatus(AccountStatus status) {
         this.status = status;
+    }
+
+    public BankAccountType getAccountType() {
+        return accountType;
+    }
+
+    public void setAccountType(BankAccountType accountType) {
+        this.accountType = accountType;
     }
 
     public Instant getCreatedAt() {
@@ -120,6 +131,7 @@ public class BankAccountDTO implements Serializable {
             ", balance=" + getBalance() +
             ", currency='" + getCurrency() + "'" +
             ", status='" + getStatus() + "'" +
+            ", accountType='" + getAccountType() + "'" +
             ", createdAt='" + getCreatedAt() + "'" +
             ", user=" + getUser() +
             "}";

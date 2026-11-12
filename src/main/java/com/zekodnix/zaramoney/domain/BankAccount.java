@@ -2,6 +2,7 @@ package com.zekodnix.zaramoney.domain;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.zekodnix.zaramoney.domain.enumeration.AccountStatus;
+import com.zekodnix.zaramoney.domain.enumeration.BankAccountType;
 import com.zekodnix.zaramoney.domain.enumeration.Currency;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
@@ -46,6 +47,11 @@ public class BankAccount implements Serializable {
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
     private AccountStatus status;
+
+    @NotNull
+    @Enumerated(EnumType.STRING)
+    @Column(name = "account_type", length = 20, nullable = false)
+    private BankAccountType accountType = BankAccountType.CUSTOMER;
 
     @NotNull
     @Column(name = "created_at", nullable = false)
@@ -130,6 +136,26 @@ public class BankAccount implements Serializable {
         this.status = status;
     }
 
+    public BankAccountType getAccountType() {
+        return this.accountType;
+    }
+
+    public BankAccount accountType(BankAccountType accountType) {
+        this.setAccountType(accountType);
+        return this;
+    }
+
+    public void setAccountType(BankAccountType accountType) {
+        // Never null (DTO -> entity mapping may pass null): keep the current value, CUSTOMER by default
+        if (accountType != null) {
+            this.accountType = accountType;
+        }
+    }
+
+    public boolean isSystemAccount() {
+        return this.accountType == BankAccountType.SYSTEM;
+    }
+
     public Instant getCreatedAt() {
         return this.createdAt;
     }
@@ -203,6 +229,7 @@ public class BankAccount implements Serializable {
             ", balance=" + getBalance() +
             ", currency='" + getCurrency() + "'" +
             ", status='" + getStatus() + "'" +
+            ", accountType='" + getAccountType() + "'" +
             ", createdAt='" + getCreatedAt() + "'" +
             "}";
     }

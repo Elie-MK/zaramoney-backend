@@ -8,13 +8,13 @@ public class LedgerWithTransactionDTO {
     @NotNull
     private EntryType entryType;
 
-    private TransactionRecordDTO transactionRecord;
+    private TransactionReceiptDTO transactionRecord;
 
-    public TransactionRecordDTO getTransactionRecord() {
+    public TransactionReceiptDTO getTransactionRecord() {
         return transactionRecord;
     }
 
-    public void setTransactionRecord(TransactionRecordDTO transactionRecord) {
+    public void setTransactionRecord(TransactionReceiptDTO transactionRecord) {
         this.transactionRecord = transactionRecord;
     }
 
@@ -26,7 +26,7 @@ public class LedgerWithTransactionDTO {
         this.entryType = entryType;
     }
 
-    public LedgerWithTransactionDTO(EntryType entryType, TransactionRecordDTO transactionRecord) {
+    public LedgerWithTransactionDTO(EntryType entryType, TransactionReceiptDTO transactionRecord) {
         this.entryType = entryType;
         this.transactionRecord = transactionRecord;
     }

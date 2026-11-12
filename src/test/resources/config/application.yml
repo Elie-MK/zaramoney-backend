@@ -89,7 +89,10 @@ jhipster:
 # https://www.jhipster.tech/common-application-properties/
 # ===================================================================
 
-# application:
+application:
+  security:
+    # Generated tests register/log in many users from the same "IP"; rate limiting has its own unit tests
+    rate-limit-enabled: false
 management:
   health:
     mail:

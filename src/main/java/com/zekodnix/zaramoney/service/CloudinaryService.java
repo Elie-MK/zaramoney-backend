@@ -1,10 +1,12 @@
 package com.zekodnix.zaramoney.service;
 
+import com.zekodnix.zaramoney.web.rest.errors.ApiException;
 import com.zekodnix.zaramoney.web.rest.vm.UserAccountVM;
+import java.util.ArrayList;
+import java.util.List;
 import org.springframework.stereotype.Service;
-
-import java.util.HashMap;
-import java.util.Map;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Service
 public class CloudinaryService {
@@ -15,40 +17,42 @@ public class CloudinaryService {
         this.uploadFileService = uploadFileService;
     }
 
+    public record KycDocuments(String facePicture, String idCardPicture) {}
 
-    public Map<String, Map<String, String>> getUploadedPictures(UserAccountVM userAccountVM) {
-        Map<String, Map<String, String>> pictures = new HashMap<>();
-
-        // Upload face picture
-        if (userAccountVM.getFacePicture() != null) {
-            Map<String, String> faceUpload = uploadFileService.uploadFile(userAccountVM.getFacePicture());
-            validateUploadedFile(faceUpload);
-            pictures.put("facePicture", faceUpload);
+    /**
+     * Uploads both KYC pictures (both are required) as private files and returns their references.
+     * If the surrounding transaction rolls back, the uploaded files are deleted so no orphan ID documents remain.
+     */
+    public KycDocuments uploadKycDocuments(UserAccountVM userAccountVM) {
+        if (userAccountVM.getFacePicture() == null || userAccountVM.getIdCardPicture() == null) {
+            throw ApiException.badRequest("Both the face picture and the ID card picture are required", "kycdocumentsrequired");
         }
+        // Validate both before uploading anything
+        UploadFileService.readValidatedImage(userAccountVM.getFacePicture());
+        UploadFileService.readValidatedImage(userAccountVM.getIdCardPicture());
 
-        // Upload ID card picture
-        if (userAccountVM.getIdCardPicture() != null) {
-            Map<String, String> idCardUpload = uploadFileService.uploadFile(userAccountVM.getIdCardPicture());
-            validateUploadedFile(idCardUpload);
-            pictures.put("idCardPicture", idCardUpload);
-        }
-
-        if (pictures.isEmpty()) {
-            throw new IllegalArgumentException("No valid image files found in UserAccountVM.");
-        }
-
-        return pictures;
+        List<String> uploaded = new ArrayList<>();
+        registerCleanupOnRollback(uploaded);
+        String face = uploadFileService.uploadPrivateImage(userAccountVM.getFacePicture());
+        uploaded.add(face);
+        String idCard = uploadFileService.uploadPrivateImage(userAccountVM.getIdCardPicture());
+        uploaded.add(idCard);
+        return new KycDocuments(face, idCard);
     }
 
-    private void validateUploadedFile(Map<String, String> file) {
-        if (
-            file == null ||
-                !file.containsKey("url") ||
-                !file.containsKey("publicId") ||
-                file.get("url") == null ||
-                file.get("publicId") == null
-        ) {
-            throw new IllegalStateException("Uploaded file missing url or publicId");
+    private void registerCleanupOnRollback(List<String> uploaded) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            return;
         }
+        TransactionSynchronizationManager.registerSynchronization(
+            new TransactionSynchronization() {
+                @Override
+                public void afterCompletion(int status) {
+                    if (status != STATUS_COMMITTED) {
+                        uploaded.forEach(uploadFileService::deleteQuietly);
+                    }
+                }
+            }
+        );
     }
 }

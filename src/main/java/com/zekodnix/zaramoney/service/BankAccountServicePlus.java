@@ -1,22 +1,45 @@
 package com.zekodnix.zaramoney.service;
 
+import com.zekodnix.zaramoney.domain.BankAccount;
 import com.zekodnix.zaramoney.domain.enumeration.AccountStatus;
+import com.zekodnix.zaramoney.domain.enumeration.BankAccountType;
 import com.zekodnix.zaramoney.domain.enumeration.Currency;
+import com.zekodnix.zaramoney.repository.BankAccountRepository;
 import com.zekodnix.zaramoney.service.dto.BankAccountDTO;
 import com.zekodnix.zaramoney.service.dto.LockedAccountsDTO;
 import com.zekodnix.zaramoney.service.dto.UserDTO;
+import com.zekodnix.zaramoney.web.rest.errors.ApiException;
 import java.math.BigDecimal;
+import java.security.SecureRandom;
+import java.time.Instant;
+import java.util.Optional;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class BankAccountServicePlus {
 
-    private final BankAccountService bankAccountService;
-    private final TransactionLimitServicePlus transactionLimitServicePlus;
+    private static final String ACCOUNT_NUMBER_PREFIX = "2512";
+    private static final int ACCOUNT_NUMBER_LENGTH = 12;
+    private static final int MAX_GENERATION_ATTEMPTS = 10;
+    private static final SecureRandom RANDOM = new SecureRandom();
 
-    public BankAccountServicePlus(BankAccountService bankAccountService, TransactionLimitServicePlus transactionLimitServicePlus) {
+    private final BankAccountService bankAccountService;
+    private final BankAccountRepository bankAccountRepository;
+    private final TransactionLimitServicePlus transactionLimitServicePlus;
+    private final SignupBonusService signupBonusService;
+
+    public BankAccountServicePlus(
+        BankAccountService bankAccountService,
+        BankAccountRepository bankAccountRepository,
+        TransactionLimitServicePlus transactionLimitServicePlus,
+        SignupBonusService signupBonusService
+    ) {
         this.bankAccountService = bankAccountService;
+        this.bankAccountRepository = bankAccountRepository;
         this.transactionLimitServicePlus = transactionLimitServicePlus;
+        this.signupBonusService = signupBonusService;
     }
 
     public LockedAccountsDTO lockAccounts(String senderAcc, String receiverAcc) {
@@ -33,33 +56,65 @@ public class BankAccountServicePlus {
         }
     }
 
+    /** True only for an existing CUSTOMER account (system accounts are never reported). */
+    @Transactional(readOnly = true)
     public Boolean verifyAccount(String accountNumber) {
-        return bankAccountService.findByAccountNumber(accountNumber).isPresent();
+        return findCustomerAccount(accountNumber).isPresent();
     }
 
+    /** A customer account usable as a transfer counterparty; SYSTEM accounts are treated as non-existent. */
+    @Transactional(readOnly = true)
+    public Optional<BankAccount> findCustomerAccount(String accountNumber) {
+        if (accountNumber == null) {
+            return Optional.empty();
+        }
+        return bankAccountRepository
+            .findByAccountNumber(accountNumber.trim())
+            .filter(account -> account.getAccountType() == BankAccountType.CUSTOMER && account.getUser() != null);
+    }
+
+    /** Must run inside the caller's transaction: account, limits and signup bonus are created atomically. */
+    @Transactional
     public BankAccountDTO createBankAccount(UserDTO user) {
         var bankAccountDTO = new BankAccountDTO();
         bankAccountDTO.setUser(user);
-        bankAccountDTO.setBalance(BigDecimal.valueOf(5.00));
-        bankAccountDTO.setAccountNumber(generateAccountNumber());
+        bankAccountDTO.setBalance(BigDecimal.ZERO.setScale(2));
+        bankAccountDTO.setAccountNumber(generateUniqueAccountNumber());
         bankAccountDTO.setCurrency(Currency.USD);
         bankAccountDTO.setStatus(AccountStatus.ACTIVE);
+        bankAccountDTO.setAccountType(BankAccountType.CUSTOMER);
+        bankAccountDTO.setCreatedAt(Instant.now());
 
         var account = bankAccountService.save(bankAccountDTO);
         transactionLimitServicePlus.createBankAccountLimit(account);
-        return account;
+
+        // Welcome bonus, funded by the SYSTEM promo account through the ledger
+        signupBonusService.grant(account.getAccountNumber());
+
+        return bankAccountService.findOne(account.getId()).orElse(account);
     }
 
-    private String generateAccountNumber() {
-        String prefix = "2512";
+    private String generateUniqueAccountNumber() {
+        for (int attempt = 0; attempt < MAX_GENERATION_ATTEMPTS; attempt++) {
+            String candidate = generateAccountNumber();
+            if (!bankAccountRepository.existsByAccountNumber(candidate)) {
+                // The unique constraint on account_number still protects against a concurrent insert of the same number
+                return candidate;
+            }
+        }
+        throw new ApiException(
+            HttpStatus.SERVICE_UNAVAILABLE,
+            "Could not allocate an account number, please retry",
+            "accountnumberunavailable"
+        );
+    }
 
-        int remainingLength = 12 - prefix.length();
-
-        long max = (long) Math.pow(10, remainingLength);
-        long randomPart = (long) (Math.random() * max);
-
-        String randomStr = String.format("%0" + remainingLength + "d", randomPart);
-
-        return prefix + randomStr;
+    static String generateAccountNumber() {
+        int randomLength = ACCOUNT_NUMBER_LENGTH - ACCOUNT_NUMBER_PREFIX.length();
+        StringBuilder sb = new StringBuilder(ACCOUNT_NUMBER_PREFIX);
+        for (int i = 0; i < randomLength; i++) {
+            sb.append(RANDOM.nextInt(10));
+        }
+        return sb.toString();
     }
 }

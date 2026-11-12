@@ -11,4 +11,5 @@ public enum TransactionType {
     REFUND,
     FEE,
     REVERSAL,
+    BONUS,
 }

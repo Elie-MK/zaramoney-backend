@@ -49,6 +49,11 @@ public class IdempotencyRecord implements Serializable {
     @Column(name = "response_status")
     private Integer responseStatus;
 
+    /** SHA-256 of the business fields of the request, to reject a key reused with a different payload. */
+    @Size(max = 64)
+    @Column(name = "request_hash", length = 64)
+    private String requestHash;
+
     @Size(max = 64)
     @Column(name = "transaction_reference", length = 64)
     private String transactionReference;
@@ -150,6 +155,14 @@ public class IdempotencyRecord implements Serializable {
 
     public void setResponseStatus(Integer responseStatus) {
         this.responseStatus = responseStatus;
+    }
+
+    public String getRequestHash() {
+        return this.requestHash;
+    }
+
+    public void setRequestHash(String requestHash) {
+        this.requestHash = requestHash;
     }
 
     public String getTransactionReference() {

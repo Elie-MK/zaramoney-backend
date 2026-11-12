@@ -6,6 +6,7 @@ import static com.zekodnix.zaramoney.security.SecurityUtils.USER_ID_CLAIM;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.zekodnix.zaramoney.security.DomainUserDetailsService.UserWithId;
+import com.zekodnix.zaramoney.security.ratelimit.LoginAttemptService;
 import com.zekodnix.zaramoney.web.rest.vm.LoginVM;
 import jakarta.validation.Valid;
 import java.security.Principal;
@@ -21,6 +22,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.JwsHeader;
@@ -48,9 +50,16 @@ public class AuthenticateController {
 
     private final AuthenticationManagerBuilder authenticationManagerBuilder;
 
-    public AuthenticateController(JwtEncoder jwtEncoder, AuthenticationManagerBuilder authenticationManagerBuilder) {
+    private final LoginAttemptService loginAttemptService;
+
+    public AuthenticateController(
+        JwtEncoder jwtEncoder,
+        AuthenticationManagerBuilder authenticationManagerBuilder,
+        LoginAttemptService loginAttemptService
+    ) {
         this.jwtEncoder = jwtEncoder;
         this.authenticationManagerBuilder = authenticationManagerBuilder;
+        this.loginAttemptService = loginAttemptService;
     }
 
     @PostMapping("/authenticate")
@@ -60,7 +69,15 @@ public class AuthenticateController {
             loginVM.getPassword()
         );
 
-        Authentication authentication = authenticationManagerBuilder.getObject().authenticate(authenticationToken);
+        loginAttemptService.checkNotLocked(loginVM.getUsername());
+        Authentication authentication;
+        try {
+            authentication = authenticationManagerBuilder.getObject().authenticate(authenticationToken);
+        } catch (AuthenticationException e) {
+            loginAttemptService.loginFailed(loginVM.getUsername());
+            throw e;
+        }
+        loginAttemptService.loginSucceeded(loginVM.getUsername());
         SecurityContextHolder.getContext().setAuthentication(authentication);
         String jwt = this.createToken(authentication, loginVM.isRememberMe());
         HttpHeaders httpHeaders = new HttpHeaders();

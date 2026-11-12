@@ -21,7 +21,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class TransactionValidatorService {
 
-    BigDecimal MIN_BALANCE = BigDecimal.valueOf(5);
+    public static final BigDecimal MIN_BALANCE = BigDecimal.valueOf(5);
     private static final BigDecimal USD_TO_TND_RATE = BigDecimal.valueOf(2.81);
     private static final BigDecimal TND_TO_USD_RATE = BigDecimal.valueOf(2.85);
     private static final int SCALE = 2;
@@ -40,18 +40,27 @@ public class TransactionValidatorService {
         this.transactionRecordService = transactionRecordService;
     }
 
-    public void checkAmountValidation(BigDecimal amount, LockedAccountsDTO accounts) {
+    /**
+     * The sender is debited {@code amount + fee}: both must be covered while keeping {@link #MIN_BALANCE}.
+     */
+    public void checkAmountValidation(BigDecimal amount, BigDecimal fee, LockedAccountsDTO accounts) {
         if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new BadRequestAlertException("Invalid amount", "transaction", "invalidamount");
         }
+        BigDecimal totalDebit = amount.add(fee == null ? BigDecimal.ZERO : fee);
+        BigDecimal balance = accounts.getSenderAccount().getBalance();
 
-        if (accounts.getSenderAccount().getBalance().compareTo(amount) < 0) {
-            throw new BadRequestAlertException("Insufficient balance", "transaction", "insufficientbalance");
+        if (balance.compareTo(totalDebit) < 0) {
+            throw new BadRequestAlertException(
+                "Insufficient balance: " + totalDebit + " needed (amount " + amount + " + fee " + fee + ")",
+                "transaction",
+                "insufficientbalance"
+            );
         }
 
-        if (accounts.getSenderAccount().getBalance().subtract(amount).compareTo(MIN_BALANCE) < 0) {
+        if (balance.subtract(totalDebit).compareTo(MIN_BALANCE) < 0) {
             throw new BadRequestAlertException(
-                "Transaction denied: account must maintain a minimum balance of " + MIN_BALANCE,
+                "Transaction denied: account must maintain a minimum balance of " + MIN_BALANCE + " after amount and fee",
                 "transaction",
                 "minimumbalance"
             );

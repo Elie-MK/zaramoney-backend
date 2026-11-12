@@ -3,6 +3,8 @@ package com.zekodnix.zaramoney.config;
 import static org.springframework.security.config.Customizer.withDefaults;
 
 import com.zekodnix.zaramoney.security.*;
+import com.zekodnix.zaramoney.security.ratelimit.RateLimitFilter;
+import com.zekodnix.zaramoney.security.ratelimit.RateLimiter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -13,6 +15,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.server.resource.web.BearerTokenAuthenticationEntryPoint;
 import org.springframework.security.oauth2.server.resource.web.access.BearerTokenAccessDeniedHandler;
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.servlet.util.matcher.MvcRequestMatcher;
 import org.springframework.web.servlet.handler.HandlerMappingIntrospector;
@@ -23,9 +26,17 @@ import tech.jhipster.config.JHipsterProperties;
 public class SecurityConfiguration {
 
     private final JHipsterProperties jHipsterProperties;
+    private final ApplicationProperties applicationProperties;
+    private final RateLimiter rateLimiter;
 
-    public SecurityConfiguration(JHipsterProperties jHipsterProperties) {
+    public SecurityConfiguration(
+        JHipsterProperties jHipsterProperties,
+        ApplicationProperties applicationProperties,
+        RateLimiter rateLimiter
+    ) {
         this.jHipsterProperties = jHipsterProperties;
+        this.applicationProperties = applicationProperties;
+        this.rateLimiter = rateLimiter;
     }
 
     @Bean
@@ -48,6 +59,8 @@ public class SecurityConfiguration {
                     .requestMatchers(mvc.pattern("/api/account/reset-password/init")).permitAll()
                     .requestMatchers(mvc.pattern("/api/account/reset-password/finish")).permitAll()
                     .requestMatchers(mvc.pattern("/api/admin/**")).hasAuthority(AuthoritiesConstants.ADMIN)
+                    // Lists every user's login (email): admin only, to prevent user enumeration
+                    .requestMatchers(mvc.pattern(HttpMethod.GET, "/api/users")).hasAuthority(AuthoritiesConstants.ADMIN)
                     // Customer-facing custom endpoints nested under generated CRUD paths (must stay before the admin-only rules below)
                     .requestMatchers(mvc.pattern("/api/bank-accounts/plus/**")).authenticated()
                     .requestMatchers(mvc.pattern("/api/ledger-entries/plus/**")).authenticated()
@@ -67,7 +80,6 @@ public class SecurityConfiguration {
                     .requestMatchers(mvc.pattern("/management/health")).permitAll()
                     .requestMatchers(mvc.pattern("/management/health/**")).permitAll()
                     .requestMatchers(mvc.pattern("/management/info")).permitAll()
-                    .requestMatchers(mvc.pattern("/management/prometheus")).permitAll()
                     .requestMatchers(mvc.pattern("/management/**")).hasAuthority(AuthoritiesConstants.ADMIN)
             )
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -76,7 +88,12 @@ public class SecurityConfiguration {
                     .authenticationEntryPoint(new BearerTokenAuthenticationEntryPoint())
                     .accessDeniedHandler(new BearerTokenAccessDeniedHandler())
             )
-            .oauth2ResourceServer(oauth2 -> oauth2.jwt(withDefaults()));
+            .oauth2ResourceServer(oauth2 -> oauth2.jwt(withDefaults()))
+            // After JWT authentication so per-user limits know who is calling
+            .addFilterAfter(
+                new RateLimitFilter(rateLimiter, applicationProperties.getSecurity().isRateLimitEnabled()),
+                BearerTokenAuthenticationFilter.class
+            );
         return http.build();
     }
 

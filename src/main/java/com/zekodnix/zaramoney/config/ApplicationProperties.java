@@ -70,5 +70,25 @@ public class ApplicationProperties {
             this.apisecret = apisecret;
         }
     }
+    private final Security security = new Security();
+
+    public Security getSecurity() {
+        return security;
+    }
+
+    public static class Security {
+
+        /** In-memory rate limiting of sensitive endpoints and login lockout. Disabled in the test config only. */
+        private boolean rateLimitEnabled = true;
+
+        public boolean isRateLimitEnabled() {
+            return rateLimitEnabled;
+        }
+
+        public void setRateLimitEnabled(boolean rateLimitEnabled) {
+            this.rateLimitEnabled = rateLimitEnabled;
+        }
+    }
+
     // jhipster-needle-application-properties-property-class
 }

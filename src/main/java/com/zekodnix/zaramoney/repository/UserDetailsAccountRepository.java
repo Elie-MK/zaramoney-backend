@@ -1,6 +1,7 @@
 package com.zekodnix.zaramoney.repository;
 
 import com.zekodnix.zaramoney.domain.UserDetailsAccount;
+import com.zekodnix.zaramoney.domain.enumeration.KycStatus;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
@@ -43,4 +44,10 @@ public interface UserDetailsAccountRepository
     Optional<UserDetailsAccount> findOneWithToOneRelationships(@Param("id") Long id);
 
     Optional<UserDetailsAccount> findByUserEmail(String login);
+
+    @Query(
+        value = "select d from UserDetailsAccount d left join fetch d.user where d.kycStatus = :status",
+        countQuery = "select count(d) from UserDetailsAccount d where d.kycStatus = :status"
+    )
+    Page<UserDetailsAccount> findAllByKycStatus(@Param("status") KycStatus status, Pageable pageable);
 }

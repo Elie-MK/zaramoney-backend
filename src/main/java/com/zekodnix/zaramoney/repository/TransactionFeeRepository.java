@@ -39,4 +39,6 @@ public interface TransactionFeeRepository extends JpaRepository<TransactionFee, 
         "select transactionFee from TransactionFee transactionFee left join fetch transactionFee.transaction where transactionFee.id =:id"
     )
     Optional<TransactionFee> findOneWithToOneRelationships(@Param("id") Long id);
+
+    Optional<TransactionFee> findFirstByTransactionId(Long transactionId);
 }
