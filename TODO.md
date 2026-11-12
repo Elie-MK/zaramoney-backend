@@ -245,7 +245,14 @@ Decisions: device-key signature (ECDSA P-256) on every customer request; admins 
   - [x] Idempotency replay — `TransactionFlowIT`, `BackOfficeDepositIT`, `ConcurrentTransfersIT`
   - [x] Authorization (user vs admin) — `AdminOnlyCrudResourcesIT`, `BackOfficeDepositIT`, `LedgerIntegrityIT`, `TransactionFlowIT`
   - [x] 🔴 **Bug found by `ConcurrentTransfersIT` and fixed (2026-11-12): lost updates under concurrency.** The transfer flow loads the counterparty (and possibly the sender) before locking; Hibernate's `@Lock(PESSIMISTIC_WRITE)` query then locked the row but returned the STALE managed entity, so concurrent transfers overwrote each other (10 parallel sends let 6 through instead of 4; a receiver of 12 × 10 ended with 20). The 1-connection test pool could never show it. Fix: `BankAccountLocking` fragment — `findByAccountNumberForUpdate` / `findByIdForUpdate` lock, then `refresh` under the lock (all call sites). Introduced by the Phase 3 refactor (local commits, **never pushed**: production runs the older `1d91482`)
-- [ ] 🔵 Fraud: compute `riskScore` and `FraudStatus` instead of hard-coding them to 0 / `CLEAN`; add velocity checks
+- [x] 🔵 Fraud: compute `riskScore` and `FraudStatus` instead of hard-coding them to 0 / `CLEAN`; add velocity checks — DONE 2026-11-12 (decisions: monitor first, SUSPICIOUS allowed + flagged, no auto-freeze, default thresholds):
+  - `FraudScoringService` (under the row locks, before money moves): BURST, DRAIN, NEW_ACCOUNT, NEW_DEVICE, PIN_CHANGED, UNUSUAL_AMOUNT, FAN_OUT, MULE (points) + hard rules HOURLY_LIMIT, NEW_DEVICE_LARGE. Score ≥ 40 SUSPICIOUS, ≥ 70 or hard rule BLOCKED. All thresholds in `application.fraud` (`ApplicationProperties.Fraud`)
+  - `application.fraud.mode: monitor` (default) never blocks: BLOCKED + COMPLETED = "would have been blocked". `enforce`: 403 `transactionblocked`, rolled back, attempt saved as FAILED / BLOCKED (no ledger, released idempotency key, not counted in limits)
+  - New columns `fraud_reasons`, `fraud_review_*` (changeset `20261117000000_fraud_scoring.xml`, JDL, enum `FraudReviewOutcome`); customer history shows only COMPLETED
+  - Admin: `GET /api/admin/backoffice/fraud/transactions?status&unreviewed`, `POST …/{id}/review` (`CLEARED` / `CONFIRMED`, AUDIT log line); metric `zaramoney.fraud{status,mode}`
+  - Tests: `FraudScoringServiceTest` (11, each rule), `FraudScoringIT` (5)
+  - [ ] **Manual:** after 2–4 weeks in monitor mode, review the queue / `zaramoney.fraud` metric (false-positive rate), tune `application.fraud.*`, then set `mode: enforce` — the app must handle `403 transactionblocked` first
+  - [ ] Later: "held for review" state (reserve funds until an admin releases them); auto-freeze after repeated blocks (declined for now); IP / device-attestation signals
 - [ ] 🔵 Audit log for admin and sensitive actions
 - [ ] 🔵 Customer-facing DTOs that never expose other users' balances, logins or internal IDs
 - [ ] 🔵 CI/CD (`.github/workflows/deploy.yml`):
@@ -261,7 +268,8 @@ Decisions: device-key signature (ECDSA P-256) on every customer request; admins 
   - Expo tickets parsed: `DeviceNotRegistered` → token removed from the user; other errors final
   - Dead letter = the notification row: `PENDING` → `SENT` (with `sentAt`) / `FAILED` (`PushNotificationListener` → `NotificationServicePlus.recordPushOutcome`); counter `zaramoney.push{result}`
   - Tests: `ExpoPushServiceTest` (local HTTP server), `PushAfterCommitIT`
-  - [ ] Later: poll Expo push receipts (second step of Expo's protocol) for delivery errors reported after the ticket; re-send FAILED pushes from an admin action if needed; pushes in flight are lost on restart (in-memory)
+  - [ ] Later
+  - : poll Expo push receipts (second step of Expo's protocol) for delivery errors reported after the ticket; re-send FAILED pushes from an admin action if needed; pushes in flight are lost on restart (in-memory)
 - [ ] 🔵 Cleanup:
   - [ ] Remove commented-out code (`TransactionRecordServicePlus`)
   - [ ] Remove unused injected beans

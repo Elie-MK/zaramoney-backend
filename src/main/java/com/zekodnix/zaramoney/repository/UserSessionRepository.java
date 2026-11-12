@@ -28,4 +28,8 @@ public interface UserSessionRepository extends JpaRepository<UserSession, Long> 
 
     @Query("select s from UserSession s where s.deviceId = :deviceId and s.revokedAt is null and s.expiresAt > :now")
     List<UserSession> findActiveByDeviceId(@Param("deviceId") String deviceId, @Param("now") Instant now);
+
+    /** When this user first used this device (fraud: "new device" rule). */
+    @Query("select min(s.createdAt) from UserSession s where s.user.id = :userId and s.deviceId = :deviceId")
+    Optional<Instant> findFirstSeen(@Param("userId") Long userId, @Param("deviceId") String deviceId);
 }

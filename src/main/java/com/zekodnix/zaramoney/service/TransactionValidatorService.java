@@ -3,11 +3,11 @@ package com.zekodnix.zaramoney.service;
 import com.zekodnix.zaramoney.domain.BankAccount;
 import com.zekodnix.zaramoney.domain.enumeration.AccountStatus;
 import com.zekodnix.zaramoney.domain.enumeration.Currency;
-import com.zekodnix.zaramoney.domain.enumeration.FraudStatus;
 import com.zekodnix.zaramoney.domain.enumeration.TransactionStatus;
 import com.zekodnix.zaramoney.domain.enumeration.TransactionType;
 import com.zekodnix.zaramoney.service.dto.LockedAccountsDTO;
 import com.zekodnix.zaramoney.service.dto.TransactionRecordDTO;
+import com.zekodnix.zaramoney.service.fraud.FraudAssessment;
 import com.zekodnix.zaramoney.service.mapper.BankAccountMapper;
 import com.zekodnix.zaramoney.web.rest.errors.ApiException;
 import java.math.BigDecimal;
@@ -86,13 +86,50 @@ public class TransactionValidatorService {
      * Moves the money on the locked (managed) rows — sender {@code -(amount + fee)}, receiver {@code +amount} — and saves
      * the COMPLETED transaction. The fee itself is credited to the fee revenue account by the ledger step.
      */
-    public TransactionRecordDTO move(TransactionType type, LockedAccountsDTO accounts, BigDecimal amount, BigDecimal fee, String description) {
+    public TransactionRecordDTO move(
+        TransactionType type,
+        LockedAccountsDTO accounts,
+        BigDecimal amount,
+        BigDecimal fee,
+        String description,
+        FraudAssessment fraud
+    ) {
         BankAccount sender = accounts.getSenderAccount();
         BankAccount receiver = accounts.getReceiverAccount();
 
         sender.setBalance(sender.getBalance().subtract(amount.add(fee)).setScale(2, RoundingMode.HALF_UP));
         receiver.setBalance(receiver.getBalance().add(amount).setScale(2, RoundingMode.HALF_UP));
 
+        TransactionRecordDTO transaction = record(type, accounts, amount, fee, description, fraud, TransactionStatus.COMPLETED);
+        return transactionRecordService.save(transaction);
+    }
+
+    /**
+     * A payment rejected by the fraud rules (ENFORCE mode): FAILED, no balance change, no ledger. Not saved here: the
+     * money transaction rolls back first, then the caller saves it in a new transaction for the review queue.
+     */
+    public TransactionRecordDTO blockedAttempt(
+        TransactionType type,
+        LockedAccountsDTO accounts,
+        BigDecimal amount,
+        BigDecimal fee,
+        String description,
+        FraudAssessment fraud
+    ) {
+        return record(type, accounts, amount, fee, description, fraud, TransactionStatus.FAILED);
+    }
+
+    private TransactionRecordDTO record(
+        TransactionType type,
+        LockedAccountsDTO accounts,
+        BigDecimal amount,
+        BigDecimal fee,
+        String description,
+        FraudAssessment fraud,
+        TransactionStatus status
+    ) {
+        BankAccount sender = accounts.getSenderAccount();
+        BankAccount receiver = accounts.getReceiverAccount();
         Instant now = Instant.now();
         TransactionRecordDTO transaction = new TransactionRecordDTO();
         transaction.setTransactionReference(generateTransactionReference());
@@ -108,11 +145,11 @@ public class TransactionValidatorService {
         transaction.setReceiver(bankAccountMapper.toDto(receiver));
         transaction.setCreatedAt(now);
         transaction.setTransactionDate(now);
-        transaction.setTransactionStatus(TransactionStatus.COMPLETED);
-        // TODO(Phase 5): real risk scoring / velocity checks
-        transaction.setFraudStatus(FraudStatus.CLEAN);
-        transaction.setRiskScore(0);
-        return transactionRecordService.save(transaction);
+        transaction.setTransactionStatus(status);
+        transaction.setFraudStatus(fraud.status());
+        transaction.setRiskScore(fraud.score());
+        transaction.setFraudReasons(fraud.reasonsText());
+        return transaction;
     }
 
     public String generateTransactionReference() {

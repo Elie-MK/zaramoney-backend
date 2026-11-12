@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Phase 5: fraud scoring (FraudScoringService). risk_score / fraud_status already exist (were always 0 / CLEAN).
+        fraud_reasons: rules that fired; fraud_review_*: admin review of SUSPICIOUS / BLOCKED transactions.
+        The partial index keeps the admin review queue cheap (flagged rows are rare).
+    -->
+
+    <changeSet id="20261117000000-1" author="zaramoney">
+        <addColumn tableName="transaction_record">
+            <column name="fraud_reasons" type="varchar(500)" />
+            <column name="fraud_review_outcome" type="varchar(20)" />
+            <column name="fraud_reviewed_by" type="varchar(100)" />
+            <column name="fraud_reviewed_at" type="timestamp" />
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="20261117000000-2" author="zaramoney" dbms="postgresql">
+        <comment>Index for the fraud review queue and the per-account velocity queries</comment>
+        <sql>
+            create index ix_transaction_record__fraud_queue on transaction_record (fraud_status, transaction_date desc)
+                where fraud_status &lt;&gt; 'CLEAN';
+            create index if not exists ix_transaction_record__sender_date on transaction_record (sender_id, transaction_date);
+            create index if not exists ix_transaction_record__receiver_date on transaction_record (receiver_id, transaction_date);
+        </sql>
+        <rollback>
+            <sql>
+                drop index if exists ix_transaction_record__fraud_queue;
+                drop index if exists ix_transaction_record__sender_date;
+                drop index if exists ix_transaction_record__receiver_date;
+            </sql>
+        </rollback>
+    </changeSet>
+</databaseChangeLog>

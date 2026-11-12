@@ -233,6 +233,12 @@ jhipster:
 # Keep the values quoted so they are read as exact decimals.
 # ===================================================================
 application:
+  fraud:
+    # FraudScoringService. monitor = score + flag only (rollout); enforce = BLOCKED payments are rejected
+    mode: monitor
+    suspicious-score: 40
+    block-score: 70
+    # other weights / thresholds: see ApplicationProperties.Fraud (defaults), override here when tuning
   push:
     # Expo push API (ExpoPushService): retries only for network errors, timeouts, 5xx and 429
     expo-base-url: https://exp.host/--/api/v2

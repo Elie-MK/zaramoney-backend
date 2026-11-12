@@ -1,5 +1,6 @@
 package com.zekodnix.zaramoney.web.rest;
 
+import com.zekodnix.zaramoney.domain.enumeration.FraudStatus;
 import com.zekodnix.zaramoney.domain.enumeration.KycStatus;
 import com.zekodnix.zaramoney.security.AuthoritiesConstants;
 import com.zekodnix.zaramoney.security.SecurityUtils;
@@ -8,6 +9,9 @@ import com.zekodnix.zaramoney.service.KycReviewService;
 import com.zekodnix.zaramoney.service.LedgerReconciliationService;
 import com.zekodnix.zaramoney.service.RevenueReportService;
 import com.zekodnix.zaramoney.service.dto.DepositDto;
+import com.zekodnix.zaramoney.service.dto.FraudCaseDTO;
+import com.zekodnix.zaramoney.service.fraud.FraudReviewService;
+import com.zekodnix.zaramoney.web.rest.vm.FraudReviewVM;
 import com.zekodnix.zaramoney.service.dto.KycReviewDTO;
 import com.zekodnix.zaramoney.service.dto.ReconciliationReportDTO;
 import com.zekodnix.zaramoney.service.dto.RevenueReportDTO;
@@ -44,17 +48,41 @@ public class BackOfficeResource {
     private final KycReviewService kycReviewService;
     private final RevenueReportService revenueReportService;
     private final LedgerReconciliationService ledgerReconciliationService;
+    private final FraudReviewService fraudReviewService;
 
     public BackOfficeResource(
         BackOfficeService backOfficeService,
         KycReviewService kycReviewService,
         RevenueReportService revenueReportService,
-        LedgerReconciliationService ledgerReconciliationService
+        LedgerReconciliationService ledgerReconciliationService,
+        FraudReviewService fraudReviewService
     ) {
         this.backOfficeService = backOfficeService;
         this.kycReviewService = kycReviewService;
         this.revenueReportService = revenueReportService;
         this.ledgerReconciliationService = ledgerReconciliationService;
+        this.fraudReviewService = fraudReviewService;
+    }
+
+    /**
+     * {@code GET /fraud/transactions?status=SUSPICIOUS&status=BLOCKED&unreviewed=true} : fraud review queue, newest first
+     * (paginated, {@code X-Total-Count}). Defaults: both statuses, unreviewed only.
+     */
+    @GetMapping("/fraud/transactions")
+    public ResponseEntity<List<FraudCaseDTO>> fraudQueue(
+        @RequestParam(name = "status", required = false) List<FraudStatus> statuses,
+        @RequestParam(name = "unreviewed", defaultValue = "true") boolean unreviewedOnly,
+        Pageable pageable
+    ) {
+        Page<FraudCaseDTO> page = fraudReviewService.queue(statuses, unreviewedOnly, pageable);
+        var headers = PaginationUtil.generatePaginationHttpHeaders(ServletUriComponentsBuilder.fromCurrentRequest(), page);
+        return ResponseEntity.ok().headers(headers).body(page.getContent());
+    }
+
+    /** {@code POST /fraud/transactions/{id}/review} {@code {"outcome":"CLEARED"|"CONFIRMED"}} : records the decision (moves no money). */
+    @PostMapping("/fraud/transactions/{id}/review")
+    public ResponseEntity<FraudCaseDTO> reviewFraud(@PathVariable Long id, @Valid @RequestBody FraudReviewVM body) {
+        return ResponseEntity.ok(fraudReviewService.review(id, body.getOutcome(), SecurityUtils.getCurrentUserLogin().orElse("?")));
     }
 
     /**

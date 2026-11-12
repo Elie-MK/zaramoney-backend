@@ -7,6 +7,9 @@ import com.zekodnix.zaramoney.domain.enumeration.Currency;
 import com.zekodnix.zaramoney.domain.enumeration.EntryType;
 import com.zekodnix.zaramoney.domain.enumeration.KycStatus;
 import com.zekodnix.zaramoney.domain.enumeration.TransactionType;
+import com.zekodnix.zaramoney.service.fraud.FraudAssessment;
+import com.zekodnix.zaramoney.service.fraud.FraudBlockedException;
+import com.zekodnix.zaramoney.service.fraud.FraudScoringService;
 import com.zekodnix.zaramoney.service.dto.LedgerEntryDTO;
 import com.zekodnix.zaramoney.service.dto.LockedAccountsDTO;
 import com.zekodnix.zaramoney.service.dto.TransactionReceiptDTO;
@@ -63,6 +66,8 @@ public class TransactionRecordServicePlus {
     private final TransactionReceiptService transactionReceiptService;
     private final SystemAccountService systemAccountService;
     private final FeeSchedule feeSchedule;
+    private final FraudScoringService fraudScoringService;
+    private final TransactionRecordService transactionRecordService;
     private final TransactionTemplate transactionTemplate;
     private final TransactionTemplate readOnlyTemplate;
 
@@ -82,6 +87,8 @@ public class TransactionRecordServicePlus {
         TransactionReceiptService transactionReceiptService,
         SystemAccountService systemAccountService,
         FeeSchedule feeSchedule,
+        FraudScoringService fraudScoringService,
+        TransactionRecordService transactionRecordService,
         PlatformTransactionManager transactionManager
     ) {
         this.transactionTemplate = new TransactionTemplate(transactionManager);
@@ -102,6 +109,8 @@ public class TransactionRecordServicePlus {
         this.transactionReceiptService = transactionReceiptService;
         this.systemAccountService = systemAccountService;
         this.feeSchedule = feeSchedule;
+        this.fraudScoringService = fraudScoringService;
+        this.transactionRecordService = transactionRecordService;
     }
 
     /**
@@ -207,7 +216,20 @@ public class TransactionRecordServicePlus {
         requireKycVerified(currentUser);
         transactionPinService.verifyPin(currentUser.getId(), req.pin());
 
-        return transactionTemplate.execute(status -> {
+        try {
+            return transactionTemplate.execute(status -> moneyTransaction(req, currentUser));
+        } catch (FraudBlockedException blocked) {
+            // the money transaction rolled back (nothing moved); keep the attempt for the admin review queue
+            transactionTemplate.executeWithoutResult(status -> transactionRecordService.save(blocked.getAttempt()));
+            throw ApiException.forbidden(
+                "This payment was blocked for security reasons. Contact ZaraMoney support if this is a mistake.",
+                "transactionblocked"
+            );
+        }
+    }
+
+    private TransactionReceiptDTO moneyTransaction(MoneyRequest req, User currentUser) {
+        {
             var again = findReplayInTx(req.idempotencyKey(), currentUser, req.endpoint(), req.requestHash());
             if (again != null) {
                 return again;
@@ -232,7 +254,22 @@ public class TransactionRecordServicePlus {
             String description = req.type() == TransactionType.WITHDRAWAL
                 ? "Retrait de " + amount + " " + accounts.getSenderAccount().getCurrency()
                 : req.description();
-            TransactionRecordDTO result = transactionValidatorService.move(req.type(), accounts, amount, fee, description);
+            // under the row locks, before anything moves; rejects only in ENFORCE mode
+            FraudAssessment fraud = fraudScoringService.assess(
+                req.type(),
+                accounts.getSenderAccount(),
+                accounts.getReceiverAccount(),
+                amount,
+                fee,
+                currentUser.getId()
+            );
+            if (fraud.reject()) {
+                throw new FraudBlockedException(
+                    transactionValidatorService.blockedAttempt(req.type(), accounts, amount, fee, description, fraud),
+                    fraud
+                );
+            }
+            TransactionRecordDTO result = transactionValidatorService.move(req.type(), accounts, amount, fee, description, fraud);
             recordFeeAndLedger(result, accounts, amount, fee);
 
             TransactionReceiptDTO receipt = transactionReceiptService.buildSentReceipt(
@@ -246,7 +283,7 @@ public class TransactionRecordServicePlus {
             notificationServicePlus.createTransactionNotification(result, currentUser, result.getSendAmount(), true);
             notificationServicePlus.createTransactionNotification(result, counterparty.getUser(), result.getReceiveAmount(), false);
             return receipt;
-        });
+        }
     }
 
     /** Idempotent replay, in its own read-only transaction. */

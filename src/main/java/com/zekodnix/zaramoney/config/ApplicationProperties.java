@@ -22,6 +22,12 @@ public class ApplicationProperties {
 
     private final Push push = new Push();
 
+    private final Fraud fraud = new Fraud();
+
+    public Fraud getFraud() {
+        return fraud;
+    }
+
     public Push getPush() {
         return push;
     }
@@ -230,6 +236,271 @@ public class ApplicationProperties {
      * {@code up-to: 100.99} means "below 101"). The last tier has no {@code up-to}. Fee = amount x rate, HALF_UP to cents.
      * Quote the values in YAML ("0.0095") so they are read as exact decimals.
      */
+    /**
+     * Fraud scoring ({@code FraudScoringService}). Score 0–100 = sum of the rule points that fired (capped).
+     * {@code suspicious-score} ≤ score < {@code block-score} → SUSPICIOUS (allowed, flagged); score ≥ {@code block-score}
+     * or a hard rule → BLOCKED (rejected only in {@code enforce} mode; in {@code monitor} mode it completes and is flagged).
+     */
+    public static class Fraud {
+
+        public enum Mode {
+            /** Score and flag, never block (rollout default: tune on real traffic first). */
+            MONITOR,
+            /** BLOCKED payments are rejected (403 transactionblocked). */
+            ENFORCE,
+        }
+
+        private Mode mode = Mode.MONITOR;
+        private int suspiciousScore = 40;
+        private int blockScore = 70;
+        /** Rule: more than {@code maxCount} outgoing payments within {@code window}. */
+        private final Velocity burst = new Velocity(java.time.Duration.ofMinutes(10), 5, 30);
+        /** Hard rule: more than {@code maxCount} outgoing payments within {@code window} → BLOCKED. */
+        private final Velocity hourlyHardLimit = new Velocity(java.time.Duration.ofHours(1), 15, 0);
+        /** Rule: amount + fee ≥ {@code ratio} of the balance (amount > {@code minAmount}). */
+        private final Drain drain = new Drain();
+        /** Rule: account younger than {@code age} (amount > {@code minAmount}). */
+        private final Recent newAccount = new Recent(java.time.Duration.ofHours(24), "100", 25);
+        /** Rule: device first seen less than {@code age} ago (amount > {@code minAmount}). */
+        private final Recent newDevice = new Recent(java.time.Duration.ofHours(1), "100", 25);
+        /** Hard rule: on a new device, more than this sent within {@code newDevice.age} (this payment included) → BLOCKED. */
+        private java.math.BigDecimal newDeviceHardBlockAmount = new java.math.BigDecimal("2000");
+        /** Rule: PIN set/changed less than {@code age} ago (amount > {@code minAmount}). */
+        private final Recent pinChanged = new Recent(java.time.Duration.ofHours(24), "100", 20);
+        /** Rule: amount > {@code multiplier} × the 30-day average (amount > {@code minAmount}, ≥ {@code minHistory} payments). */
+        private final UnusualAmount unusualAmount = new UnusualAmount();
+        /** Rule: ≥ {@code maxCount} different receivers within {@code window} (this one included). */
+        private final Velocity fanOut = new Velocity(java.time.Duration.ofHours(24), 10, 20);
+        /** Rule (transfers, receiver not an agent): receiver paid by ≥ {@code maxCount} different senders within {@code window}. */
+        private final Velocity mule = new Velocity(java.time.Duration.ofHours(24), 10, 20);
+
+        public Mode getMode() {
+            return mode;
+        }
+
+        public void setMode(Mode mode) {
+            this.mode = mode;
+        }
+
+        public int getSuspiciousScore() {
+            return suspiciousScore;
+        }
+
+        public void setSuspiciousScore(int suspiciousScore) {
+            this.suspiciousScore = suspiciousScore;
+        }
+
+        public int getBlockScore() {
+            return blockScore;
+        }
+
+        public void setBlockScore(int blockScore) {
+            this.blockScore = blockScore;
+        }
+
+        public Velocity getBurst() {
+            return burst;
+        }
+
+        public Velocity getHourlyHardLimit() {
+            return hourlyHardLimit;
+        }
+
+        public Drain getDrain() {
+            return drain;
+        }
+
+        public Recent getNewAccount() {
+            return newAccount;
+        }
+
+        public Recent getNewDevice() {
+            return newDevice;
+        }
+
+        public java.math.BigDecimal getNewDeviceHardBlockAmount() {
+            return newDeviceHardBlockAmount;
+        }
+
+        public void setNewDeviceHardBlockAmount(java.math.BigDecimal newDeviceHardBlockAmount) {
+            this.newDeviceHardBlockAmount = newDeviceHardBlockAmount;
+        }
+
+        public Recent getPinChanged() {
+            return pinChanged;
+        }
+
+        public UnusualAmount getUnusualAmount() {
+            return unusualAmount;
+        }
+
+        public Velocity getFanOut() {
+            return fanOut;
+        }
+
+        public Velocity getMule() {
+            return mule;
+        }
+
+        public static class Velocity {
+
+            private java.time.Duration window;
+            private int maxCount;
+            private int points;
+
+            public Velocity() {}
+
+            Velocity(java.time.Duration window, int maxCount, int points) {
+                this.window = window;
+                this.maxCount = maxCount;
+                this.points = points;
+            }
+
+            public java.time.Duration getWindow() {
+                return window;
+            }
+
+            public void setWindow(java.time.Duration window) {
+                this.window = window;
+            }
+
+            public int getMaxCount() {
+                return maxCount;
+            }
+
+            public void setMaxCount(int maxCount) {
+                this.maxCount = maxCount;
+            }
+
+            public int getPoints() {
+                return points;
+            }
+
+            public void setPoints(int points) {
+                this.points = points;
+            }
+        }
+
+        public static class Recent {
+
+            private java.time.Duration age;
+            private java.math.BigDecimal minAmount;
+            private int points;
+
+            public Recent() {}
+
+            Recent(java.time.Duration age, String minAmount, int points) {
+                this.age = age;
+                this.minAmount = new java.math.BigDecimal(minAmount);
+                this.points = points;
+            }
+
+            public java.time.Duration getAge() {
+                return age;
+            }
+
+            public void setAge(java.time.Duration age) {
+                this.age = age;
+            }
+
+            public java.math.BigDecimal getMinAmount() {
+                return minAmount;
+            }
+
+            public void setMinAmount(java.math.BigDecimal minAmount) {
+                this.minAmount = minAmount;
+            }
+
+            public int getPoints() {
+                return points;
+            }
+
+            public void setPoints(int points) {
+                this.points = points;
+            }
+        }
+
+        public static class Drain {
+
+            private java.math.BigDecimal ratio = new java.math.BigDecimal("0.90");
+            private java.math.BigDecimal minAmount = new java.math.BigDecimal("50");
+            private int points = 20;
+
+            public java.math.BigDecimal getRatio() {
+                return ratio;
+            }
+
+            public void setRatio(java.math.BigDecimal ratio) {
+                this.ratio = ratio;
+            }
+
+            public java.math.BigDecimal getMinAmount() {
+                return minAmount;
+            }
+
+            public void setMinAmount(java.math.BigDecimal minAmount) {
+                this.minAmount = minAmount;
+            }
+
+            public int getPoints() {
+                return points;
+            }
+
+            public void setPoints(int points) {
+                this.points = points;
+            }
+        }
+
+        public static class UnusualAmount {
+
+            private java.math.BigDecimal multiplier = new java.math.BigDecimal("3");
+            private java.math.BigDecimal minAmount = new java.math.BigDecimal("200");
+            private java.time.Duration lookback = java.time.Duration.ofDays(30);
+            private int minHistory = 3;
+            private int points = 15;
+
+            public java.math.BigDecimal getMultiplier() {
+                return multiplier;
+            }
+
+            public void setMultiplier(java.math.BigDecimal multiplier) {
+                this.multiplier = multiplier;
+            }
+
+            public java.math.BigDecimal getMinAmount() {
+                return minAmount;
+            }
+
+            public void setMinAmount(java.math.BigDecimal minAmount) {
+                this.minAmount = minAmount;
+            }
+
+            public java.time.Duration getLookback() {
+                return lookback;
+            }
+
+            public void setLookback(java.time.Duration lookback) {
+                this.lookback = lookback;
+            }
+
+            public int getMinHistory() {
+                return minHistory;
+            }
+
+            public void setMinHistory(int minHistory) {
+                this.minHistory = minHistory;
+            }
+
+            public int getPoints() {
+                return points;
+            }
+
+            public void setPoints(int points) {
+                this.points = points;
+            }
+        }
+    }
+
     /** Expo push client ({@code ExpoPushService}). */
     public static class Push {
 

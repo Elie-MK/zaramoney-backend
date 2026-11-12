@@ -77,6 +77,28 @@
       "fieldValues": "CLEAN,SUSPICIOUS,BLOCKED"
     },
     {
+      "fieldName": "fraudReasons",
+      "fieldType": "String",
+      "fieldValidateRules": ["maxlength"],
+      "fieldValidateRulesMaxlength": "500"
+    },
+    {
+      "fieldName": "fraudReviewOutcome",
+      "fieldType": "FraudReviewOutcome",
+      "fieldTypeDocumentation": "Admin decision on a SUSPICIOUS / BLOCKED transaction",
+      "fieldValues": "CLEARED,CONFIRMED"
+    },
+    {
+      "fieldName": "fraudReviewedBy",
+      "fieldType": "String",
+      "fieldValidateRules": ["maxlength"],
+      "fieldValidateRulesMaxlength": "100"
+    },
+    {
+      "fieldName": "fraudReviewedAt",
+      "fieldType": "Instant"
+    },
+    {
       "fieldName": "createdAt",
       "fieldType": "Instant",
       "fieldValidateRules": ["required"]

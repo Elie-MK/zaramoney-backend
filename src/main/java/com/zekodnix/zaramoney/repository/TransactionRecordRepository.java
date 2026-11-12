@@ -56,16 +56,79 @@ public interface TransactionRecordRepository extends JpaRepository<TransactionRe
         @Param("from") Instant from
     );
 
-    /** Transactions where the user is sender or receiver. */
+    /** COMPLETED transactions where the user is sender or receiver (blocked attempts are never shown to customers). */
     @Query(
         value = "select t from TransactionRecord t left join t.sender s left join s.user su left join t.receiver r left join r.user ru " +
-        "where su.login = :login or ru.login = :login",
+        "where (su.login = :login or ru.login = :login) and t.transactionStatus = com.zekodnix.zaramoney.domain.enumeration.TransactionStatus.COMPLETED",
         countQuery = "select count(t) from TransactionRecord t left join t.sender s left join s.user su left join t.receiver r left join r.user ru " +
-        "where su.login = :login or ru.login = :login"
+        "where (su.login = :login or ru.login = :login) and t.transactionStatus = com.zekodnix.zaramoney.domain.enumeration.TransactionStatus.COMPLETED"
     )
     Page<TransactionRecord> findAllForUserLogin(@Param("login") String login, Pageable pageable);
 
     Optional<TransactionRecord> findOneByTransactionReference(String transactionReference);
 
     boolean existsBySender_IdOrReceiver_Id(Long senderId, Long receiverId);
+
+    // ---------------------------------------------------------------------------------------------- fraud scoring
+
+    /** Payment attempts (any status) sent from an account since {@code from}. */
+    @Query(
+        "select count(t) from TransactionRecord t where t.sender.id = :accountId and t.transactionType in :types and t.transactionDate >= :from"
+    )
+    long countOutgoingSince(
+        @Param("accountId") Long accountId,
+        @Param("types") java.util.Collection<com.zekodnix.zaramoney.domain.enumeration.TransactionType> types,
+        @Param("from") Instant from
+    );
+
+    /** Completed payments of these types sent from an account since {@code from}: count and total. */
+    @Query(
+        "select count(t), coalesce(sum(t.sendAmount), 0) from TransactionRecord t where t.sender.id = :accountId " +
+        "and t.transactionType in :types and t.transactionStatus = :status and t.transactionDate >= :from"
+    )
+    List<Object[]> countAndSumOutgoingSince(
+        @Param("accountId") Long accountId,
+        @Param("types") java.util.Collection<com.zekodnix.zaramoney.domain.enumeration.TransactionType> types,
+        @Param("status") TransactionStatus status,
+        @Param("from") Instant from
+    );
+
+    /** Different receivers paid by an account since {@code from}, not counting {@code exceptReceiverId}. */
+    @Query(
+        "select count(distinct t.receiver.id) from TransactionRecord t where t.sender.id = :accountId and t.receiver.id <> :exceptReceiverId " +
+        "and t.transactionType = :type and t.transactionStatus = :status and t.transactionDate >= :from"
+    )
+    long countDistinctReceiversSince(
+        @Param("accountId") Long accountId,
+        @Param("exceptReceiverId") Long exceptReceiverId,
+        @Param("type") com.zekodnix.zaramoney.domain.enumeration.TransactionType type,
+        @Param("status") TransactionStatus status,
+        @Param("from") Instant from
+    );
+
+    /** Different senders who paid an account since {@code from}, not counting {@code exceptSenderId}. */
+    @Query(
+        "select count(distinct t.sender.id) from TransactionRecord t where t.receiver.id = :accountId and t.sender.id <> :exceptSenderId " +
+        "and t.transactionType = :type and t.transactionStatus = :status and t.transactionDate >= :from"
+    )
+    long countDistinctSendersSince(
+        @Param("accountId") Long accountId,
+        @Param("exceptSenderId") Long exceptSenderId,
+        @Param("type") com.zekodnix.zaramoney.domain.enumeration.TransactionType type,
+        @Param("status") TransactionStatus status,
+        @Param("from") Instant from
+    );
+
+    /** Admin fraud review queue (newest first). */
+    @Query(
+        value = "select t from TransactionRecord t where t.fraudStatus in :statuses " +
+        "and (:unreviewedOnly = false or t.fraudReviewOutcome is null) order by t.transactionDate desc",
+        countQuery = "select count(t) from TransactionRecord t where t.fraudStatus in :statuses " +
+        "and (:unreviewedOnly = false or t.fraudReviewOutcome is null)"
+    )
+    Page<TransactionRecord> findFraudQueue(
+        @Param("statuses") java.util.Collection<com.zekodnix.zaramoney.domain.enumeration.FraudStatus> statuses,
+        @Param("unreviewedOnly") boolean unreviewedOnly,
+        Pageable pageable
+    );
 }

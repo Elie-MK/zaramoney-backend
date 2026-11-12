@@ -1,6 +1,7 @@
 package com.zekodnix.zaramoney.service.dto;
 
 import com.zekodnix.zaramoney.domain.enumeration.Currency;
+import com.zekodnix.zaramoney.domain.enumeration.FraudReviewOutcome;
 import com.zekodnix.zaramoney.domain.enumeration.FraudStatus;
 import com.zekodnix.zaramoney.domain.enumeration.TransactionStatus;
 import com.zekodnix.zaramoney.domain.enumeration.TransactionType;
@@ -57,6 +58,16 @@ public class TransactionRecordDTO implements Serializable {
 
     @NotNull
     private FraudStatus fraudStatus;
+
+    @Size(max = 500)
+    private String fraudReasons;
+
+    private FraudReviewOutcome fraudReviewOutcome;
+
+    @Size(max = 100)
+    private String fraudReviewedBy;
+
+    private Instant fraudReviewedAt;
 
     @NotNull
     private Instant createdAt;
@@ -174,6 +185,38 @@ public class TransactionRecordDTO implements Serializable {
         this.fraudStatus = fraudStatus;
     }
 
+    public String getFraudReasons() {
+        return fraudReasons;
+    }
+
+    public void setFraudReasons(String fraudReasons) {
+        this.fraudReasons = fraudReasons;
+    }
+
+    public FraudReviewOutcome getFraudReviewOutcome() {
+        return fraudReviewOutcome;
+    }
+
+    public void setFraudReviewOutcome(FraudReviewOutcome fraudReviewOutcome) {
+        this.fraudReviewOutcome = fraudReviewOutcome;
+    }
+
+    public String getFraudReviewedBy() {
+        return fraudReviewedBy;
+    }
+
+    public void setFraudReviewedBy(String fraudReviewedBy) {
+        this.fraudReviewedBy = fraudReviewedBy;
+    }
+
+    public Instant getFraudReviewedAt() {
+        return fraudReviewedAt;
+    }
+
+    public void setFraudReviewedAt(Instant fraudReviewedAt) {
+        this.fraudReviewedAt = fraudReviewedAt;
+    }
+
     public Instant getCreatedAt() {
         return createdAt;
     }
@@ -252,6 +295,8 @@ public class TransactionRecordDTO implements Serializable {
             ", description='" + getDescription() + "'" +
             ", riskScore=" + getRiskScore() +
             ", fraudStatus='" + getFraudStatus() + "'" +
+            ", fraudReasons='" + getFraudReasons() + "'" +
+            ", fraudReviewOutcome='" + getFraudReviewOutcome() + "'" +
             ", createdAt='" + getCreatedAt() + "'" +
             ", updatedAt='" + getUpdatedAt() + "'" +
             ", transactionDate='" + getTransactionDate() + "'" +

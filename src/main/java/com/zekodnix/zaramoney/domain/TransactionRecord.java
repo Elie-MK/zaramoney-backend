@@ -2,6 +2,7 @@ package com.zekodnix.zaramoney.domain;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.zekodnix.zaramoney.domain.enumeration.Currency;
+import com.zekodnix.zaramoney.domain.enumeration.FraudReviewOutcome;
 import com.zekodnix.zaramoney.domain.enumeration.FraudStatus;
 import com.zekodnix.zaramoney.domain.enumeration.TransactionStatus;
 import com.zekodnix.zaramoney.domain.enumeration.TransactionType;
@@ -87,6 +88,22 @@ public class TransactionRecord implements Serializable {
     @Enumerated(EnumType.STRING)
     @Column(name = "fraud_status", nullable = false)
     private FraudStatus fraudStatus;
+
+    /** Fraud rules that fired, e.g. "BURST:6/10m,NEW_ACCOUNT" (null when none). */
+    @Size(max = 500)
+    @Column(name = "fraud_reasons", length = 500)
+    private String fraudReasons;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "fraud_review_outcome", length = 20)
+    private FraudReviewOutcome fraudReviewOutcome;
+
+    @Size(max = 100)
+    @Column(name = "fraud_reviewed_by", length = 100)
+    private String fraudReviewedBy;
+
+    @Column(name = "fraud_reviewed_at")
+    private Instant fraudReviewedAt;
 
     @NotNull
     @Column(name = "created_at", nullable = false)
@@ -278,6 +295,58 @@ public class TransactionRecord implements Serializable {
         this.fraudStatus = fraudStatus;
     }
 
+    public String getFraudReasons() {
+        return this.fraudReasons;
+    }
+
+    public TransactionRecord fraudReasons(String fraudReasons) {
+        this.setFraudReasons(fraudReasons);
+        return this;
+    }
+
+    public void setFraudReasons(String fraudReasons) {
+        this.fraudReasons = fraudReasons;
+    }
+
+    public FraudReviewOutcome getFraudReviewOutcome() {
+        return this.fraudReviewOutcome;
+    }
+
+    public TransactionRecord fraudReviewOutcome(FraudReviewOutcome fraudReviewOutcome) {
+        this.setFraudReviewOutcome(fraudReviewOutcome);
+        return this;
+    }
+
+    public void setFraudReviewOutcome(FraudReviewOutcome fraudReviewOutcome) {
+        this.fraudReviewOutcome = fraudReviewOutcome;
+    }
+
+    public String getFraudReviewedBy() {
+        return this.fraudReviewedBy;
+    }
+
+    public TransactionRecord fraudReviewedBy(String fraudReviewedBy) {
+        this.setFraudReviewedBy(fraudReviewedBy);
+        return this;
+    }
+
+    public void setFraudReviewedBy(String fraudReviewedBy) {
+        this.fraudReviewedBy = fraudReviewedBy;
+    }
+
+    public Instant getFraudReviewedAt() {
+        return this.fraudReviewedAt;
+    }
+
+    public TransactionRecord fraudReviewedAt(Instant fraudReviewedAt) {
+        this.setFraudReviewedAt(fraudReviewedAt);
+        return this;
+    }
+
+    public void setFraudReviewedAt(Instant fraudReviewedAt) {
+        this.fraudReviewedAt = fraudReviewedAt;
+    }
+
     public Instant getCreatedAt() {
         return this.createdAt;
     }
@@ -379,6 +448,8 @@ public class TransactionRecord implements Serializable {
             ", description='" + getDescription() + "'" +
             ", riskScore=" + getRiskScore() +
             ", fraudStatus='" + getFraudStatus() + "'" +
+            ", fraudReasons='" + getFraudReasons() + "'" +
+            ", fraudReviewOutcome='" + getFraudReviewOutcome() + "'" +
             ", createdAt='" + getCreatedAt() + "'" +
             ", updatedAt='" + getUpdatedAt() + "'" +
             ", transactionDate='" + getTransactionDate() + "'" +

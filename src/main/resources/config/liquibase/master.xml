@@ -54,6 +54,7 @@
   <include file="config/liquibase/changelog/20261114000000_fee_revenue.xml" relativeToChangelogFile="false"/>
   <include file="config/liquibase/changelog/20261115000000_transaction_fee_column.xml" relativeToChangelogFile="false"/>
   <include file="config/liquibase/changelog/20261116000000_ledger_integrity.xml" relativeToChangelogFile="false"/>
+  <include file="config/liquibase/changelog/20261117000000_fraud_scoring.xml" relativeToChangelogFile="false"/>
 
   <!-- jhipster-needle-liquibase-add-changelog - JHipster will add liquibase changelogs here -->
   <!-- jhipster-needle-liquibase-add-constraints-changelog - JHipster will add liquibase constraints changelogs here -->

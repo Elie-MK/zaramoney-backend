@@ -41,6 +41,12 @@ enum FraudStatus {
   BLOCKED
 }
 
+/** Admin decision on a SUSPICIOUS / BLOCKED transaction */
+enum FraudReviewOutcome {
+  CLEARED,
+  CONFIRMED
+}
+
 enum Currency {
   USD,
   TND
@@ -147,6 +153,11 @@ entity TransactionRecord {
 
   riskScore Integer required min(0) max(100)
   fraudStatus FraudStatus required
+  // hand-written changeset 20261117000000_fraud_scoring.xml: rules that fired + admin review
+  fraudReasons String maxlength(500)
+  fraudReviewOutcome FraudReviewOutcome
+  fraudReviewedBy String maxlength(100)
+  fraudReviewedAt Instant
 
   createdAt Instant required
   updatedAt Instant

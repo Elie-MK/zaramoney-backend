@@ -3,6 +3,7 @@ package com.zekodnix.zaramoney.service;
 import com.zekodnix.zaramoney.domain.BankAccount;
 import com.zekodnix.zaramoney.domain.TransactionFee;
 import com.zekodnix.zaramoney.domain.TransactionRecord;
+import com.zekodnix.zaramoney.domain.enumeration.TransactionStatus;
 import com.zekodnix.zaramoney.domain.User;
 import com.zekodnix.zaramoney.repository.TransactionFeeRepository;
 import com.zekodnix.zaramoney.repository.TransactionRecordRepository;
@@ -127,8 +128,11 @@ public class TransactionReceiptService {
         }
     }
 
+    /** Customers only see COMPLETED transactions (never a payment blocked by the fraud rules, on either side). */
     private static boolean isParty(TransactionRecord tx, String login) {
-        return isOwnedBy(tx.getSender(), login) || isOwnedBy(tx.getReceiver(), login);
+        return (
+            tx.getTransactionStatus() == TransactionStatus.COMPLETED && (isOwnedBy(tx.getSender(), login) || isOwnedBy(tx.getReceiver(), login))
+        );
     }
 
     private static boolean isOwnedBy(BankAccount account, String login) {

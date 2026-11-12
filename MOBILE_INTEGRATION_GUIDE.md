@@ -408,6 +408,7 @@ Fees are rounded half-up to the cent (e.g. 5.00 at 1.30 % = 0.065 → **0.07**).
 | `accountnotactive` | 403 | "Your account is suspended/closed, contact support" |
 | `receivernotactive` | 400 | "This account can't receive money" |
 | `currencymismatch` | 400 | only same-currency transfers are possible |
+| `transactionblocked` | 403 | blocked by the fraud rules (nothing was debited). Show "This payment was blocked for security reasons. Contact ZaraMoney support." Do **not** auto-retry; a retry with the same key is checked again. Only happens once the server runs fraud scoring in `enforce` mode (it starts in `monitor` mode, where nothing is blocked) |
 | `idempotencykeyreused` / `requestinprogress` | 409 | see 9.1 |
 | `transaction_signature_invalid` | 401 | biometric failed/cancelled, or key invalidated → re-register it (section 6) |
 | `ratelimited` | 429 | wait `Retry-After` |
@@ -515,7 +516,7 @@ Plus the login lockout: 5 wrong passwords in 15 min → `429 loginlocked`.
 `pinnotset` 400 · `invalidpin` 400 · `invalidpinformat` 400 · `weakpin` 400 · `pinlocked` 423
 
 ### Money
-`kycnotverified` 403 · `accountnotactive` 403 · `receivernotactive` 400 · `currencymismatch` 400 · `senderaccountrequired` 400 · `senderaccountnotfound` 400 · `accountnotowned` 403 · `insufficientbalance` 400 · `minimumbalance` 400 · `dailylimitexceeded` 400 · `monthlylimitexceeded` 400 · `invalidamount` 400 · `receivernotfound` 400 · `agentnotfound` 400 · `notanagent` 400 · `sendtomyself` 400 · `noaccount` 400 · `idempotencykeyreused` 409 · `requestinprogress` 409
+`kycnotverified` 403 · `accountnotactive` 403 · `receivernotactive` 400 · `currencymismatch` 400 · `senderaccountrequired` 400 · `senderaccountnotfound` 400 · `accountnotowned` 403 · `insufficientbalance` 400 · `minimumbalance` 400 · `dailylimitexceeded` 400 · `monthlylimitexceeded` 400 · `invalidamount` 400 · `receivernotfound` 400 · `agentnotfound` 400 · `notanagent` 400 · `sendtomyself` 400 · `noaccount` 400 · `idempotencykeyreused` 409 · `requestinprogress` 409 · `transactionblocked` 403
 
 ### Other
 `transactionnotfound` 404 · `notificationnotfound` 404 · `sessionnotfound` 404 · `ratelimited` 429 · `validation` 400 · `unauthorized` 401
@@ -537,3 +538,4 @@ Plus the login lockout: 5 wrong passwords in 15 min → `429 loginlocked`.
 | 2026-11-12 | KYC approval / rejection now sends a push + stored notification (`type: "KYC_STATUS"` in the push data, `deepLink: "account"`) | Handle the `KYC_STATUS` push: refresh `GET /api/user-account`. Notifications list may now contain items with `transaction: null` |
 | 2026-11-12 | New: `PUT /api/plus/push-token`, `GET /api/plus/notifications/unread-count`, `PUT /api/plus/notifications/{id}/read`, `PUT /api/plus/notifications/read-all` | Send the push token after login / when it changes, `null` on logout; mark notifications read when opened; badge from `unread-count` |
 | 2026-11-12 | Push delivery: retried on network/5xx/429 errors; notification `status` is now `PENDING` → `SENT` / `FAILED` and `sentAt` is set only when Expo accepted the push (was always `SENT`); a token Expo reports as `DeviceNotRegistered` is removed | None required. After a reinstall the old token is dropped automatically: send the new one with `PUT /api/plus/push-token` |
+| 2026-11-12 | Fraud scoring on send / withdrawal (starts in **monitor** mode: scores and flags, blocks nothing). Customer history now lists only `COMPLETED` transactions | Handle `403 transactionblocked` (needed before the server switches to `enforce`). No other change |
