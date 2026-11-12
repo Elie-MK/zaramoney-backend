@@ -15,8 +15,16 @@ class DeviceSignatureTest {
 
     private final TestDeviceKey device = TestDeviceKey.generate();
     private final TestDeviceKey tx = TestDeviceKey.generate();
+    /** One fixed "now" for signing AND verifying: a wall-clock jump (WSL/NTP) mid-test must not expire a signature. */
+    private static final java.time.Clock CLOCK = java.time.Clock.fixed(java.time.Instant.parse("2026-11-12T10:00:00Z"), java.time.ZoneOffset.UTC);
+
     private final NonceStore nonceStore = new NonceStore();
     private final DeviceSignatureVerifier verifier = new DeviceSignatureVerifier(nonceStore, new ApplicationProperties());
+
+    {
+        nonceStore.setClock(CLOCK);
+        verifier.setClock(CLOCK);
+    }
 
     // --------------------------------------------------------------- keys
 
@@ -87,7 +95,7 @@ class DeviceSignatureTest {
 
     @Test
     void validRequestPassesOnceThenIsAReplay() {
-        long now = System.currentTimeMillis();
+        long now = CLOCK.millis();
         var req = signed("POST", "/api/x", "{\"a\":1}", "device-1234", now, "nonce-00000001", device);
         byte[] body = "{\"a\":1}".getBytes(StandardCharsets.UTF_8);
         assertThat(code(() -> verifier.verify(req, body, expected(true)))).isEqualTo("ok");
@@ -96,7 +104,7 @@ class DeviceSignatureTest {
 
     @Test
     void tamperedBodyWrongKeyWrongDeviceOldTimestampAreRejected() {
-        long now = System.currentTimeMillis();
+        long now = CLOCK.millis();
         byte[] body = "{\"a\":1}".getBytes(StandardCharsets.UTF_8);
 
         var tampered = signed("POST", "/api/x", "{\"a\":2}", "device-1234", now, "nonce-00000002", device);
@@ -127,7 +135,7 @@ class DeviceSignatureTest {
 
     @Test
     void moneyOperationsNeedTheTransactionKeySignature() {
-        long now = System.currentTimeMillis();
+        long now = CLOCK.millis();
         byte[] body = "{}".getBytes(StandardCharsets.UTF_8);
         var req = signed("POST", "/api/send", "{}", "device-1234", now, "nonce-00000010", device);
         req.removeHeader("X-Tx-Signature");
@@ -141,7 +149,7 @@ class DeviceSignatureTest {
 
     @Test
     void failedVerificationDoesNotBurnTheNonce() {
-        long now = System.currentTimeMillis();
+        long now = CLOCK.millis();
         byte[] body = "{\"a\":1}".getBytes(StandardCharsets.UTF_8);
         var forged = signed("POST", "/api/x", "{\"a\":1}", "device-1234", now, "nonce-00000020", tx);
         assertThat(code(() -> verifier.verify(forged, body, expected(false)))).isEqualTo("device_signature_invalid");

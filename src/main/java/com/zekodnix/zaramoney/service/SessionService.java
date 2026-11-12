@@ -1,5 +1,6 @@
 package com.zekodnix.zaramoney.service;
 
+import com.zekodnix.zaramoney.domain.enumeration.AuditAction;
 import com.zekodnix.zaramoney.config.ApplicationProperties;
 import com.zekodnix.zaramoney.domain.AccessBlock;
 import com.zekodnix.zaramoney.domain.Authority;
@@ -75,6 +76,8 @@ public class SessionService {
     private final ApplicationProperties applicationProperties;
     private final TransactionTemplate transactionTemplate;
 
+    private final AuditService auditService;
+
     public SessionService(
         UserSessionRepository sessionRepository,
         RefreshTokenRepository refreshTokenRepository,
@@ -84,8 +87,10 @@ public class SessionService {
         NonceStore nonceStore,
         DeviceSignatureVerifier signatureVerifier,
         ApplicationProperties applicationProperties,
-        PlatformTransactionManager transactionManager
+        PlatformTransactionManager transactionManager,
+        AuditService auditService
     ) {
+        this.auditService = auditService;
         this.sessionRepository = sessionRepository;
         this.refreshTokenRepository = refreshTokenRepository;
         this.accessBlockRepository = accessBlockRepository;
@@ -360,13 +365,17 @@ public class SessionService {
         addBlock(AccessBlockType.USER, user.getLogin(), reason, admin);
         revokeAllForUser(user.getId(), null, REASON_BLOCKED);
         LOG.warn("User {} blocked by {}: {}", user.getLogin(), admin, reason);
+        auditService.record(AuditAction.USER_BLOCKED, "USER", user.getLogin(), "reason=" + reason);
     }
 
     @Transactional
     public void unblockUser(String login) {
         accessBlockRepository
             .findOneByBlockTypeAndBlockValue(AccessBlockType.USER, login.toLowerCase(Locale.ROOT))
-            .ifPresent(accessBlockRepository::delete);
+            .ifPresent(block -> {
+                accessBlockRepository.delete(block);
+                auditService.record(AuditAction.USER_UNBLOCKED, "USER", block.getBlockValue(), "was blocked for: " + block.getReason());
+            });
     }
 
     @Transactional
@@ -375,11 +384,17 @@ public class SessionService {
         Instant now = Instant.now();
         sessionRepository.findActiveByDeviceId(deviceId, now).forEach(s -> revoke(s, REASON_BLOCKED, now));
         LOG.warn("Device {} blocked by {}: {}", deviceId, admin, reason);
+        auditService.record(AuditAction.DEVICE_BLOCKED, "DEVICE", deviceId, "reason=" + reason);
     }
 
     @Transactional
     public void unblockDevice(String deviceId) {
-        accessBlockRepository.findOneByBlockTypeAndBlockValue(AccessBlockType.DEVICE, deviceId).ifPresent(accessBlockRepository::delete);
+        accessBlockRepository
+            .findOneByBlockTypeAndBlockValue(AccessBlockType.DEVICE, deviceId)
+            .ifPresent(block -> {
+                accessBlockRepository.delete(block);
+                auditService.record(AuditAction.DEVICE_UNBLOCKED, "DEVICE", deviceId, "was blocked for: " + block.getReason());
+            });
     }
 
     @Transactional(readOnly = true)
@@ -395,7 +410,9 @@ public class SessionService {
         User user = userRepository
             .findOneByLogin(login.toLowerCase(Locale.ROOT))
             .orElseThrow(() -> ApiException.notFound("User not found", "usernotfound"));
-        return revokeAllForUser(user.getId(), null, REASON_ADMIN);
+        int revoked = revokeAllForUser(user.getId(), null, REASON_ADMIN);
+        auditService.record(AuditAction.SESSIONS_REVOKED, "USER", user.getLogin(), revoked + " session(s) revoked by an admin");
+        return revoked;
     }
 
     public boolean isUserBlocked(String login) {

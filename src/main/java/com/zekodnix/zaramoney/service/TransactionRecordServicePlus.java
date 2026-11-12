@@ -1,5 +1,6 @@
 package com.zekodnix.zaramoney.service;
 
+import com.zekodnix.zaramoney.domain.enumeration.AuditAction;
 import com.zekodnix.zaramoney.domain.BankAccount;
 import com.zekodnix.zaramoney.domain.User;
 import com.zekodnix.zaramoney.domain.enumeration.BankAccountType;
@@ -71,6 +72,8 @@ public class TransactionRecordServicePlus {
     private final TransactionTemplate transactionTemplate;
     private final TransactionTemplate readOnlyTemplate;
 
+    private final AuditService auditService;
+
     public TransactionRecordServicePlus(
         UserService userService,
         BankAccountService bankAccountService,
@@ -89,8 +92,10 @@ public class TransactionRecordServicePlus {
         FeeSchedule feeSchedule,
         FraudScoringService fraudScoringService,
         TransactionRecordService transactionRecordService,
-        PlatformTransactionManager transactionManager
+        PlatformTransactionManager transactionManager,
+        AuditService auditService
     ) {
+        this.auditService = auditService;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
         this.readOnlyTemplate = new TransactionTemplate(transactionManager);
         this.readOnlyTemplate.setReadOnly(true);
@@ -220,7 +225,25 @@ public class TransactionRecordServicePlus {
             return transactionTemplate.execute(status -> moneyTransaction(req, currentUser));
         } catch (FraudBlockedException blocked) {
             // the money transaction rolled back (nothing moved); keep the attempt for the admin review queue
-            transactionTemplate.executeWithoutResult(status -> transactionRecordService.save(blocked.getAttempt()));
+            transactionTemplate.executeWithoutResult(status -> {
+                TransactionRecordDTO attempt = transactionRecordService.save(blocked.getAttempt());
+                auditService.record(
+                    AuditAction.PAYMENT_BLOCKED,
+                    "TRANSACTION",
+                    attempt.getTransactionReference(),
+                    attempt.getTransactionType() +
+                    " " +
+                    attempt.getSendAmount() +
+                    " " +
+                    attempt.getCurrencySendAmount() +
+                    " to " +
+                    attempt.getReceiver().getAccountNumber() +
+                    " score=" +
+                    attempt.getRiskScore() +
+                    " reasons=" +
+                    attempt.getFraudReasons()
+                );
+            });
             throw ApiException.forbidden(
                 "This payment was blocked for security reasons. Contact ZaraMoney support if this is a mistake.",
                 "transactionblocked"

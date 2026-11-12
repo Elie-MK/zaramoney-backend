@@ -1,5 +1,7 @@
 package com.zekodnix.zaramoney.service.fraud;
 
+import com.zekodnix.zaramoney.domain.enumeration.AuditAction;
+import com.zekodnix.zaramoney.service.AuditService;
 import com.zekodnix.zaramoney.domain.BankAccount;
 import com.zekodnix.zaramoney.domain.TransactionRecord;
 import com.zekodnix.zaramoney.domain.enumeration.FraudReviewOutcome;
@@ -29,7 +31,10 @@ public class FraudReviewService {
 
     private final TransactionRecordRepository transactionRecordRepository;
 
-    public FraudReviewService(TransactionRecordRepository transactionRecordRepository) {
+    private final AuditService auditService;
+
+    public FraudReviewService(TransactionRecordRepository transactionRecordRepository, AuditService auditService) {
+        this.auditService = auditService;
         this.transactionRecordRepository = transactionRecordRepository;
     }
 
@@ -58,15 +63,11 @@ public class FraudReviewService {
         tx.setFraudReviewedBy(adminLogin);
         tx.setFraudReviewedAt(Instant.now());
         transactionRecordRepository.save(tx);
-        // TODO(Phase 5 audit log): persist instead of the application log
-        LOG.info(
-            "AUDIT fraud review ref={} {} -> {} (status {}, score {}) by admin {}",
+        auditService.record(
+            AuditAction.FRAUD_REVIEWED,
+            "TRANSACTION",
             tx.getTransactionReference(),
-            previous,
-            outcome,
-            tx.getFraudStatus(),
-            tx.getRiskScore(),
-            adminLogin
+            previous + " -> " + outcome + " (fraud " + tx.getFraudStatus() + ", score " + tx.getRiskScore() + ", reasons " + tx.getFraudReasons() + ")"
         );
         return toDto(tx);
     }

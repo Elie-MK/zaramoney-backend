@@ -1,13 +1,16 @@
 package com.zekodnix.zaramoney.web.rest;
 
+import com.zekodnix.zaramoney.domain.enumeration.AuditAction;
 import com.zekodnix.zaramoney.domain.enumeration.FraudStatus;
 import com.zekodnix.zaramoney.domain.enumeration.KycStatus;
 import com.zekodnix.zaramoney.security.AuthoritiesConstants;
 import com.zekodnix.zaramoney.security.SecurityUtils;
+import com.zekodnix.zaramoney.service.AuditService;
 import com.zekodnix.zaramoney.service.BackOfficeService;
 import com.zekodnix.zaramoney.service.KycReviewService;
 import com.zekodnix.zaramoney.service.LedgerReconciliationService;
 import com.zekodnix.zaramoney.service.RevenueReportService;
+import com.zekodnix.zaramoney.service.dto.AuditEventDTO;
 import com.zekodnix.zaramoney.service.dto.DepositDto;
 import com.zekodnix.zaramoney.service.dto.FraudCaseDTO;
 import com.zekodnix.zaramoney.service.fraud.FraudReviewService;
@@ -49,19 +52,41 @@ public class BackOfficeResource {
     private final RevenueReportService revenueReportService;
     private final LedgerReconciliationService ledgerReconciliationService;
     private final FraudReviewService fraudReviewService;
+    private final AuditService auditService;
 
     public BackOfficeResource(
         BackOfficeService backOfficeService,
         KycReviewService kycReviewService,
         RevenueReportService revenueReportService,
         LedgerReconciliationService ledgerReconciliationService,
-        FraudReviewService fraudReviewService
+        FraudReviewService fraudReviewService,
+        AuditService auditService
     ) {
         this.backOfficeService = backOfficeService;
         this.kycReviewService = kycReviewService;
         this.revenueReportService = revenueReportService;
         this.ledgerReconciliationService = ledgerReconciliationService;
         this.fraudReviewService = fraudReviewService;
+        this.auditService = auditService;
+    }
+
+    /**
+     * {@code GET /audit?actor=&action=&targetType=&targetId=&from=&to=} : audit trail, newest first (paginated,
+     * {@code X-Total-Count}). {@code from} / {@code to}: ISO instants, {@code to} exclusive. All filters optional.
+     */
+    @GetMapping("/audit")
+    public ResponseEntity<List<AuditEventDTO>> audit(
+        @RequestParam(name = "actor", required = false) String actor,
+        @RequestParam(name = "action", required = false) AuditAction action,
+        @RequestParam(name = "targetType", required = false) String targetType,
+        @RequestParam(name = "targetId", required = false) String targetId,
+        @RequestParam(name = "from", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) java.time.Instant from,
+        @RequestParam(name = "to", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) java.time.Instant to,
+        Pageable pageable
+    ) {
+        Page<AuditEventDTO> page = auditService.search(actor, action, targetType, targetId, from, to, pageable);
+        var headers = PaginationUtil.generatePaginationHttpHeaders(ServletUriComponentsBuilder.fromCurrentRequest(), page);
+        return ResponseEntity.ok().headers(headers).body(page.getContent());
     }
 
     /**

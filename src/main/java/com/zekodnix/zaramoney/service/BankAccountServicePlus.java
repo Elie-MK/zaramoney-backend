@@ -1,5 +1,6 @@
 package com.zekodnix.zaramoney.service;
 
+import com.zekodnix.zaramoney.domain.enumeration.AuditAction;
 import com.zekodnix.zaramoney.domain.BankAccount;
 import com.zekodnix.zaramoney.domain.User;
 import com.zekodnix.zaramoney.domain.enumeration.AccountStatus;
@@ -17,6 +18,8 @@ import com.zekodnix.zaramoney.web.rest.errors.ApiException;
 import java.math.BigDecimal;
 import java.security.SecureRandom;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import org.slf4j.Logger;
@@ -44,6 +47,8 @@ public class BankAccountServicePlus {
     private final TransactionLimitRepository transactionLimitRepository;
     private final UserRepository userRepository;
 
+    private final AuditService auditService;
+
     public BankAccountServicePlus(
         BankAccountService bankAccountService,
         BankAccountRepository bankAccountRepository,
@@ -52,8 +57,10 @@ public class BankAccountServicePlus {
         TransactionRecordRepository transactionRecordRepository,
         LedgerEntryRepository ledgerEntryRepository,
         TransactionLimitRepository transactionLimitRepository,
-        UserRepository userRepository
+        UserRepository userRepository,
+        AuditService auditService
     ) {
+        this.auditService = auditService;
         this.bankAccountService = bankAccountService;
         this.bankAccountRepository = bankAccountRepository;
         this.transactionLimitServicePlus = transactionLimitServicePlus;
@@ -131,7 +138,14 @@ public class BankAccountServicePlus {
     public BankAccountDTO adminCreate(BankAccountDTO dto) {
         warnIfBalanceSupplied(dto, BigDecimal.ZERO);
         dto.setBalance(BigDecimal.ZERO.setScale(2));
-        return bankAccountService.save(dto);
+        BankAccountDTO saved = bankAccountService.save(dto);
+        auditService.record(
+            AuditAction.BANK_ACCOUNT_CREATED,
+            "BANK_ACCOUNT",
+            saved.getAccountNumber(),
+            "currency=" + saved.getCurrency() + " status=" + saved.getStatus() + " type=" + saved.getAccountType() + " owner=" + ownerId(saved)
+        );
+        return saved;
     }
 
     /** Admin full update (PUT): every field except the balance, which keeps its current value. */
@@ -148,7 +162,10 @@ public class BankAccountServicePlus {
         if (newOwnerId != null) {
             requireUser(newOwnerId); // 400 instead of a foreign-key 500
         }
-        return bankAccountService.update(dto);
+        String changes = changes(locked, dto, true);
+        BankAccountDTO saved = bankAccountService.update(dto);
+        auditUpdate(saved.getAccountNumber(), changes);
+        return saved;
     }
 
     /** Admin partial update (PATCH): a balance in the request is dropped; absent fields are unchanged. */
@@ -166,13 +183,17 @@ public class BankAccountServicePlus {
             ownerSupplied,
             ownerSupplied ? dto.getUser().getId() : null
         );
+        String changes = changes(locked, dto, ownerSupplied);
         if (ownerSupplied) {
             // Never let the mapper touch the owner: MapStruct's partialUpdate copies the DTO's id/login INTO the
             // current owner's managed User (renaming that user) instead of switching the reference.
             locked.setUser(requireUser(dto.getUser().getId()));
             dto.setUser(null);
         }
-        return bankAccountService.partialUpdate(dto);
+        String accountNumber = locked.getAccountNumber();
+        Optional<BankAccountDTO> saved = bankAccountService.partialUpdate(dto);
+        saved.ifPresent(s -> auditUpdate(accountNumber, changes));
+        return saved;
     }
 
     /** Admin delete: only an unused account (zero balance, no transaction, no ledger entry); its limits go with it. */
@@ -183,7 +204,10 @@ public class BankAccountServicePlus {
             throw ApiException.conflict("An account with a balance or a transaction history cannot be deleted", "accountinuse");
         }
         transactionLimitRepository.findOneByAccountId(id).ifPresent(transactionLimitRepository::delete);
+        String accountNumber = locked.getAccountNumber();
+        String owner = locked.getUser() == null ? null : String.valueOf(locked.getUser().getId());
         bankAccountRepository.delete(locked);
+        auditService.record(AuditAction.BANK_ACCOUNT_DELETED, "BANK_ACCOUNT", accountNumber, "owner=" + owner);
     }
 
     /** null = "not supplied" for PATCH (except the owner, see {@code ownerSupplied}). */
@@ -213,6 +237,37 @@ public class BankAccountServicePlus {
         return Optional.ofNullable(userId)
             .flatMap(userRepository::findById)
             .orElseThrow(() -> ApiException.badRequest("Owner not found", "usernotfound"));
+    }
+
+    /** "status ACTIVE->SUSPENDED, currency USD->TND" for the fields that change (null in the DTO = unchanged unless owner). */
+    private static String changes(BankAccount before, BankAccountDTO after, boolean ownerSupplied) {
+        List<String> c = new ArrayList<>();
+        diff(c, "accountNumber", before.getAccountNumber(), after.getAccountNumber());
+        diff(c, "status", before.getStatus(), after.getStatus());
+        diff(c, "currency", before.getCurrency(), after.getCurrency());
+        diff(c, "accountType", before.getAccountType(), after.getAccountType());
+        if (ownerSupplied) {
+            Long beforeOwner = before.getUser() == null ? null : before.getUser().getId();
+            Long afterOwner = after.getUser() == null ? null : after.getUser().getId();
+            if (!Objects.equals(beforeOwner, afterOwner)) {
+                c.add("owner " + beforeOwner + "->" + afterOwner);
+            }
+        }
+        return c.isEmpty() ? "no change" : String.join(", ", c);
+    }
+
+    private static void diff(List<String> c, String field, Object before, Object after) {
+        if (after != null && !after.equals(before)) {
+            c.add(field + " " + before + "->" + after);
+        }
+    }
+
+    private void auditUpdate(String accountNumber, String changes) {
+        auditService.record(AuditAction.BANK_ACCOUNT_UPDATED, "BANK_ACCOUNT", accountNumber, changes);
+    }
+
+    private static Long ownerId(BankAccountDTO dto) {
+        return dto.getUser() == null ? null : dto.getUser().getId();
     }
 
     private boolean isInUse(BankAccount account) {

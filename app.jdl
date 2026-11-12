@@ -3,11 +3,12 @@
 //
 // READ BEFORE REGENERATING:
 // - Entities marked "skipServer" (TransactionPin, UserSession, RefreshToken,
-//   AccessBlock) are HAND-WRITTEN. They are listed here only so the JDL
+//   AccessBlock, AuditEvent) are HAND-WRITTEN. They are listed here only so the JDL
 //   documents the whole model. JHipster must never generate CRUD
 //   resources, DTOs or services for them (they hold PIN/token hashes).
 //   Their schema lives in the hand-written Liquibase changesets
-//   (20261112000000_phase2_security.xml, 20261113000000_device_sessions.xml).
+//   (20261112000000_phase2_security.xml, 20261113000000_device_sessions.xml,
+//   20261118000000_audit_event.xml).
 // - Fields added after the initial generation (BankAccount.accountType,
 //   IdempotencyRecord.requestHash) were also added by hand-written
 //   changesets. When regenerating an entity, run with --skip-db-changelog
@@ -106,6 +107,29 @@ enum SessionType {
 enum AccessBlockType {
   USER,
   DEVICE
+}
+
+/** Audited admin / sensitive actions (stored as text; add values, never rename) */
+enum AuditAction {
+  DEPOSIT,
+  KYC_APPROVED,
+  KYC_REJECTED,
+  FRAUD_REVIEWED,
+  BANK_ACCOUNT_CREATED,
+  BANK_ACCOUNT_UPDATED,
+  BANK_ACCOUNT_DELETED,
+  USER_CREATED,
+  USER_UPDATED,
+  USER_DELETED,
+  USER_BLOCKED,
+  USER_UNBLOCKED,
+  DEVICE_BLOCKED,
+  DEVICE_UNBLOCKED,
+  SESSIONS_REVOKED,
+  PAYMENT_BLOCKED,
+  PIN_SET,
+  PASSWORD_CHANGED,
+  PASSWORD_RESET
 }
 
 /////////////////////////////////////////////////////////////
@@ -264,6 +288,17 @@ entity AccessBlock {
   createdAt Instant required
 }
 
+/** Append-only audit trail (DB trigger). Actor stored as a login, no FK. Read via GET /api/admin/backoffice/audit. */
+entity AuditEvent {
+  occurredAt Instant required
+  actorLogin String maxlength(100)
+  action AuditAction required
+  targetType String maxlength(50)
+  targetId String maxlength(100)
+  details String maxlength(2000)
+  ip String maxlength(64)
+}
+
 /////////////////////////////////////////////////////////////
 // RELATIONSHIPS
 /////////////////////////////////////////////////////////////
@@ -302,10 +337,10 @@ relationship OneToOne {
 // OPTIONS
 /////////////////////////////////////////////////////////////
 
-paginate * with pagination except TransactionPin, UserSession, RefreshToken, AccessBlock
-dto * with mapstruct except User, TransactionPin, UserSession, RefreshToken, AccessBlock
-service * with serviceClass except User, TransactionPin, UserSession, RefreshToken, AccessBlock
-filter * except TransactionPin, UserSession, RefreshToken, AccessBlock
+paginate * with pagination except TransactionPin, UserSession, RefreshToken, AccessBlock, AuditEvent
+dto * with mapstruct except User, TransactionPin, UserSession, RefreshToken, AccessBlock, AuditEvent
+service * with serviceClass except User, TransactionPin, UserSession, RefreshToken, AccessBlock, AuditEvent
+filter * except TransactionPin, UserSession, RefreshToken, AccessBlock, AuditEvent
 
 // Hand-written entities: no generated server code (no Resource/Service/DTO/changelog)
-skipServer TransactionPin, UserSession, RefreshToken, AccessBlock
+skipServer TransactionPin, UserSession, RefreshToken, AccessBlock, AuditEvent

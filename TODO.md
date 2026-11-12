@@ -60,7 +60,7 @@ Legend: 🔴 Critical · 🟠 High · 🟡 Bug · 🔵 Improvement
 - [x] KYC starts `PENDING`; `/send` and `/withdrawal` return 403 `kycnotverified` until approved
 - [x] Admin review: `GET /api/admin/backoffice/kyc?status=PENDING`, `GET /kyc/{id}` (with 5-minute signed document links), `POST /kyc/{id}/approve`, `POST /kyc/{id}/reject`
 - [x] Notify the user (push) when KYC is approved or rejected — DONE 2026-11-12: `NotificationServicePlus.createKycStatusNotification` (stored `SYSTEM` notification + push after commit, data `{"type":"KYC_STATUS","kycStatus":…}`); only on a real status change. Tests: `KycDecisionNotificationIT`
-- [ ] Persist KYC decisions in an audit log (currently application log only; Phase 5)
+- [x] Persist KYC decisions in an audit log (currently application log only; Phase 5) — done: `audit_event` (KYC_APPROVED / KYC_REJECTED)
 
 ### 🔴 5. Enforce the transaction limits — ✅ DONE
 - [x] `TransactionLimitServicePlus.checkLimits` checks daily and monthly totals (all COMPLETED outgoing transactions, Kinshasa time) while the sender row is locked; 400 `dailylimitexceeded` / `monthlylimitexceeded`
@@ -253,7 +253,13 @@ Decisions: device-key signature (ECDSA P-256) on every customer request; admins 
   - Tests: `FraudScoringServiceTest` (11, each rule), `FraudScoringIT` (5)
   - [ ] **Manual:** after 2–4 weeks in monitor mode, review the queue / `zaramoney.fraud` metric (false-positive rate), tune `application.fraud.*`, then set `mode: enforce` — the app must handle `403 transactionblocked` first
   - [ ] Later: "held for review" state (reserve funds until an admin releases them); auto-freeze after repeated blocks (declined for now); IP / device-attestation signals
-- [ ] 🔵 Audit log for admin and sensitive actions
+- [x] 🔵 Audit log for admin and sensitive actions — DONE 2026-11-12:
+  - Table `audit_event` (hand-written entity `AuditEvent`, in the JDL with `skipServer`; changeset `20261118000000_audit_event.xml`), append-only by DB trigger (bypass: `SET LOCAL zaramoney.audit_maintenance = 'on'`)
+  - `AuditService.record(action, targetType, targetId, details)`: actor = current login (null = system / e-mail link), client IP; joins the caller's transaction (a rolled-back action leaves no row); also logs an `AUDIT` line
+  - Recorded: DEPOSIT, KYC_APPROVED / KYC_REJECTED, FRAUD_REVIEWED, BANK_ACCOUNT_CREATED / UPDATED (field diff) / DELETED, USER_CREATED / UPDATED (login, e-mail, activation, **role changes**) / DELETED, USER_ / DEVICE_ BLOCKED / UNBLOCKED, SESSIONS_REVOKED (admin), PAYMENT_BLOCKED (fraud, enforce mode), PIN_SET, PASSWORD_CHANGED, PASSWORD_RESET
+  - Admin query: `GET /api/admin/backoffice/audit?actor&action&targetType&targetId&from&to` (newest first, paginated)
+  - Tests: `AuditLogIT` (7)
+  - [ ] Later: retention policy (e.g. keep 5 years, purge older with the maintenance switch); ship to an external store (SIEM / object storage) so a DB admin can't rewrite history; audit successful admin logins
 - [ ] 🔵 Customer-facing DTOs that never expose other users' balances, logins or internal IDs
 - [ ] 🔵 CI/CD (`.github/workflows/deploy.yml`):
   - [ ] Stop deploying with `-DskipTests`; add a test job before deploying

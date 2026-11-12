@@ -1,0 +1,52 @@
+{
+  "annotations": {},
+  "applications": "*",
+  "documentation": "Append-only audit trail (DB trigger). Actor stored as a login, no FK. Read via GET /api/admin/backoffice/audit.",
+  "fields": [
+    {
+      "fieldName": "occurredAt",
+      "fieldType": "Instant",
+      "fieldValidateRules": ["required"]
+    },
+    {
+      "fieldName": "actorLogin",
+      "fieldType": "String",
+      "fieldValidateRules": ["maxlength"],
+      "fieldValidateRulesMaxlength": "100"
+    },
+    {
+      "fieldName": "action",
+      "fieldType": "AuditAction",
+      "fieldTypeDocumentation": "Audited admin / sensitive actions (stored as text; add values, never rename)",
+      "fieldValidateRules": ["required"],
+      "fieldValues": "DEPOSIT,KYC_APPROVED,KYC_REJECTED,FRAUD_REVIEWED,BANK_ACCOUNT_CREATED,BANK_ACCOUNT_UPDATED,BANK_ACCOUNT_DELETED,USER_CREATED,USER_UPDATED,USER_DELETED,USER_BLOCKED,USER_UNBLOCKED,DEVICE_BLOCKED,DEVICE_UNBLOCKED,SESSIONS_REVOKED,PAYMENT_BLOCKED,PIN_SET,PASSWORD_CHANGED,PASSWORD_RESET"
+    },
+    {
+      "fieldName": "targetType",
+      "fieldType": "String",
+      "fieldValidateRules": ["maxlength"],
+      "fieldValidateRulesMaxlength": "50"
+    },
+    {
+      "fieldName": "targetId",
+      "fieldType": "String",
+      "fieldValidateRules": ["maxlength"],
+      "fieldValidateRulesMaxlength": "100"
+    },
+    {
+      "fieldName": "details",
+      "fieldType": "String",
+      "fieldValidateRules": ["maxlength"],
+      "fieldValidateRulesMaxlength": "2000"
+    },
+    {
+      "fieldName": "ip",
+      "fieldType": "String",
+      "fieldValidateRules": ["maxlength"],
+      "fieldValidateRulesMaxlength": "64"
+    }
+  ],
+  "name": "AuditEvent",
+  "relationships": [],
+  "skipServer": true
+}

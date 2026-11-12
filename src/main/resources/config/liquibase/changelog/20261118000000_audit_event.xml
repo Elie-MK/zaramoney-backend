@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Phase 5: persistent audit trail of admin and sensitive actions (AuditService / AuditEvent, hand-written entity).
+        Append-only like the ledger: UPDATE / DELETE / TRUNCATE rejected unless, inside one transaction,
+        `SET LOCAL zaramoney.audit_maintenance = 'on'` (emergency / retention purge only).
+    -->
+
+    <changeSet id="20261118000000-1" author="zaramoney">
+        <createTable tableName="audit_event">
+            <column name="id" type="bigint">
+                <constraints primaryKey="true" nullable="false" />
+            </column>
+            <column name="occurred_at" type="timestamp">
+                <constraints nullable="false" />
+            </column>
+            <column name="actor_login" type="varchar(100)" />
+            <column name="action" type="varchar(50)">
+                <constraints nullable="false" />
+            </column>
+            <column name="target_type" type="varchar(50)" />
+            <column name="target_id" type="varchar(100)" />
+            <column name="details" type="varchar(2000)" />
+            <column name="ip" type="varchar(64)" />
+        </createTable>
+        <createIndex tableName="audit_event" indexName="ix_audit_event__occurred_at">
+            <column name="occurred_at" />
+        </createIndex>
+        <createIndex tableName="audit_event" indexName="ix_audit_event__actor">
+            <column name="actor_login" />
+            <column name="occurred_at" />
+        </createIndex>
+        <createIndex tableName="audit_event" indexName="ix_audit_event__target">
+            <column name="target_type" />
+            <column name="target_id" />
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="20261118000000-2" author="zaramoney" dbms="postgresql">
+        <comment>audit_event is append-only</comment>
+        <sql splitStatements="false">
+            create or replace function audit_event_append_only() returns trigger as $$
+            begin
+                if coalesce(current_setting('zaramoney.audit_maintenance', true), '') = 'on' then
+                    if tg_level = 'STATEMENT' then
+                        return null;
+                    elsif tg_op = 'DELETE' then
+                        return old;
+                    end if;
+                    return new;
+                end if;
+                raise exception 'audit_event is append-only: % is not allowed', tg_op using errcode = 'P0001';
+            end;
+            $$ language plpgsql;
+        </sql>
+        <sql>
+            create trigger trg_audit_event_append_only
+                before update or delete on audit_event
+                for each row execute procedure audit_event_append_only();
+        </sql>
+        <sql>
+            create trigger trg_audit_event_no_truncate
+                before truncate on audit_event
+                for each statement execute procedure audit_event_append_only();
+        </sql>
+        <rollback>
+            <sql>
+                drop trigger if exists trg_audit_event_no_truncate on audit_event;
+                drop trigger if exists trg_audit_event_append_only on audit_event;
+                drop function if exists audit_event_append_only();
+            </sql>
+        </rollback>
+    </changeSet>
+</databaseChangeLog>

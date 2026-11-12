@@ -1,5 +1,6 @@
 package com.zekodnix.zaramoney.service;
 
+import com.zekodnix.zaramoney.domain.enumeration.AuditAction;
 import com.zekodnix.zaramoney.domain.BankAccount;
 import com.zekodnix.zaramoney.domain.User;
 import com.zekodnix.zaramoney.domain.enumeration.AccountStatus;
@@ -63,6 +64,8 @@ public class BackOfficeService {
     private final LedgerEntryServicePlus ledgerEntryServicePlus;
     private final NotificationServicePlus notificationServicePlus;
 
+    private final AuditService auditService;
+
     public BackOfficeService(
         UserService userService,
         UserRepository userRepository,
@@ -75,8 +78,10 @@ public class BackOfficeService {
         TransactionRecordMapper transactionRecordMapper,
         TransactionValidatorService transactionValidatorService,
         LedgerEntryServicePlus ledgerEntryServicePlus,
-        NotificationServicePlus notificationServicePlus
+        NotificationServicePlus notificationServicePlus,
+        AuditService auditService
     ) {
+        this.auditService = auditService;
         this.userService = userService;
         this.userRepository = userRepository;
         this.bankAccountRepository = bankAccountRepository;
@@ -169,14 +174,11 @@ public class BackOfficeService {
         // TODO(Phase 3): send the push after commit (@TransactionalEventListener)
         notificationServicePlus.createTransactionNotification(saved, owner, amount, false);
 
-        LOG.info(
-            "AUDIT deposit ref={} amount={} {} account={} by admin id={} login={}",
+        auditService.record(
+            AuditAction.DEPOSIT,
+            "TRANSACTION",
             saved.getTransactionReference(),
-            amount,
-            customer.getCurrency(),
-            accountNumber,
-            admin.getId(),
-            admin.getLogin()
+            "amount=" + amount + " " + customer.getCurrency() + " account=" + accountNumber + " owner=" + email
         );
         return saved;
     }

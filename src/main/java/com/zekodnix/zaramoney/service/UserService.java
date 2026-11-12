@@ -1,5 +1,6 @@
 package com.zekodnix.zaramoney.service;
 
+import com.zekodnix.zaramoney.domain.enumeration.AuditAction;
 import com.zekodnix.zaramoney.config.Constants;
 import com.zekodnix.zaramoney.domain.Authority;
 import com.zekodnix.zaramoney.domain.User;
@@ -46,13 +47,17 @@ public class UserService {
 
     private final ApplicationEventPublisher eventPublisher;
 
+    private final AuditService auditService;
+
     public UserService(
         UserRepository userRepository,
         PasswordEncoder passwordEncoder,
         AuthorityRepository authorityRepository,
         CacheManager cacheManager,
-        ApplicationEventPublisher eventPublisher
+        ApplicationEventPublisher eventPublisher,
+        AuditService auditService
     ) {
+        this.auditService = auditService;
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.authorityRepository = authorityRepository;
@@ -86,6 +91,7 @@ public class UserService {
                 this.clearUserCaches(user);
                 // Password reset: log out every device (TODO.md item 13)
                 eventPublisher.publishEvent(new RevokeUserSessionsEvent(user.getId(), null, "password_reset"));
+                auditService.record(AuditAction.PASSWORD_RESET, "USER", user.getLogin(), "by e-mail reset link");
                 return user;
             });
     }
@@ -186,6 +192,7 @@ public class UserService {
         userRepository.save(user);
         this.clearUserCaches(user);
         LOG.debug("Created Information for User: {}", user);
+        auditService.record(AuditAction.USER_CREATED, "USER", user.getLogin(), "authorities=" + authorityNames(user) + " activated=true");
         return user;
     }
 
@@ -201,6 +208,10 @@ public class UserService {
             .map(Optional::get)
             .map(user -> {
                 this.clearUserCaches(user);
+                String loginBefore = user.getLogin();
+                String emailBefore = user.getEmail();
+                boolean activatedBefore = user.isActivated();
+                Set<String> authoritiesBefore = authorityNames(user);
                 user.setLogin(userDTO.getLogin().toLowerCase());
                 user.setFirstName(userDTO.getFirstName());
                 user.setLastName(userDTO.getLastName());
@@ -222,6 +233,20 @@ public class UserService {
                 userRepository.save(user);
                 this.clearUserCaches(user);
                 LOG.debug("Changed Information for User: {}", user);
+                List<String> changes = new ArrayList<>();
+                if (!Objects.equals(loginBefore, user.getLogin())) {
+                    changes.add("login " + loginBefore + "->" + user.getLogin());
+                }
+                if (!Objects.equals(emailBefore, user.getEmail())) {
+                    changes.add("email " + emailBefore + "->" + user.getEmail());
+                }
+                if (activatedBefore != user.isActivated()) {
+                    changes.add("activated " + activatedBefore + "->" + user.isActivated());
+                }
+                if (!authoritiesBefore.equals(authorityNames(user))) {
+                    changes.add("authorities " + authoritiesBefore + "->" + authorityNames(user));
+                }
+                auditService.record(AuditAction.USER_UPDATED, "USER", user.getLogin(), changes.isEmpty() ? "profile" : String.join(", ", changes));
                 return user;
             })
             .map(AdminUserDTO::new);
@@ -234,6 +259,7 @@ public class UserService {
                 userRepository.delete(user);
                 this.clearUserCaches(user);
                 LOG.debug("Deleted User: {}", user);
+                auditService.record(AuditAction.USER_DELETED, "USER", user.getLogin(), "authorities=" + authorityNames(user));
             });
     }
 
@@ -263,6 +289,10 @@ public class UserService {
             });
     }
 
+    private static Set<String> authorityNames(User user) {
+        return user.getAuthorities().stream().map(Authority::getName).collect(Collectors.toCollection(java.util.TreeSet::new));
+    }
+
     @Transactional
     public void changePassword(String currentClearTextPassword, String newPassword) {
         SecurityUtils.getCurrentUserLogin()
@@ -280,6 +310,7 @@ public class UserService {
                     new RevokeUserSessionsEvent(user.getId(), SecurityUtils.getCurrentSessionId().orElse(null), "password_changed")
                 );
                 LOG.debug("Changed password for User: {}", user);
+                auditService.record(AuditAction.PASSWORD_CHANGED, "USER", user.getLogin(), "other sessions revoked");
             });
     }
 

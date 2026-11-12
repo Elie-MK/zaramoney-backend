@@ -1,5 +1,6 @@
 package com.zekodnix.zaramoney.service;
 
+import com.zekodnix.zaramoney.domain.enumeration.AuditAction;
 import com.zekodnix.zaramoney.domain.UserDetailsAccount;
 import com.zekodnix.zaramoney.domain.enumeration.KycStatus;
 import com.zekodnix.zaramoney.repository.UserDetailsAccountRepository;
@@ -23,11 +24,15 @@ public class KycReviewService {
     private final UploadFileService uploadFileService;
     private final NotificationServicePlus notificationServicePlus;
 
+    private final AuditService auditService;
+
     public KycReviewService(
         UserDetailsAccountRepository userDetailsAccountRepository,
         UploadFileService uploadFileService,
-        NotificationServicePlus notificationServicePlus
+        NotificationServicePlus notificationServicePlus,
+        AuditService auditService
     ) {
+        this.auditService = auditService;
         this.userDetailsAccountRepository = userDetailsAccountRepository;
         this.uploadFileService = uploadFileService;
         this.notificationServicePlus = notificationServicePlus;
@@ -56,9 +61,14 @@ public class KycReviewService {
         KycStatus previous = details.getKycStatus();
         details.setKycStatus(status);
         userDetailsAccountRepository.save(details);
-        // TODO(Phase 5): write to a persistent audit log instead of the application log
         LOG.info("KYC {} -> {} for userDetails {} by admin {}", previous, status, userDetailsId, adminLogin);
         if (previous != status) {
+            auditService.record(
+                status == KycStatus.VERIFIED ? AuditAction.KYC_APPROVED : AuditAction.KYC_REJECTED,
+                "USER",
+                details.getUser() != null ? details.getUser().getLogin() : "userDetails:" + userDetailsId,
+                previous + " -> " + status + " (userDetails " + userDetailsId + ")"
+            );
             // stored now, pushed after commit; a repeated approve/reject does not notify again
             notificationServicePlus.createKycStatusNotification(details, status);
         }

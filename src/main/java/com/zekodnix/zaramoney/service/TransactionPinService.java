@@ -1,5 +1,6 @@
 package com.zekodnix.zaramoney.service;
 
+import com.zekodnix.zaramoney.domain.enumeration.AuditAction;
 import com.zekodnix.zaramoney.domain.TransactionPin;
 import com.zekodnix.zaramoney.domain.User;
 import com.zekodnix.zaramoney.repository.TransactionPinRepository;
@@ -40,13 +41,17 @@ public class TransactionPinService {
     private final TransactionTemplate requiresNew;
     private Clock clock = Clock.systemUTC();
 
+    private final AuditService auditService;
+
     public TransactionPinService(
         TransactionPinRepository transactionPinRepository,
         UserRepository userRepository,
         PasswordEncoder passwordEncoder,
         PlatformTransactionManager transactionManager,
-        ApplicationEventPublisher eventPublisher
+        ApplicationEventPublisher eventPublisher,
+        AuditService auditService
     ) {
+        this.auditService = auditService;
         this.transactionPinRepository = transactionPinRepository;
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
@@ -84,8 +89,10 @@ public class TransactionPinService {
         pin.setPinHash(passwordEncoder.encode(newPin));
         pin.setFailedAttempts(0);
         pin.setLockedUntil(null);
+        boolean firstPin = pin.getId() == null;
         pin.setUpdatedAt(Instant.now(clock));
         transactionPinRepository.save(pin);
+        auditService.record(AuditAction.PIN_SET, "USER", user.getLogin(), firstPin ? "first PIN" : "PIN changed, other sessions revoked");
         // PIN changed: log out the other devices (keep the one that changed it)
         eventPublisher.publishEvent(new RevokeUserSessionsEvent(user.getId(), SecurityUtils.getCurrentSessionId().orElse(null), "pin_changed"));
     }
