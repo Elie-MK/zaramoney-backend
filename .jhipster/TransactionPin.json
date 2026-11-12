@@ -1,0 +1,40 @@
+{
+  "annotations": {},
+  "applications": "*",
+  "documentation": "Transaction PIN (BCrypt), one per user. 5 wrong PINs -> locked 30 min. Never expose via DTO/CRUD.",
+  "fields": [
+    {
+      "fieldName": "pinHash",
+      "fieldType": "String",
+      "fieldValidateRules": ["required", "maxlength"],
+      "fieldValidateRulesMaxlength": "100"
+    },
+    {
+      "fieldName": "failedAttempts",
+      "fieldType": "Integer",
+      "fieldValidateRules": ["required"]
+    },
+    {
+      "fieldName": "lockedUntil",
+      "fieldType": "Instant"
+    },
+    {
+      "fieldName": "updatedAt",
+      "fieldType": "Instant",
+      "fieldValidateRules": ["required"]
+    }
+  ],
+  "name": "TransactionPin",
+  "relationships": [
+    {
+      "otherEntityField": "login",
+      "otherEntityName": "user",
+      "relationshipName": "user",
+      "relationshipSide": "left",
+      "relationshipType": "one-to-one",
+      "relationshipValidateRules": "required",
+      "relationshipWithBuiltInEntity": true
+    }
+  ],
+  "skipServer": true
+}

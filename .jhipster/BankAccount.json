@@ -33,6 +33,13 @@
       "fieldName": "createdAt",
       "fieldType": "Instant",
       "fieldValidateRules": ["required"]
+    },
+    {
+      "fieldName": "accountType",
+      "fieldType": "BankAccountType",
+      "fieldTypeDocumentation": "CUSTOMER: user wallet, balance >= 0 (DB check). SYSTEM: internal account (promo, fees...), no user, may go negative.",
+      "fieldValidateRules": ["required"],
+      "fieldValues": "CUSTOMER,SYSTEM"
     }
   ],
   "jpaMetamodelFiltering": true,

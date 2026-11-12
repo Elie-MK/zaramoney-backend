@@ -1,0 +1,99 @@
+{
+  "annotations": {},
+  "applications": "*",
+  "documentation": "One login = one session = one refresh-token family. Every access token references a session (sid).",
+  "fields": [
+    {
+      "fieldName": "sid",
+      "fieldType": "String",
+      "fieldValidateRules": ["required", "unique", "maxlength"],
+      "fieldValidateRulesMaxlength": "36"
+    },
+    {
+      "fieldName": "sessionType",
+      "fieldType": "SessionType",
+      "fieldTypeDocumentation": "DEVICE: app with device keys (signed requests, refresh tokens). ADMIN: no keys, 15 min, no refresh. LEGACY: old app, optional mode only.",
+      "fieldValidateRules": ["required"],
+      "fieldValues": "DEVICE,ADMIN,LEGACY"
+    },
+    {
+      "fieldName": "deviceId",
+      "fieldType": "String",
+      "fieldValidateRules": ["maxlength"],
+      "fieldValidateRulesMaxlength": "64"
+    },
+    {
+      "fieldName": "deviceName",
+      "fieldType": "String",
+      "fieldValidateRules": ["maxlength"],
+      "fieldValidateRulesMaxlength": "100"
+    },
+    {
+      "fieldName": "platform",
+      "fieldType": "String",
+      "fieldValidateRules": ["maxlength"],
+      "fieldValidateRulesMaxlength": "20"
+    },
+    {
+      "fieldName": "devicePublicKey",
+      "fieldType": "String",
+      "fieldValidateRules": ["maxlength"],
+      "fieldValidateRulesMaxlength": "512"
+    },
+    {
+      "fieldName": "transactionPublicKey",
+      "fieldType": "String",
+      "fieldValidateRules": ["maxlength"],
+      "fieldValidateRulesMaxlength": "512"
+    },
+    {
+      "fieldName": "ip",
+      "fieldType": "String",
+      "fieldValidateRules": ["maxlength"],
+      "fieldValidateRulesMaxlength": "64"
+    },
+    {
+      "fieldName": "userAgent",
+      "fieldType": "String",
+      "fieldValidateRules": ["maxlength"],
+      "fieldValidateRulesMaxlength": "255"
+    },
+    {
+      "fieldName": "createdAt",
+      "fieldType": "Instant",
+      "fieldValidateRules": ["required"]
+    },
+    {
+      "fieldName": "lastUsedAt",
+      "fieldType": "Instant"
+    },
+    {
+      "fieldName": "expiresAt",
+      "fieldType": "Instant",
+      "fieldValidateRules": ["required"]
+    },
+    {
+      "fieldName": "revokedAt",
+      "fieldType": "Instant"
+    },
+    {
+      "fieldName": "revokeReason",
+      "fieldType": "String",
+      "fieldValidateRules": ["maxlength"],
+      "fieldValidateRulesMaxlength": "50"
+    }
+  ],
+  "name": "UserSession",
+  "relationships": [
+    {
+      "otherEntityField": "login",
+      "otherEntityName": "user",
+      "relationshipName": "user",
+      "relationshipSide": "left",
+      "relationshipType": "many-to-one",
+      "relationshipValidateRules": "required",
+      "relationshipWithBuiltInEntity": true
+    }
+  ],
+  "skipServer": true
+}

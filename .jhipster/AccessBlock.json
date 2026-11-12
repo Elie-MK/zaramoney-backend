@@ -1,0 +1,40 @@
+{
+  "annotations": {},
+  "applications": "*",
+  "documentation": "Blocked user (by login) or device (by device id).",
+  "fields": [
+    {
+      "fieldName": "blockType",
+      "fieldType": "AccessBlockType",
+      "fieldTypeDocumentation": "USER: blockValue = user login. DEVICE: blockValue = device id.",
+      "fieldValidateRules": ["required"],
+      "fieldValues": "USER,DEVICE"
+    },
+    {
+      "fieldName": "blockValue",
+      "fieldType": "String",
+      "fieldValidateRules": ["required", "maxlength"],
+      "fieldValidateRulesMaxlength": "100"
+    },
+    {
+      "fieldName": "reason",
+      "fieldType": "String",
+      "fieldValidateRules": ["maxlength"],
+      "fieldValidateRulesMaxlength": "255"
+    },
+    {
+      "fieldName": "createdBy",
+      "fieldType": "String",
+      "fieldValidateRules": ["maxlength"],
+      "fieldValidateRulesMaxlength": "100"
+    },
+    {
+      "fieldName": "createdAt",
+      "fieldType": "Instant",
+      "fieldValidateRules": ["required"]
+    }
+  ],
+  "name": "AccessBlock",
+  "relationships": [],
+  "skipServer": true
+}

@@ -1,0 +1,43 @@
+{
+  "annotations": {},
+  "applications": "*",
+  "documentation": "Refresh token, stored as SHA-256 only. Rotated on every refresh (replacedById = next token).",
+  "fields": [
+    {
+      "fieldName": "tokenHash",
+      "fieldType": "String",
+      "fieldValidateRules": ["required", "unique", "maxlength"],
+      "fieldValidateRulesMaxlength": "64"
+    },
+    {
+      "fieldName": "createdAt",
+      "fieldType": "Instant",
+      "fieldValidateRules": ["required"]
+    },
+    {
+      "fieldName": "expiresAt",
+      "fieldType": "Instant",
+      "fieldValidateRules": ["required"]
+    },
+    {
+      "fieldName": "usedAt",
+      "fieldType": "Instant"
+    },
+    {
+      "fieldName": "replacedById",
+      "fieldType": "Long"
+    }
+  ],
+  "name": "RefreshToken",
+  "relationships": [
+    {
+      "otherEntityField": "sid",
+      "otherEntityName": "userSession",
+      "relationshipName": "session",
+      "relationshipSide": "left",
+      "relationshipType": "many-to-one",
+      "relationshipValidateRules": "required"
+    }
+  ],
+  "skipServer": true
+}

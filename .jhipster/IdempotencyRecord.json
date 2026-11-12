@@ -40,6 +40,12 @@
       "fieldType": "String",
       "fieldValidateRules": ["maxlength"],
       "fieldValidateRulesMaxlength": "64"
+    },
+    {
+      "fieldName": "requestHash",
+      "fieldType": "String",
+      "fieldValidateRules": ["maxlength"],
+      "fieldValidateRulesMaxlength": "64"
     }
   ],
   "jpaMetamodelFiltering": true,

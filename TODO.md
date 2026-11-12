@@ -158,6 +158,10 @@ Decisions: device-key signature (ECDSA P-256) on every customer request; admins 
 
 ---
 
+## Housekeeping (CLAUDE.md rules) — ✅ DONE 2026-11-12
+- [x] `app.jdl` + `.jhipster/` brought up to date: `BankAccount.accountType`, `IdempotencyRecord.requestHash`, enums `BankAccountType`/`SessionType`/`AccessBlockType`, and the hand-written entities `TransactionPin`, `UserSession`, `RefreshToken`, `AccessBlock` (marked `skipServer`, so regeneration never creates CRUD for them). Validated with `jhipster jdl --json-only` (8.11.0): the 6 other entities are unchanged
+- [x] `MOBILE_INTEGRATION_GUIDE.md` created (auth/device signing, onboarding, PIN, money, history, sessions, rate limits, error codes, changelog)
+
 ## Phase 3 — Transaction-flow bugs (`TransactionRecordServicePlus`, `TransactionValidatorService`)
 
 - [x] 🟡 Block self-transfers on `/send` (sender == receiver) (done in Phase 2)
@@ -165,7 +169,7 @@ Decisions: device-key signature (ECDSA P-256) on every customer request; admins 
 - [ ] 🟡 Validate currencies: `currencySendAmount` and `currencyReceiveAmount` are ignored
 - [ ] 🟡 Set the server side `transactionType` itself (it is currently client-supplied in `TransactionRecordVM`)
 - [ ] 🟡 Store the fee in its own column instead of `exchangeRate` (`TransactionValidatorService.java:132`); deposits also store a fake `2.81` there
-- [ ] 🟡 Check the withdrawal fee tiers in `calculateWithdrawalFee`: 5–20 → **8%** looks like a typo (0.8%?). It is non-monotonic: 20 costs $1.60, 21 costs $0.53
+- [ ] 🟡 Fix the withdrawal fee tier in `calculateWithdrawalFee`: 5–20 is charged **8%** but must be **0.8%** (confirmed 2026-11-12). Today 20 costs $1.60 and 21 costs $0.53
 - [x] 🟡 `calculateWithdrawalFee` throws `IllegalArgumentException` → 500; return a 400 instead (done in Phase 2)
 - [ ] 🟡 Move fee rates, the minimum balance and FX rates out of the code into `BigDecimal` config or DB values (no `double`)
 - [ ] 🟡 The sender is picked with `findByUserIsCurrentUser().stream().findFirst()`, which is arbitrary when a user has several accounts → choose explicitly
@@ -219,6 +223,9 @@ Decisions: device-key signature (ECDSA P-256) on every customer request; admins 
   - [ ] Stop deploying with `-DskipTests`; add a test job before deploying
   - [ ] Add gitleaks and a dependency scan (OWASP / Dependabot)
   - [ ] Add a health check after restart, plus a rollback (keep the previous jar)
+- [ ] 🔵 App gaps found while writing `MOBILE_INTEGRATION_GUIDE.md`:
+  - [ ] No endpoint to update the Expo push token after onboarding (reinstall / token rotation): add `PUT /api/plus/push-token`
+  - [ ] No "mark notification as read" endpoint (`/api/plus/notifications`)
 - [ ] 🔵 `ExpoPushService`: use an SLF4J logger instead of `System.out`/`System.err`, and add retries / dead-letter handling
 - [ ] 🔵 Cleanup:
   - [ ] Remove commented-out code (`TransactionRecordServicePlus`)

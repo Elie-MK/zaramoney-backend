@@ -1,4 +1,20 @@
 /////////////////////////////////////////////////////////////
+// ZaraMoney data model
+//
+// READ BEFORE REGENERATING:
+// - Entities marked "skipServer" (TransactionPin, UserSession, RefreshToken,
+//   AccessBlock) are HAND-WRITTEN. They are listed here only so the JDL
+//   documents the whole model. JHipster must never generate CRUD
+//   resources, DTOs or services for them (they hold PIN/token hashes).
+//   Their schema lives in the hand-written Liquibase changesets
+//   (20261112000000_phase2_security.xml, 20261113000000_device_sessions.xml).
+// - Fields added after the initial generation (BankAccount.accountType,
+//   IdempotencyRecord.requestHash) were also added by hand-written
+//   changesets. When regenerating an entity, run with --skip-db-changelog
+//   (or discard the changelog diff): applied changelogs must never change.
+/////////////////////////////////////////////////////////////
+
+/////////////////////////////////////////////////////////////
 // ENUMS
 /////////////////////////////////////////////////////////////
 
@@ -67,6 +83,25 @@ enum NotificationStatus {
   FAILED
 }
 
+/** CUSTOMER: user wallet, balance >= 0 (DB check). SYSTEM: internal account (promo, fees...), no user, may go negative. */
+enum BankAccountType {
+  CUSTOMER,
+  SYSTEM
+}
+
+/** DEVICE: app with device keys (signed requests, refresh tokens). ADMIN: no keys, 15 min, no refresh. LEGACY: old app, optional mode only. */
+enum SessionType {
+  DEVICE,
+  ADMIN,
+  LEGACY
+}
+
+/** USER: blockValue = user login. DEVICE: blockValue = device id. */
+enum AccessBlockType {
+  USER,
+  DEVICE
+}
+
 /////////////////////////////////////////////////////////////
 // ENTITIES
 /////////////////////////////////////////////////////////////
@@ -88,6 +123,8 @@ entity BankAccount {
   currency Currency required
   status AccountStatus required
   createdAt Instant required
+  // hand-written changeset 20261112000000_phase2_security.xml (default CUSTOMER)
+  accountType BankAccountType required
 }
 
 entity TransactionRecord {
@@ -141,6 +178,9 @@ entity IdempotencyRecord {
   responseBody TextBlob
   responseStatus Integer
   transactionReference String maxlength(64)
+  // hand-written changeset 20261112000000_phase2_security.xml
+  // SHA-256 of the business fields of the request (never the PIN)
+  requestHash String maxlength(64)
 }
 
 entity Notification {
@@ -162,6 +202,54 @@ entity Notification {
 }
 
 /////////////////////////////////////////////////////////////
+// HAND-WRITTEN ENTITIES (skipServer: never generate CRUD for them)
+/////////////////////////////////////////////////////////////
+
+/** Transaction PIN (BCrypt), one per user. 5 wrong PINs -> locked 30 min. Never expose via DTO/CRUD. */
+entity TransactionPin {
+  pinHash String required maxlength(100)
+  failedAttempts Integer required
+  lockedUntil Instant
+  updatedAt Instant required
+}
+
+/** One login = one session = one refresh-token family. Every access token references a session (sid). */
+entity UserSession {
+  sid String required unique maxlength(36)
+  sessionType SessionType required
+  deviceId String maxlength(64)
+  deviceName String maxlength(100)
+  platform String maxlength(20)
+  devicePublicKey String maxlength(512)
+  transactionPublicKey String maxlength(512)
+  ip String maxlength(64)
+  userAgent String maxlength(255)
+  createdAt Instant required
+  lastUsedAt Instant
+  expiresAt Instant required
+  revokedAt Instant
+  revokeReason String maxlength(50)
+}
+
+/** Refresh token, stored as SHA-256 only. Rotated on every refresh (replacedById = next token). */
+entity RefreshToken {
+  tokenHash String required unique maxlength(64)
+  createdAt Instant required
+  expiresAt Instant required
+  usedAt Instant
+  replacedById Long
+}
+
+/** Blocked user (by login) or device (by device id). */
+entity AccessBlock {
+  blockType AccessBlockType required
+  blockValue String required maxlength(100)
+  reason String maxlength(255)
+  createdBy String maxlength(100)
+  createdAt Instant required
+}
+
+/////////////////////////////////////////////////////////////
 // RELATIONSHIPS
 /////////////////////////////////////////////////////////////
 
@@ -180,6 +268,10 @@ relationship ManyToOne {
   Notification{user(login)} to User with builtInEntity
 
   Notification{transaction(transactionReference)} to TransactionRecord
+
+  UserSession{user(login) required} to User with builtInEntity
+
+  RefreshToken{session(sid) required} to UserSession
 }
 
 relationship OneToOne {
@@ -187,13 +279,18 @@ relationship OneToOne {
   UserDetailsAccount{user} to User with builtInEntity
 
   TransactionLimit{account(accountNumber)} to BankAccount
+
+  TransactionPin{user(login) required} to User with builtInEntity
 }
 
 /////////////////////////////////////////////////////////////
 // OPTIONS
 /////////////////////////////////////////////////////////////
 
-paginate * with pagination
-dto * with mapstruct except User
-service * with serviceClass except User
-filter all
+paginate * with pagination except TransactionPin, UserSession, RefreshToken, AccessBlock
+dto * with mapstruct except User, TransactionPin, UserSession, RefreshToken, AccessBlock
+service * with serviceClass except User, TransactionPin, UserSession, RefreshToken, AccessBlock
+filter * except TransactionPin, UserSession, RefreshToken, AccessBlock
+
+// Hand-written entities: no generated server code (no Resource/Service/DTO/changelog)
+skipServer TransactionPin, UserSession, RefreshToken, AccessBlock
