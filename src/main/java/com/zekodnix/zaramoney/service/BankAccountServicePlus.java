@@ -45,15 +45,18 @@ public class BankAccountServicePlus {
     public LockedAccountsDTO lockAccounts(String senderAcc, String receiverAcc) {
         // Always lock in consistent order (important for deadlocks)
         if (senderAcc.compareTo(receiverAcc) < 0) {
-            return new LockedAccountsDTO(
-                bankAccountService.findByAccountNumberForUpdate(senderAcc).orElseThrow(),
-                bankAccountService.findByAccountNumberForUpdate(receiverAcc).orElseThrow()
-            );
+            return new LockedAccountsDTO(lock(senderAcc), lock(receiverAcc));
         } else {
-            var receiver = bankAccountService.findByAccountNumberForUpdate(receiverAcc).orElseThrow();
-            var sender = bankAccountService.findByAccountNumberForUpdate(senderAcc).orElseThrow();
+            var receiver = lock(receiverAcc);
+            var sender = lock(senderAcc);
             return new LockedAccountsDTO(sender, receiver);
         }
+    }
+
+    private BankAccount lock(String accountNumber) {
+        return bankAccountService
+            .findByAccountNumberForUpdate(accountNumber)
+            .orElseThrow(() -> ApiException.notFound("Account not found", "accountnotfound"));
     }
 
     /** True only for an existing CUSTOMER account (system accounts are never reported). */

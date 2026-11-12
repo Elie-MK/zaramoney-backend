@@ -226,3 +226,26 @@ jhipster:
 # ===================================================================
 
 # application:
+
+# ===================================================================
+# ZaraMoney business rules (ApplicationProperties.Fees, validated at startup by FeeSchedule).
+# Tiers are ordered; the first tier whose up-to >= amount applies; the last tier has no up-to.
+# Keep the values quoted so they are read as exact decimals.
+# ===================================================================
+application:
+  fees:
+    min-balance: '5.00'
+    transfer:
+      - up-to: '100.99' # below 101: free
+        rate: '0'
+      - up-to: '2500'
+        rate: '0.0095'
+      - rate: '0.0075'
+    withdrawal:
+      - up-to: '5'
+        rate: '0.013'
+      - up-to: '20'
+        rate: '0.008'
+      - up-to: '50'
+        rate: '0.025'
+      - rate: '0.0199'

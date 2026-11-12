@@ -49,6 +49,10 @@ public class TransactionRecord implements Serializable {
     @Column(name = "exchange_rate", precision = 21, scale = 2, nullable = false)
     private BigDecimal exchangeRate;
 
+    /** Fee paid by the sender on top of sendAmount (0 when free). Null only on rows the 2026-11 backfill could not fill. */
+    @Column(name = "fee", precision = 21, scale = 2)
+    private BigDecimal fee;
+
     @NotNull
     @Enumerated(EnumType.STRING)
     @Column(name = "currency_send_amount", nullable = false)
@@ -168,6 +172,19 @@ public class TransactionRecord implements Serializable {
 
     public void setExchangeRate(BigDecimal exchangeRate) {
         this.exchangeRate = exchangeRate;
+    }
+
+    public BigDecimal getFee() {
+        return this.fee;
+    }
+
+    public TransactionRecord fee(BigDecimal fee) {
+        this.setFee(fee);
+        return this;
+    }
+
+    public void setFee(BigDecimal fee) {
+        this.fee = fee;
     }
 
     public Currency getCurrencySendAmount() {
@@ -354,6 +371,7 @@ public class TransactionRecord implements Serializable {
             ", sendAmount=" + getSendAmount() +
             ", receiveAmount=" + getReceiveAmount() +
             ", exchangeRate=" + getExchangeRate() +
+            ", fee=" + getFee() +
             ", currencySendAmount='" + getCurrencySendAmount() + "'" +
             ", currencyReceiveAmount='" + getCurrencyReceiveAmount() + "'" +
             ", transactionStatus='" + getTransactionStatus() + "'" +

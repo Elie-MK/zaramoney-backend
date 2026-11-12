@@ -6,9 +6,9 @@ import com.zekodnix.zaramoney.domain.enumeration.NotificationStatus;
 import com.zekodnix.zaramoney.domain.enumeration.NotificationType;
 import com.zekodnix.zaramoney.service.dto.NotificationDTO;
 import com.zekodnix.zaramoney.service.dto.TransactionRecordDTO;
+import com.zekodnix.zaramoney.service.event.PushNotificationRequestedEvent;
 import com.zekodnix.zaramoney.service.mapper.UserMapper;
 
-import java.awt.print.Pageable;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
@@ -16,7 +16,7 @@ import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.data.domain.Page;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,25 +27,23 @@ public class NotificationServicePlus {
 
     private final NotificationService notificationService;
     private final UserDetailsAccountService userDetailsAccountService;
-    private final ExpoPushService expoPushService;
+    private final ApplicationEventPublisher eventPublisher;
     private final UserMapper userMapper;
 
     public NotificationServicePlus(
         NotificationService notificationService,
         UserDetailsAccountService userDetailsAccountService,
-        ExpoPushService expoPushService,
+        ApplicationEventPublisher eventPublisher,
         UserMapper userMapper
     ) {
         this.notificationService = notificationService;
         this.userDetailsAccountService = userDetailsAccountService;
-        this.expoPushService = expoPushService;
+        this.eventPublisher = eventPublisher;
         this.userMapper = userMapper;
     }
 
     @Transactional
     public void createTransactionNotification(TransactionRecordDTO result, User user, BigDecimal amount, boolean isSender) {
-        var userDetails = userDetailsAccountService.findByUserEmail(user.getEmail()).orElseThrow();
-
         String title = "Confirmation de transaction";
         String message = isSender
             ? "Votre transfert de " + amount + "$ a été effectué avec succès."
@@ -53,14 +51,21 @@ public class NotificationServicePlus {
 
         saveNotification(result, user, title, message);
 
-        if (userDetails.getExpoPushToken() != null) {
-            expoPushService.sendPush(
-                userDetails.getExpoPushToken(),
-                title,
-                message,
-                Map.of("type", "TRANSACTION_ALERT", "transactionId", result.getId(), "deepLink", "transaction/" + result.getId())
+        // The push goes out only after commit (PushNotificationListener): never for a transaction that rolls back
+        userDetailsAccountService
+            .findByUserEmail(user.getEmail())
+            .map(details -> details.getExpoPushToken())
+            .filter(token -> token != null && !token.isBlank())
+            .ifPresent(token ->
+                eventPublisher.publishEvent(
+                    new PushNotificationRequestedEvent(
+                        token,
+                        title,
+                        message,
+                        Map.of("type", "TRANSACTION_ALERT", "transactionId", result.getId(), "deepLink", "transaction/" + result.getId())
+                    )
+                )
             );
-        }
     }
 
     private void saveNotification(TransactionRecordDTO result, User user, String title, String message) {

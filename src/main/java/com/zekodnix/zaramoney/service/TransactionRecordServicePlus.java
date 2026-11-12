@@ -3,8 +3,10 @@ package com.zekodnix.zaramoney.service;
 import com.zekodnix.zaramoney.domain.BankAccount;
 import com.zekodnix.zaramoney.domain.User;
 import com.zekodnix.zaramoney.domain.enumeration.BankAccountType;
+import com.zekodnix.zaramoney.domain.enumeration.Currency;
 import com.zekodnix.zaramoney.domain.enumeration.EntryType;
 import com.zekodnix.zaramoney.domain.enumeration.KycStatus;
+import com.zekodnix.zaramoney.domain.enumeration.TransactionType;
 import com.zekodnix.zaramoney.service.dto.LedgerEntryDTO;
 import com.zekodnix.zaramoney.service.dto.LockedAccountsDTO;
 import com.zekodnix.zaramoney.service.dto.TransactionReceiptDTO;
@@ -15,8 +17,10 @@ import com.zekodnix.zaramoney.web.rest.vm.TransactionRecordVM;
 import com.zekodnix.zaramoney.web.rest.vm.WithdrawalTransactionRecordVM;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Supplier;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -26,14 +30,16 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * Money movement initiated by a customer. Order of checks for both flows:
+ * Money movement initiated by a customer: P2P transfer and withdrawal to an agent share ONE flow ({@link #execute}):
  * <ol>
  *   <li>idempotent replay (per user, same payload) → return the original receipt</li>
  *   <li>KYC must be VERIFIED</li>
  *   <li>transaction PIN (own transaction, so the failed-attempt counter survives a rollback)</li>
  *   <li>then, in ONE transaction: reserve the idempotency key (a parallel duplicate blocks here and fails)</li>
- *   <li>lock both accounts (consistent order), then balance incl. fee, minimum balance, daily/monthly limits</li>
- *   <li>move the money, record fee and ledger entries, complete idempotency, notify</li>
+ *   <li>resolve the counterparty and the sender account, lock both (consistent order), check ownership, status and
+ *   currency, then balance incl. fee, minimum balance, daily/monthly limits</li>
+ *   <li>move the money, record fee and ledger entries (fee → SYSTEM fee revenue account), complete idempotency,
+ *   save notifications (pushes go out after commit)</li>
  * </ol>
  */
 @Service
@@ -56,6 +62,7 @@ public class TransactionRecordServicePlus {
     private final TransactionLimitServicePlus transactionLimitServicePlus;
     private final TransactionReceiptService transactionReceiptService;
     private final SystemAccountService systemAccountService;
+    private final FeeSchedule feeSchedule;
     private final TransactionTemplate transactionTemplate;
     private final TransactionTemplate readOnlyTemplate;
 
@@ -74,9 +81,9 @@ public class TransactionRecordServicePlus {
         TransactionLimitServicePlus transactionLimitServicePlus,
         TransactionReceiptService transactionReceiptService,
         SystemAccountService systemAccountService,
+        FeeSchedule feeSchedule,
         PlatformTransactionManager transactionManager
     ) {
-        this.systemAccountService = systemAccountService;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
         this.readOnlyTemplate = new TransactionTemplate(transactionManager);
         this.readOnlyTemplate.setReadOnly(true);
@@ -93,15 +100,30 @@ public class TransactionRecordServicePlus {
         this.transactionPinService = transactionPinService;
         this.transactionLimitServicePlus = transactionLimitServicePlus;
         this.transactionReceiptService = transactionReceiptService;
+        this.systemAccountService = systemAccountService;
+        this.feeSchedule = feeSchedule;
     }
 
     /**
-     * Not @Transactional on purpose: the PIN is verified in its own short transaction <b>before</b> the transfer
-     * transaction opens. Nesting it (REQUIRES_NEW inside an open transaction) needs two pool connections per request
-     * and can exhaust the pool under load.
+     * Everything that differs between a transfer and a withdrawal. {@code counterparty} runs inside the transaction and
+     * returns the (unlocked) receiving CUSTOMER account or throws the flow-specific 4xx.
      */
+    private record MoneyRequest(
+        TransactionType type,
+        String endpoint,
+        String idempotencyKey,
+        String pin,
+        String requestHash,
+        String senderAccountNumber,
+        BigDecimal amount,
+        Currency sendCurrency,
+        Currency receiveCurrency,
+        String description,
+        Supplier<BankAccount> counterparty
+    ) {}
+
+    /** {@code POST /send}. The transaction type is always TRANSFER (the client field is ignored). */
     public TransactionReceiptDTO createTransactionRecord(TransactionRecordVM vm) {
-        User currentUser = currentUser();
         String receiverNumber = vm.getReceiverAccountNumber().trim();
         String requestHash = IdempotencyRecordServicePlus.requestHash(
             SEND_ENDPOINT,
@@ -111,59 +133,28 @@ public class TransactionRecordServicePlus {
             vm.getCurrencySendAmount(),
             vm.getDescription()
         );
-
-        var replay = findReplay(vm.getIdempotencyKey(), currentUser, SEND_ENDPOINT, requestHash);
-        if (replay != null) {
-            return replay;
-        }
-
-        requireKycVerified(currentUser);
-        transactionPinService.verifyPin(currentUser.getId(), vm.getPin());
-
-        return transactionTemplate.execute(status -> {
-            var again = findReplayInTx(vm.getIdempotencyKey(), currentUser, SEND_ENDPOINT, requestHash);
-            if (again != null) {
-                return again;
-            }
-            var reservation = idempotencyRecordServicePlus.reserve(vm.getIdempotencyKey(), currentUser, SEND_ENDPOINT, requestHash);
-
-            BankAccount receiver = bankAccountServicePlus
-                .findCustomerAccount(receiverNumber)
-                .orElseThrow(() -> ApiException.badRequest("Receiver account not found", "receivernotfound"));
-            String senderNumber = resolveSenderAccountNumber(vm.getSenderAccountNumber());
-            if (senderNumber.equals(receiver.getAccountNumber())) {
-                throw ApiException.badRequest("You cannot send money to your own account", "sendtomyself");
-            }
-
-            LockedAccountsDTO accounts = bankAccountServicePlus.lockAccounts(senderNumber, receiver.getAccountNumber());
-            requireOwnedBy(accounts.getSenderAccount(), currentUser);
-            BigDecimal amount = vm.getSendAmount();
-            BigDecimal fee = calculateTransactionFee(amount);
-
-            transactionValidatorService.checkAmountValidation(amount, fee, accounts);
-            transactionLimitServicePlus.checkLimits(accounts.getSenderAccount(), amount);
-
-            TransactionRecordDTO result = transactionValidatorService.process(vm, accounts, fee);
-            recordFeeAndLedger(result, accounts, amount, fee);
-
-            TransactionReceiptDTO receipt = transactionReceiptService.buildSentReceipt(
-                result,
-                accounts.getSenderAccount(),
-                accounts.getReceiverAccount(),
-                fee
-            );
-            idempotencyRecordServicePlus.complete(reservation, result.getTransactionReference(), receipt);
-
-            notificationServicePlus.createTransactionNotification(result, currentUser, result.getSendAmount(), true);
-            notificationServicePlus.createTransactionNotification(result, receiver.getUser(), result.getReceiveAmount(), false);
-
-            return receipt;
-        });
+        return execute(
+            new MoneyRequest(
+                TransactionType.TRANSFER,
+                SEND_ENDPOINT,
+                vm.getIdempotencyKey(),
+                vm.getPin(),
+                requestHash,
+                vm.getSenderAccountNumber(),
+                vm.getSendAmount(),
+                vm.getCurrencySendAmount(),
+                vm.getCurrencyReceiveAmount(),
+                vm.getDescription(),
+                () ->
+                    bankAccountServicePlus
+                        .findCustomerAccount(receiverNumber)
+                        .orElseThrow(() -> ApiException.badRequest("Receiver account not found", "receivernotfound"))
+            )
+        );
     }
 
-    /** Not @Transactional on purpose, see {@link #createTransactionRecord}. */
+    /** {@code POST /withdrawal}: the receiver must be an agent. */
     public TransactionReceiptDTO withdrawalTransaction(WithdrawalTransactionRecordVM vm) {
-        User currentUser = currentUser();
         String agentNumber = vm.getAgentAccountNumber().trim();
         String requestHash = IdempotencyRecordServicePlus.requestHash(
             WITHDRAWAL_ENDPOINT,
@@ -171,46 +162,77 @@ public class TransactionRecordServicePlus {
             agentNumber,
             vm.getSendAmount()
         );
+        return execute(
+            new MoneyRequest(
+                TransactionType.WITHDRAWAL,
+                WITHDRAWAL_ENDPOINT,
+                vm.getIdempotencyKey(),
+                vm.getPin(),
+                requestHash,
+                vm.getSenderAccountNumber(),
+                vm.getSendAmount(),
+                null,
+                null,
+                null,
+                () -> {
+                    BankAccount agent = bankAccountServicePlus
+                        .findCustomerAccount(agentNumber)
+                        .orElseThrow(() -> ApiException.badRequest("Agent account not found", "agentnotfound"));
+                    boolean isAgent = userDetailsAccountService
+                        .findByUserEmail(agent.getUser().getLogin())
+                        .map(d -> Boolean.TRUE.equals(d.getIsAgent()))
+                        .orElse(false);
+                    if (!isAgent) {
+                        throw ApiException.badRequest("The account is not an agent account", "notanagent");
+                    }
+                    return agent;
+                }
+            )
+        );
+    }
 
-        var replay = findReplay(vm.getIdempotencyKey(), currentUser, WITHDRAWAL_ENDPOINT, requestHash);
+    /**
+     * Not @Transactional on purpose: the PIN is verified in its own short transaction <b>before</b> the money
+     * transaction opens. Nesting it (REQUIRES_NEW inside an open transaction) needs two pool connections per request
+     * and can exhaust the pool under load.
+     */
+    private TransactionReceiptDTO execute(MoneyRequest req) {
+        User currentUser = currentUser();
+
+        var replay = findReplay(req.idempotencyKey(), currentUser, req.endpoint(), req.requestHash());
         if (replay != null) {
             return replay;
         }
 
         requireKycVerified(currentUser);
-        transactionPinService.verifyPin(currentUser.getId(), vm.getPin());
+        transactionPinService.verifyPin(currentUser.getId(), req.pin());
 
         return transactionTemplate.execute(status -> {
-            var again = findReplayInTx(vm.getIdempotencyKey(), currentUser, WITHDRAWAL_ENDPOINT, requestHash);
+            var again = findReplayInTx(req.idempotencyKey(), currentUser, req.endpoint(), req.requestHash());
             if (again != null) {
                 return again;
             }
-            var reservation = idempotencyRecordServicePlus.reserve(vm.getIdempotencyKey(), currentUser, WITHDRAWAL_ENDPOINT, requestHash);
+            var reservation = idempotencyRecordServicePlus.reserve(req.idempotencyKey(), currentUser, req.endpoint(), req.requestHash());
 
-            BankAccount agentAccount = bankAccountServicePlus
-                .findCustomerAccount(agentNumber)
-                .orElseThrow(() -> ApiException.badRequest("Agent account not found", "agentnotfound"));
-            boolean isAgent = userDetailsAccountService
-                .findByUserEmail(agentAccount.getUser().getLogin())
-                .map(d -> Boolean.TRUE.equals(d.getIsAgent()))
-                .orElse(false);
-            if (!isAgent) {
-                throw ApiException.badRequest("The account is not an agent account", "notanagent");
-            }
-            String senderNumber = resolveSenderAccountNumber(vm.getSenderAccountNumber());
-            if (senderNumber.equals(agentAccount.getAccountNumber())) {
-                throw ApiException.badRequest("Sender and agent accounts must be different", "sendtomyself");
+            BankAccount counterparty = req.counterparty().get();
+            String senderNumber = resolveSenderAccountNumber(req.senderAccountNumber());
+            if (senderNumber.equals(counterparty.getAccountNumber())) {
+                throw ApiException.badRequest("You cannot send money to your own account", "sendtomyself");
             }
 
-            LockedAccountsDTO accounts = bankAccountServicePlus.lockAccounts(senderNumber, agentAccount.getAccountNumber());
+            LockedAccountsDTO accounts = bankAccountServicePlus.lockAccounts(senderNumber, counterparty.getAccountNumber());
             requireOwnedBy(accounts.getSenderAccount(), currentUser);
-            BigDecimal amount = vm.getSendAmount();
-            BigDecimal fee = calculateWithdrawalFee(amount);
+            transactionValidatorService.checkAccounts(accounts, req.sendCurrency(), req.receiveCurrency());
 
+            BigDecimal amount = req.amount().setScale(2, RoundingMode.HALF_UP);
+            BigDecimal fee = req.type() == TransactionType.WITHDRAWAL ? feeSchedule.withdrawalFee(amount) : feeSchedule.transferFee(amount);
             transactionValidatorService.checkAmountValidation(amount, fee, accounts);
             transactionLimitServicePlus.checkLimits(accounts.getSenderAccount(), amount);
 
-            TransactionRecordDTO result = transactionValidatorService.processWithdrawal(vm, accounts, fee);
+            String description = req.type() == TransactionType.WITHDRAWAL
+                ? "Retrait de " + amount + " " + accounts.getSenderAccount().getCurrency()
+                : req.description();
+            TransactionRecordDTO result = transactionValidatorService.move(req.type(), accounts, amount, fee, description);
             recordFeeAndLedger(result, accounts, amount, fee);
 
             TransactionReceiptDTO receipt = transactionReceiptService.buildSentReceipt(
@@ -222,8 +244,7 @@ public class TransactionRecordServicePlus {
             idempotencyRecordServicePlus.complete(reservation, result.getTransactionReference(), receipt);
 
             notificationServicePlus.createTransactionNotification(result, currentUser, result.getSendAmount(), true);
-            notificationServicePlus.createTransactionNotification(result, agentAccount.getUser(), result.getReceiveAmount(), false);
-
+            notificationServicePlus.createTransactionNotification(result, counterparty.getUser(), result.getReceiveAmount(), false);
             return receipt;
         });
     }
@@ -262,7 +283,7 @@ public class TransactionRecordServicePlus {
      */
     private void recordFeeAndLedger(TransactionRecordDTO result, LockedAccountsDTO accounts, BigDecimal amount, BigDecimal fee) {
         transactionFeeServicePlus.createTransactionFee(fee, result);
-        var entries = new java.util.ArrayList<LedgerEntryDTO>();
+        var entries = new ArrayList<LedgerEntryDTO>();
         entries.add(
             ledgerEntryServicePlus.buildEntry(result, bankAccountMapper.toDto(accounts.getSenderAccount()), amount.add(fee), EntryType.DEBIT)
         );
@@ -329,50 +350,5 @@ public class TransactionRecordServicePlus {
                 "kycnotverified"
             );
         }
-    }
-
-    // Fee schedules: unchanged in Phase 2 (tier review is a Phase 3 item)
-    private BigDecimal calculateWithdrawalFee(BigDecimal amount) {
-        BigDecimal min = BigDecimal.valueOf(1);
-        BigDecimal tier1Max = BigDecimal.valueOf(5);
-        BigDecimal tier2Max = BigDecimal.valueOf(20);
-        BigDecimal tier3Max = BigDecimal.valueOf(50);
-
-        if (amount.compareTo(min) < 0) {
-            throw ApiException.badRequest("Amount must be at least 1", "invalidamount");
-        }
-
-        if (amount.compareTo(tier1Max) <= 0) {
-            return applyRate(amount, 0.0130);
-        }
-        if (amount.compareTo(tier2Max) <= 0) {
-            return applyRate(amount, 0.08);
-        }
-        if (amount.compareTo(tier3Max) <= 0) {
-            return applyRate(amount, 0.0250);
-        }
-
-        return applyRate(amount, 0.0199);
-    }
-
-    private BigDecimal calculateTransactionFee(BigDecimal amount) {
-        BigDecimal min = BigDecimal.valueOf(101);
-        BigDecimal tier1Max = BigDecimal.valueOf(2500);
-
-        if (amount.compareTo(min) < 0) {
-            return BigDecimal.ZERO.setScale(2);
-        }
-
-        // 101 → 2500 => 0.95%
-        if (amount.compareTo(tier1Max) <= 0) {
-            return applyRate(amount, 0.0095);
-        }
-
-        // 2501+ => 0.75%
-        return applyRate(amount, 0.0075);
-    }
-
-    private BigDecimal applyRate(BigDecimal amount, double rate) {
-        return amount.multiply(BigDecimal.valueOf(rate)).setScale(2, RoundingMode.HALF_UP);
     }
 }

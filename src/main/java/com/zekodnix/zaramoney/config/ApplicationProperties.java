@@ -1,5 +1,8 @@
 package com.zekodnix.zaramoney.config;
 
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
@@ -13,7 +16,13 @@ public class ApplicationProperties {
 
     private final Liquibase liquibase = new Liquibase();
 
+    private final Fees fees = new Fees();
+
     // jhipster-needle-application-properties-property
+
+    public Fees getFees() {
+        return fees;
+    }
 
     public Liquibase getLiquibase() {
         return liquibase;
@@ -202,4 +211,78 @@ public class ApplicationProperties {
     }
 
     // jhipster-needle-application-properties-property-class
+
+    /**
+     * Fee schedule and balance rule ({@code application.fees}), validated at startup by {@code FeeSchedule}.
+     * Each list is ordered: the first tier whose {@code up-to} is >= the amount applies (amounts have 2 decimals, so
+     * {@code up-to: 100.99} means "below 101"). The last tier has no {@code up-to}. Fee = amount x rate, HALF_UP to cents.
+     * Quote the values in YAML ("0.0095") so they are read as exact decimals.
+     */
+    public static class Fees {
+
+        /** A customer balance must stay >= this after amount + fee. */
+        private BigDecimal minBalance = new BigDecimal("5.00");
+
+        private List<Tier> transfer = new ArrayList<>(
+            List.of(new Tier("100.99", "0"), new Tier("2500", "0.0095"), new Tier(null, "0.0075"))
+        );
+
+        private List<Tier> withdrawal = new ArrayList<>(
+            List.of(new Tier("5", "0.013"), new Tier("20", "0.008"), new Tier("50", "0.025"), new Tier(null, "0.0199"))
+        );
+
+        public BigDecimal getMinBalance() {
+            return minBalance;
+        }
+
+        public void setMinBalance(BigDecimal minBalance) {
+            this.minBalance = minBalance;
+        }
+
+        public List<Tier> getTransfer() {
+            return transfer;
+        }
+
+        public void setTransfer(List<Tier> transfer) {
+            this.transfer = transfer;
+        }
+
+        public List<Tier> getWithdrawal() {
+            return withdrawal;
+        }
+
+        public void setWithdrawal(List<Tier> withdrawal) {
+            this.withdrawal = withdrawal;
+        }
+
+        public static class Tier {
+
+            /** Inclusive upper bound of the amount; null for the last tier. */
+            private BigDecimal upTo;
+            private BigDecimal rate;
+
+            public Tier() {}
+
+            public Tier(String upTo, String rate) {
+                this.upTo = upTo == null ? null : new BigDecimal(upTo);
+                this.rate = new BigDecimal(rate);
+            }
+
+            public BigDecimal getUpTo() {
+                return upTo;
+            }
+
+            public void setUpTo(BigDecimal upTo) {
+                this.upTo = upTo;
+            }
+
+            public BigDecimal getRate() {
+                return rate;
+            }
+
+            public void setRate(BigDecimal rate) {
+                this.rate = rate;
+            }
+        }
+    }
 }

@@ -1,157 +1,118 @@
 package com.zekodnix.zaramoney.service;
 
 import com.zekodnix.zaramoney.domain.BankAccount;
+import com.zekodnix.zaramoney.domain.enumeration.AccountStatus;
 import com.zekodnix.zaramoney.domain.enumeration.Currency;
 import com.zekodnix.zaramoney.domain.enumeration.FraudStatus;
 import com.zekodnix.zaramoney.domain.enumeration.TransactionStatus;
 import com.zekodnix.zaramoney.domain.enumeration.TransactionType;
-import com.zekodnix.zaramoney.service.dto.BankAccountDTO;
 import com.zekodnix.zaramoney.service.dto.LockedAccountsDTO;
 import com.zekodnix.zaramoney.service.dto.TransactionRecordDTO;
 import com.zekodnix.zaramoney.service.mapper.BankAccountMapper;
-import com.zekodnix.zaramoney.web.rest.errors.BadRequestAlertException;
-import com.zekodnix.zaramoney.web.rest.vm.TransactionRecordVM;
-import com.zekodnix.zaramoney.web.rest.vm.WithdrawalTransactionRecordVM;
+import com.zekodnix.zaramoney.web.rest.errors.ApiException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
 import java.util.concurrent.ThreadLocalRandom;
 import org.springframework.stereotype.Service;
 
+/** Rules and balance movement for customer transfers / withdrawals. Always called on rows locked by the caller. */
 @Service
 public class TransactionValidatorService {
 
-    public static final BigDecimal MIN_BALANCE = BigDecimal.valueOf(5);
-    private static final BigDecimal USD_TO_TND_RATE = BigDecimal.valueOf(2.81);
-    private static final BigDecimal TND_TO_USD_RATE = BigDecimal.valueOf(2.85);
-    private static final int SCALE = 2;
-
     private final BankAccountMapper bankAccountMapper;
-    private final BankAccountService bankAccountService;
     private final TransactionRecordService transactionRecordService;
+    private final FeeSchedule feeSchedule;
 
     public TransactionValidatorService(
         BankAccountMapper bankAccountMapper,
-        BankAccountService bankAccountService,
-        TransactionRecordService transactionRecordService
+        TransactionRecordService transactionRecordService,
+        FeeSchedule feeSchedule
     ) {
         this.bankAccountMapper = bankAccountMapper;
-        this.bankAccountService = bankAccountService;
         this.transactionRecordService = transactionRecordService;
+        this.feeSchedule = feeSchedule;
     }
 
     /**
-     * The sender is debited {@code amount + fee}: both must be covered while keeping {@link #MIN_BALANCE}.
+     * Both accounts must be ACTIVE and in the same currency, and the requested currencies (if the app sent them) must
+     * match: there is no currency conversion.
+     */
+    public void checkAccounts(LockedAccountsDTO accounts, Currency requestedSendCurrency, Currency requestedReceiveCurrency) {
+        BankAccount sender = accounts.getSenderAccount();
+        BankAccount receiver = accounts.getReceiverAccount();
+        if (sender.getStatus() != AccountStatus.ACTIVE) {
+            throw ApiException.forbidden("Your account is " + sender.getStatus() + ", contact support", "accountnotactive");
+        }
+        if (receiver.getStatus() != AccountStatus.ACTIVE) {
+            throw ApiException.badRequest("The receiving account cannot receive money", "receivernotactive");
+        }
+        Currency currency = sender.getCurrency();
+        if (
+            receiver.getCurrency() != currency ||
+            (requestedSendCurrency != null && requestedSendCurrency != currency) ||
+            (requestedReceiveCurrency != null && requestedReceiveCurrency != currency)
+        ) {
+            throw ApiException.badRequest("Currency conversion is not supported: both sides must be in " + currency, "currencymismatch");
+        }
+    }
+
+    /**
+     * The sender is debited {@code amount + fee}: both must be covered while keeping the configured minimum balance.
      */
     public void checkAmountValidation(BigDecimal amount, BigDecimal fee, LockedAccountsDTO accounts) {
         if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new BadRequestAlertException("Invalid amount", "transaction", "invalidamount");
+            throw ApiException.badRequest("Invalid amount", "invalidamount");
         }
         BigDecimal totalDebit = amount.add(fee == null ? BigDecimal.ZERO : fee);
         BigDecimal balance = accounts.getSenderAccount().getBalance();
 
         if (balance.compareTo(totalDebit) < 0) {
-            throw new BadRequestAlertException(
+            throw ApiException.badRequest(
                 "Insufficient balance: " + totalDebit + " needed (amount " + amount + " + fee " + fee + ")",
-                "transaction",
                 "insufficientbalance"
             );
         }
-
-        if (balance.subtract(totalDebit).compareTo(MIN_BALANCE) < 0) {
-            throw new BadRequestAlertException(
-                "Transaction denied: account must maintain a minimum balance of " + MIN_BALANCE + " after amount and fee",
-                "transaction",
+        BigDecimal minBalance = feeSchedule.minBalance();
+        if (balance.subtract(totalDebit).compareTo(minBalance) < 0) {
+            throw ApiException.badRequest(
+                "Transaction denied: account must maintain a minimum balance of " + minBalance + " after amount and fee",
                 "minimumbalance"
             );
         }
     }
 
-    public TransactionRecordDTO process(TransactionRecordVM vm, LockedAccountsDTO accounts, BigDecimal fee) {
-        var sender = accounts.getSenderAccount();
-        var receiver = accounts.getReceiverAccount();
+    /**
+     * Moves the money on the locked (managed) rows — sender {@code -(amount + fee)}, receiver {@code +amount} — and saves
+     * the COMPLETED transaction. The fee itself is credited to the fee revenue account by the ledger step.
+     */
+    public TransactionRecordDTO move(TransactionType type, LockedAccountsDTO accounts, BigDecimal amount, BigDecimal fee, String description) {
+        BankAccount sender = accounts.getSenderAccount();
+        BankAccount receiver = accounts.getReceiverAccount();
 
-        // 1. Calculate amount
-        BigDecimal totalDebit = vm.getSendAmount().add(fee);
+        sender.setBalance(sender.getBalance().subtract(amount.add(fee)).setScale(2, RoundingMode.HALF_UP));
+        receiver.setBalance(receiver.getBalance().add(amount).setScale(2, RoundingMode.HALF_UP));
 
-        sender.setBalance(sender.getBalance().subtract(totalDebit).setScale(2, RoundingMode.HALF_UP));
-        receiver.setBalance(receiver.getBalance().add(vm.getSendAmount()).setScale(2, RoundingMode.HALF_UP));
-
-        BankAccountDTO senderDto = bankAccountMapper.toDto(sender);
-        BankAccountDTO receiverDto = bankAccountMapper.toDto(receiver);
-
-        // Save updated accounts
-        bankAccountService.save(senderDto);
-        bankAccountService.save(receiverDto);
-
-        var transaction = buildTransaction(vm, sender, receiver, fee);
-        return transactionRecordService.save(transaction);
-    }
-
-    public TransactionRecordDTO processWithdrawal(WithdrawalTransactionRecordVM vm, LockedAccountsDTO accounts, BigDecimal fee) {
-        var sender = accounts.getSenderAccount();
-        var receiver = accounts.getReceiverAccount();
-
-        // 1. Calculate amount
-        BigDecimal totalDebit = vm.getSendAmount().add(fee);
-
-        sender.setBalance(sender.getBalance().subtract(totalDebit).setScale(2, RoundingMode.HALF_UP));
-        receiver.setBalance(receiver.getBalance().add(vm.getSendAmount()).setScale(2, RoundingMode.HALF_UP));
-
-        BankAccountDTO senderDto = bankAccountMapper.toDto(sender);
-        BankAccountDTO receiverDto = bankAccountMapper.toDto(receiver);
-
-        // Save updated accounts
-        bankAccountService.save(senderDto);
-        bankAccountService.save(receiverDto);
-
+        Instant now = Instant.now();
         TransactionRecordDTO transaction = new TransactionRecordDTO();
         transaction.setTransactionReference(generateTransactionReference());
-        transaction.setTransactionType(TransactionType.WITHDRAWAL);
-        transaction.setSendAmount(vm.getSendAmount());
-        transaction.setReceiveAmount(vm.getSendAmount());
-        transaction.setCurrencySendAmount(Currency.USD);
-        transaction.setCurrencyReceiveAmount(Currency.USD);
-        transaction.setDescription("Retrait de " + vm.getSendAmount() + " USD");
+        transaction.setTransactionType(type);
+        transaction.setSendAmount(amount);
+        transaction.setReceiveAmount(amount);
+        transaction.setFee(fee);
+        transaction.setExchangeRate(BigDecimal.ONE);
+        transaction.setCurrencySendAmount(sender.getCurrency());
+        transaction.setCurrencyReceiveAmount(receiver.getCurrency());
+        transaction.setDescription(description);
         transaction.setSender(bankAccountMapper.toDto(sender));
         transaction.setReceiver(bankAccountMapper.toDto(receiver));
-        transaction.setExchangeRate(fee);
-        transaction.setCreatedAt(Instant.now());
-
-        // default risk score
+        transaction.setCreatedAt(now);
+        transaction.setTransactionDate(now);
         transaction.setTransactionStatus(TransactionStatus.COMPLETED);
-        transaction.setTransactionDate(Instant.now());
+        // TODO(Phase 5): real risk scoring / velocity checks
         transaction.setFraudStatus(FraudStatus.CLEAN);
         transaction.setRiskScore(0);
         return transactionRecordService.save(transaction);
-    }
-
-    private TransactionRecordDTO buildTransaction(
-        TransactionRecordVM transactionRecordVM,
-        BankAccount currentUser,
-        BankAccount receiverBankAccount,
-        BigDecimal fee
-    ) {
-        TransactionRecordDTO transaction = new TransactionRecordDTO();
-        transaction.setTransactionReference(generateTransactionReference());
-        transaction.setTransactionType(transactionRecordVM.getTransactionType());
-        transaction.setSendAmount(transactionRecordVM.getSendAmount());
-        transaction.setReceiveAmount(transactionRecordVM.getSendAmount());
-        transaction.setCurrencySendAmount(transactionRecordVM.getCurrencySendAmount());
-        transaction.setCurrencyReceiveAmount(receiverBankAccount.getCurrency());
-        transaction.setDescription(transactionRecordVM.getDescription());
-        transaction.setSender(bankAccountMapper.toDto(currentUser));
-        transaction.setReceiver(bankAccountMapper.toDto(receiverBankAccount));
-        transaction.setExchangeRate(fee);
-        transaction.setCreatedAt(Instant.now());
-
-        // default risk score
-        transaction.setTransactionStatus(TransactionStatus.COMPLETED);
-        transaction.setTransactionDate(Instant.now());
-        transaction.setFraudStatus(FraudStatus.CLEAN);
-        transaction.setRiskScore(0);
-
-        return transaction;
     }
 
     public String generateTransactionReference() {

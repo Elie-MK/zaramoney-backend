@@ -1,9 +1,9 @@
 package com.zekodnix.zaramoney.service;
 
+import org.springframework.http.HttpStatus;
 import com.zekodnix.zaramoney.domain.enumeration.Currency;
 import com.zekodnix.zaramoney.domain.enumeration.KycStatus;
 import com.zekodnix.zaramoney.service.dto.*;
-import com.zekodnix.zaramoney.service.exception.UserDetailsAccountNotFoundException;
 import com.zekodnix.zaramoney.service.mapper.UserMapper;
 import com.zekodnix.zaramoney.web.rest.vm.UserAccountVM;
 import com.zekodnix.zaramoney.web.rest.errors.ApiException;
@@ -38,7 +38,9 @@ public class UserAccountService {
 
     @Transactional
     public UserAccountDto createNewUserAccount(UserAccountVM userAccountVM) {
-        var currentUser = userService.getUserWithAuthorities().orElseThrow();
+        var currentUser = userService
+            .getUserWithAuthorities()
+            .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "Not authenticated", "unauthorized"));
 
         // One wallet + one KYC record per user: re-submitting must not create extra accounts (and extra bonuses)
         if (
@@ -88,15 +90,19 @@ public class UserAccountService {
     }
 
     public UserAccountDto getUserDetailsAccount() {
-        var currentUser = userService.getUserWithAuthorities().orElseThrow();
-        var userDetails = userDetailsAccountService.findByUserEmail(currentUser.getEmail()).orElseThrow();
+        var currentUser = userService
+            .getUserWithAuthorities()
+            .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "Not authenticated", "unauthorized"));
+        var userDetails = userDetailsAccountService
+            .findByUserEmail(currentUser.getEmail())
+            .orElseThrow(() -> ApiException.notFound("You don't have an account yet", "noaccount"));
 
         var usdBankAccount = bankAccountService
             .findByUserIsCurrentUser()
             .stream()
             .filter(account -> account.getCurrency() == Currency.USD)
             .findFirst()
-            .orElseThrow(() -> new UserDetailsAccountNotFoundException("USD account not found for current user"));
+            .orElseThrow(() -> ApiException.notFound("You don't have an account yet", "noaccount"));
 
         return new UserAccountDto(
             currentUser.getFirstName(),

@@ -134,6 +134,8 @@ entity TransactionRecord {
   receiveAmount BigDecimal required min(1.00)
 
   exchangeRate BigDecimal required
+  // hand-written changeset 20261115000000_transaction_fee_column.xml (fee paid by the sender, 0 when free)
+  fee BigDecimal
 
   currencySendAmount Currency required
   currencyReceiveAmount Currency required

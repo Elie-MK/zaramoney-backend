@@ -153,6 +153,7 @@ public class BackOfficeService {
         tx.setSender(settlementDto);
         tx.setReceiver(customerDto);
         tx.setExchangeRate(BigDecimal.ONE);
+        tx.setFee(BigDecimal.ZERO);
         tx.setCreatedAt(now);
         tx.setTransactionDate(now);
         tx.setTransactionStatus(TransactionStatus.COMPLETED);

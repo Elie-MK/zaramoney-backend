@@ -74,6 +74,7 @@ public class SignupBonusService {
         tx.setSender(promoDto);
         tx.setReceiver(customerDto);
         tx.setExchangeRate(BigDecimal.ONE);
+        tx.setFee(BigDecimal.ZERO);
         tx.setCreatedAt(Instant.now());
         tx.setTransactionDate(Instant.now());
         tx.setTransactionStatus(TransactionStatus.COMPLETED);

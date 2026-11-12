@@ -163,25 +163,27 @@ Decisions: device-key signature (ECDSA P-256) on every customer request; admins 
 - [x] `app.jdl` + `.jhipster/` brought up to date: `BankAccount.accountType`, `IdempotencyRecord.requestHash`, enums `BankAccountType`/`SessionType`/`AccessBlockType`, and the hand-written entities `TransactionPin`, `UserSession`, `RefreshToken`, `AccessBlock` (marked `skipServer`, so regeneration never creates CRUD for them). Validated with `jhipster jdl --json-only` (8.11.0): the 6 other entities are unchanged
 - [x] `MOBILE_INTEGRATION_GUIDE.md` created (auth/device signing, onboarding, PIN, money, history, sessions, rate limits, error codes, changelog)
 
-## Phase 3 — Transaction-flow bugs (`TransactionRecordServicePlus`, `TransactionValidatorService`)
+## Phase 3 — Transaction-flow bugs (`TransactionRecordServicePlus`, `TransactionValidatorService`) — ✅ DONE 2026-11-12 (except `@Version`)
 
 - [x] 🟡 Block self-transfers on `/send` (sender == receiver) (done in Phase 2)
-- [ ] 🟡 Check sender and receiver `AccountStatus` (reject FROZEN or CLOSED accounts) and the sender's KYC status
-- [ ] 🟡 Validate currencies: `currencySendAmount` and `currencyReceiveAmount` are ignored
-- [ ] 🟡 Set the server side `transactionType` itself (it is currently client-supplied in `TransactionRecordVM`)
-- [ ] 🟡 Store the fee in its own column instead of `exchangeRate` (`TransactionValidatorService.java:132`); deposits also store a fake `2.81` there
-- [ ] 🟡 Fix the withdrawal fee tier in `calculateWithdrawalFee`: 5–20 is charged **8%** but must be **0.8%** (confirmed 2026-11-12). Today 20 costs $1.60 and 21 costs $0.53
+- [x] 🟡 Check sender and receiver `AccountStatus`: sender not ACTIVE → 403 `accountnotactive`; receiver/agent not ACTIVE → 400 `receivernotactive` (`TransactionValidatorService.checkAccounts`, on the locked rows). Sender KYC was done in Phase 2
+- [x] 🟡 Validate currencies: no FX, so both accounts must have the same currency and `currencySendAmount` / `currencyReceiveAmount` (now optional) must match it → 400 `currencymismatch`
+- [x] 🟡 `transactionType` is set by the server (TRANSFER / WITHDRAWAL); the VM field is optional and ignored
+- [x] 🟡 Fee in its own column `transaction_record.fee` (changeset `20261115000000_transaction_fee_column.xml`, backfilled from `transaction_fee`; `exchange_rate` reset to 1 where both currencies are equal, incl. the fake `2.81` of deposits). Added to `app.jdl` / `.jhipster` (nullable, so generated CRUD stays compatible)
+- [x] 🟡 Withdrawal fee tier 5–20 is **0.8%** (was 8%)
 - [x] 🟡 `calculateWithdrawalFee` throws `IllegalArgumentException` → 500; return a 400 instead (done in Phase 2)
-- [ ] 🟡 Move fee rates, the minimum balance and FX rates out of the code into `BigDecimal` config or DB values (no `double`)
+- [x] 🟡 Fee tiers and minimum balance moved to `application.fees` (`BigDecimal`, quoted in YAML), read by `FeeSchedule`, validated at startup (ordered tiers, open-ended last tier, rate in [0, 1)). The unused FX constants were deleted (there is no FX)
 - [x] 🟡 The sender is picked with `findByUserIsCurrentUser().stream().findFirst()`, which is arbitrary when a user has several accounts → optional `senderAccountNumber` on `/send` and `/withdrawal`; required (400 `senderaccountrequired`) when the user has several accounts; must be their own (400 `senderaccountnotfound`) (done 2026-11-12)
 - [x] 🟡 The ownership check is useless (the account was already fetched for the current user); check it against the account that is actually locked (`requireOwnedBy` on the locked sender row, 403 `accountnotowned`)
-- [ ] 🟡 Several duplicated blocks to factor out:
-  - [ ] `process()` / `processWithdrawal()`
-  - [ ] `createTransactionRecord()` / `withdrawalTransaction()`
-- [ ] 🟡 Send notifications and Expo pushes **after commit** (`@TransactionalEventListener(phase = AFTER_COMMIT)`); today a push can be sent for a transaction that later rolls back
-- [ ] 🟡 Replace bare `orElseThrow()` calls with proper 4xx errors (unknown account → 404 or 400, not 500)
+- [x] 🟡 Duplicated blocks factored out:
+  - [x] `process()` / `processWithdrawal()` → `TransactionValidatorService.move()` (works on the locked managed entities; the old `bankAccountService.save(dto)` merges are gone)
+  - [x] `createTransactionRecord()` / `withdrawalTransaction()` → one `execute(MoneyRequest)`
+- [x] 🟡 Expo pushes are sent **after commit** (`PushNotificationRequestedEvent` + `@TransactionalEventListener(AFTER_COMMIT)`); the notification row itself is saved in the transaction and rolls back with it. A user without push token is skipped instead of failing the transfer
+- [x] 🟡 Bare `orElseThrow()` replaced in custom code: `lockAccounts` → 404 `accountnotfound`; `GET /api/user-account` before onboarding → 404 `noaccount` (was 500); current user → 401. The unmapped `UserDetailsAccountNotFoundException` (always a 500) was deleted. Remaining ones in JHipster files are guarded by `isPresent()`
 - [x] 🟡 `LedgerEntryServicePlus.getCurrentUserEntryById` throws an NPE when the ledger entry is null (404 since Phase 2)
-- [ ] 🟡 Add `@Version` (optimistic locking) to `BankAccount` to cover the write paths that are not pessimistically locked
+- [x] Amounts with more than 2 decimals are rejected (`@Digits(fraction = 2)` on `/send` and `/withdrawal`) instead of being rounded silently
+- [x] Tests: `FeeScheduleTest` (19 unit: tier boundaries, rounding, 0.8%, broken config), `Phase3RulesIT` (7), `PushAfterCommitIT` (3); `TransactionRecordResourceIT` (92 generated) still green with the new column
+- [ ] 🟡 `@Version` on `BankAccount` — **deferred, needs a decision.** The money paths no longer merge DTOs (they mutate locked rows), so the only unlocked balance writer left is the admin CRUD `PUT/PATCH /api/bank-accounts`, which can set any balance without a ledger entry. `@Version` there would need the version in `BankAccountDTO` (JHipster's `save(dto)` merges with a null version otherwise). Recommended instead: make `balance` read-only in the admin CRUD (ignored on create/update/patch); balances only change through ledger-backed flows (deposit, transfer, bonus)
 
 ## Phase 3b — Back office deposit (`BackOfficeService.addMoneyToUserAccount`) — ✅ DONE 2026-11-12
 - [x] 🟡 Validate `amount > 0` (`@DecimalMin("0.01")` + `@Digits(fraction = 2)` on `DepositDto`)
@@ -196,7 +198,7 @@ Decisions: device-key signature (ECDSA P-256) on every customer request; admins 
 - [x] Tests: `BackOfficeDepositIT` (8): balanced ledger + admin recorded + customer view, retry/conflict, parallel double click, parallel deposits, invalid amounts/keys, 4xx targets, case-insensitive e-mail, customer gets 403
 - [ ] **Admin tooling (Postman) must now send `idempotencyKey`** (a new UUID per deposit; reuse it only to retry)
 - [ ] Note: the test pool has 1 connection, so the "parallel" ITs serialize at the pool; they prove idempotency and no lost update, but don't race two open transactions. A real lock-contention test needs a pool ≥ 2 (Phase 5)
-- [ ] Push notification is still sent inside the transaction (Phase 3 after-commit item)
+- [x] Push notification sent after commit (Phase 3)
 
 ---
 

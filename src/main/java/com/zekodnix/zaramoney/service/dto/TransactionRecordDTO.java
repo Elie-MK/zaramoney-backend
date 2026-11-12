@@ -32,6 +32,8 @@ public class TransactionRecordDTO implements Serializable {
     @NotNull
     private BigDecimal exchangeRate;
 
+    private BigDecimal fee;
+
     @NotNull
     private Currency currencySendAmount;
 
@@ -106,6 +108,14 @@ public class TransactionRecordDTO implements Serializable {
 
     public void setExchangeRate(BigDecimal exchangeRate) {
         this.exchangeRate = exchangeRate;
+    }
+
+    public BigDecimal getFee() {
+        return fee;
+    }
+
+    public void setFee(BigDecimal fee) {
+        this.fee = fee;
     }
 
     public Currency getCurrencySendAmount() {
@@ -234,6 +244,7 @@ public class TransactionRecordDTO implements Serializable {
             ", sendAmount=" + getSendAmount() +
             ", receiveAmount=" + getReceiveAmount() +
             ", exchangeRate=" + getExchangeRate() +
+            ", fee=" + getFee() +
             ", currencySendAmount='" + getCurrencySendAmount() + "'" +
             ", currencyReceiveAmount='" + getCurrencyReceiveAmount() + "'" +
             ", transactionStatus='" + getTransactionStatus() + "'" +

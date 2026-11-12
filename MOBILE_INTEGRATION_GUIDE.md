@@ -273,6 +273,8 @@ Errors: `409 accountalreadyexists` (a wallet already exists → just load it), `
 ```
 `usdAccount` is the user's own wallet only.
 
+`404 noaccount` → the user has not onboarded yet: show the onboarding flow (before Phase 3 this was a 500).
+
 ### 7.3 KYC states
 | `kycStatus` | Show | Can send / withdraw |
 |---|---|---|
@@ -320,17 +322,16 @@ Every money request carries an `idempotencyKey` (8–128 chars):
   "receiverAccountNumber": "87654321",
   "senderAccountNumber": "12345678",
   "sendAmount": "25.00",
-  "currencySendAmount": "USD",
-  "currencyReceiveAmount": "USD",
-  "transactionType": "TRANSFER",
   "description": "Rent",
   "idempotencyKey": "4f6c1b8e-6f0e-4c1e-9b7a-2d3f4a5b6c7d",
   "pin": "4826"
 }
 ```
-- `sendAmount` ≥ 1. `description` ≤ 255 chars.
+- `sendAmount` ≥ 1 with **at most 2 decimals** (`10.005` → 400). `description` ≤ 255 chars.
 - `senderAccountNumber` (optional, 8–16 chars): which of the user's own accounts to debit. Omit it when the user has one account. If the user has several accounts it is **required** (`400 senderaccountrequired`); an account that isn't the user's → `400 senderaccountnotfound`. It is part of the idempotency payload: send the same value on retries.
-- `transactionType` must be `"TRANSFER"`. 🔜 It will be set by the server and ignored (Phase 3).
+- `transactionType`: **no longer needed** (the server always records a `TRANSFER` and ignores this field). Old app versions that still send it keep working.
+- `currencySendAmount` / `currencyReceiveAmount`: **optional**. There is no currency conversion: if sent, they must equal the accounts' currency (`USD`), otherwise `400 currencymismatch`. Sending to an account in another currency also gives `currencymismatch`.
+- Both accounts must be `ACTIVE`: a suspended/closed sender → `403 accountnotactive` ("contact support"); a suspended/closed receiver or agent → `400 receivernotactive`.
 
 **Fee (P2P):**
 | Amount | Fee |
@@ -351,11 +352,13 @@ The fee is **added** to the amount: the sender is debited `amount + fee`, the re
 | Amount | Fee |
 |---|---|
 | 1 – 5 | 1.30 % |
-| 5.01 – 20 | 0.8 % 🔜 (currently charged at 8 % because of a bug; the fix lands in Phase 3) |
+| 5.01 – 20 | 0.80 % |
 | 20.01 – 50 | 2.50 % |
 | > 50 | 1.99 % |
 
-Same `+5` minimum balance rule. The receiver must be an agent (`400 notanagent`).
+Same `+5` minimum balance rule. The receiver must be an agent (`400 notanagent`). `sendAmount` ≥ 1 with at most 2 decimals.
+
+Fees are rounded half-up to the cent (e.g. 5.00 at 1.30 % = 0.065 → **0.07**). The fee schedule is server configuration and may change: always show the `fee` returned in the receipt rather than a hard-coded table, and treat the tables above as a preview only.
 
 ### 9.5 Response (both endpoints): `TransactionReceiptDTO`
 ```json
@@ -395,6 +398,9 @@ Same `+5` minimum balance rule. The receiver must be an agent (`400 notanagent`)
 | `senderaccountnotfound` | 400 | the chosen account isn't the user's → reload accounts |
 | `accountnotowned` | 403 | should not happen (account changed owner) → reload |
 | `noaccount` | 400 | go to onboarding |
+| `accountnotactive` | 403 | "Your account is suspended/closed, contact support" |
+| `receivernotactive` | 400 | "This account can't receive money" |
+| `currencymismatch` | 400 | only same-currency transfers are possible |
 | `idempotencykeyreused` / `requestinprogress` | 409 | see 9.1 |
 | `transaction_signature_invalid` | 401 | biometric failed/cancelled, or key invalidated → re-register it (section 6) |
 | `ratelimited` | 429 | wait `Retry-After` |
@@ -483,7 +489,7 @@ Plus the login lockout: 5 wrong passwords in 15 min → `429 loginlocked`.
 `pinnotset` 400 · `invalidpin` 400 · `invalidpinformat` 400 · `weakpin` 400 · `pinlocked` 423
 
 ### Money
-`kycnotverified` 403 · `senderaccountrequired` 400 · `senderaccountnotfound` 400 · `accountnotowned` 403 · `insufficientbalance` 400 · `minimumbalance` 400 · `dailylimitexceeded` 400 · `monthlylimitexceeded` 400 · `invalidamount` 400 · `receivernotfound` 400 · `agentnotfound` 400 · `notanagent` 400 · `sendtomyself` 400 · `noaccount` 400 · `idempotencykeyreused` 409 · `requestinprogress` 409
+`kycnotverified` 403 · `accountnotactive` 403 · `receivernotactive` 400 · `currencymismatch` 400 · `senderaccountrequired` 400 · `senderaccountnotfound` 400 · `accountnotowned` 403 · `insufficientbalance` 400 · `minimumbalance` 400 · `dailylimitexceeded` 400 · `monthlylimitexceeded` 400 · `invalidamount` 400 · `receivernotfound` 400 · `agentnotfound` 400 · `notanagent` 400 · `sendtomyself` 400 · `noaccount` 400 · `idempotencykeyreused` 409 · `requestinprogress` 409
 
 ### Other
 `transactionnotfound` 404 · `sessionnotfound` 404 · `ratelimited` 429 · `validation` 400 · `unauthorized` 401
@@ -499,5 +505,4 @@ Plus the login lockout: 5 wrong passwords in 15 min → `429 loginlocked`.
 | 2026-11-12 | **Phase 2 security** (🚧): `pin` replaces `password` on send/withdrawal; transaction PIN endpoints; `TransactionReceiptDTO` responses; KYC `PENDING` + admin review; both KYC photos required (≤ 500 KB, JPEG/PNG/WEBP); $5 bonus via ledger; limits enforced; per-user idempotency keys (8–128 chars); rate limits | **Breaking**: ship the app together with the backend. Existing users must create a PIN before sending |
 | 2026-11-12 | Admin deposits (🚧) now go through the ledger (from the ZaraMoney settlement account) and are idempotent | None for the app: deposits still appear as `DEPOSIT` / `RECEIVED` from `"ZaraMoney"`; the description is now `Dépôt de <amount> USD` |
 | 2026-11-12 | Optional `senderAccountNumber` on `/send` and `/withdrawal` (🚧); fees now credited to a ZaraMoney fee account in the ledger (no change in what the user pays) | Optional field; new errors `senderaccountrequired` / `senderaccountnotfound` / `accountnotowned`. Users with one account: nothing to change |
-| upcoming | Withdrawal fee 5.01–20 → **0.8 %** (currently 8 % by mistake) | Update fee preview |
-| upcoming | `transactionType` on `/send` set by the server; account status checks (`SUSPENDED`/`CLOSED`) | New error codes will be listed here |
+| 2026-11-12 | **Phase 3** (🚧): withdrawal fee 5.01–20 is **0.8 %** (was 8 % by mistake); `transactionType` and currencies optional on `/send` (type set by the server); amounts limited to 2 decimals; account status and currency checks; `GET /api/user-account` returns `404 noaccount` before onboarding (was 500); pushes are sent only after the transaction is committed | Update the fee preview; handle `accountnotactive`, `receivernotactive`, `currencymismatch`, `404 noaccount`. The app can stop sending `transactionType` / currencies (optional) |

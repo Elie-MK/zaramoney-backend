@@ -99,10 +99,10 @@ public class TransactionReceiptService {
         r.setAccountNumber(own != null ? own.getAccountNumber() : null);
 
         if (sent) {
-            BigDecimal fee = transactionFeeRepository
-                .findFirstByTransactionId(tx.getId())
-                .map(TransactionFee::getAmount)
-                .orElse(BigDecimal.ZERO);
+            // fee column since Phase 3 (backfilled); transaction_fee is the fallback for rows the backfill left null
+            BigDecimal fee = tx.getFee() != null
+                ? tx.getFee()
+                : transactionFeeRepository.findFirstByTransactionId(tx.getId()).map(TransactionFee::getAmount).orElse(BigDecimal.ZERO);
             r.setAmount(tx.getSendAmount());
             r.setFee(fee);
             r.setTotal(tx.getSendAmount().add(fee));

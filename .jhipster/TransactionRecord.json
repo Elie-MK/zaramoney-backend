@@ -29,6 +29,10 @@
       "fieldValidateRules": ["required"]
     },
     {
+      "fieldName": "fee",
+      "fieldType": "BigDecimal"
+    },
+    {
       "fieldName": "currencySendAmount",
       "fieldType": "Currency",
       "fieldValidateRules": ["required"],

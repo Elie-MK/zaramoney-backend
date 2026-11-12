@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Phase 3: the fee gets its own column. Until now it was stored in exchange_rate (transfers / withdrawals),
+        and deposits stored a fake 2.81 there. Only USD exists, so the real exchange rate of every row is 1.
+    -->
+
+    <changeSet id="20261115000000-1" author="zaramoney">
+        <addColumn tableName="transaction_record">
+            <column name="fee" type="decimal(21,2)" />
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="20261115000000-2" author="zaramoney" dbms="postgresql">
+        <comment>Backfill fee from transaction_fee (0 when none) and reset exchange_rate to 1 for same-currency rows</comment>
+        <sql>
+            UPDATE transaction_record t
+            SET fee = COALESCE((SELECT SUM(f.amount) FROM transaction_fee f WHERE f.transaction_id = t.id), 0);
+
+            UPDATE transaction_record
+            SET exchange_rate = 1
+            WHERE currency_send_amount = currency_receive_amount;
+        </sql>
+    </changeSet>
+</databaseChangeLog>

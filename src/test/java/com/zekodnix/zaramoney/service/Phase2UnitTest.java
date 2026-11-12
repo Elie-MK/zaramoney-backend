@@ -7,7 +7,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.zekodnix.zaramoney.domain.BankAccount;
 import com.zekodnix.zaramoney.service.dto.LockedAccountsDTO;
 import com.zekodnix.zaramoney.web.rest.errors.ApiException;
-import com.zekodnix.zaramoney.web.rest.errors.BadRequestAlertException;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import org.junit.jupiter.api.Test;
@@ -20,7 +19,11 @@ class Phase2UnitTest {
 
     // --- Item 3: fee is part of the balance check -------------------------------------------------
 
-    private final TransactionValidatorService validator = new TransactionValidatorService(null, null, null);
+    private final TransactionValidatorService validator = new TransactionValidatorService(
+        null,
+        null,
+        new FeeSchedule(new com.zekodnix.zaramoney.config.ApplicationProperties()) // default min balance 5
+    );
 
     private static LockedAccountsDTO accounts(String balance) {
         return new LockedAccountsDTO(new BankAccount().balance(new BigDecimal(balance)), new BankAccount().balance(BigDecimal.ZERO));
@@ -30,8 +33,9 @@ class Phase2UnitTest {
     void balanceCheckIncludesTheFee() {
         // Old check: 1006 - 1001 = 5 >= MIN_BALANCE -> accepted, then 1001 + 9.51 debited -> 4.49 / negative
         assertThatThrownBy(() -> validator.checkAmountValidation(new BigDecimal("1001"), new BigDecimal("9.51"), accounts("1006")))
-            .isInstanceOf(BadRequestAlertException.class)
-            .hasMessageContaining("Insufficient balance");
+            .isInstanceOf(ApiException.class)
+            .hasMessageContaining("Insufficient balance")
+            .satisfies(e -> assertThat(((ApiException) e).getErrorKey()).isEqualTo("insufficientbalance"));
     }
 
     @Test
@@ -40,8 +44,9 @@ class Phase2UnitTest {
         assertThatCode(() -> validator.checkAmountValidation(new BigDecimal("1001"), new BigDecimal("9.51"), accounts("1020"))).doesNotThrowAnyException();
         // 1013 - 1010.51 = 2.49 < 5
         assertThatThrownBy(() -> validator.checkAmountValidation(new BigDecimal("1001"), new BigDecimal("9.51"), accounts("1013")))
-            .isInstanceOf(BadRequestAlertException.class)
-            .hasMessageContaining("minimum balance");
+            .isInstanceOf(ApiException.class)
+            .hasMessageContaining("minimum balance")
+            .satisfies(e -> assertThat(((ApiException) e).getErrorKey()).isEqualTo("minimumbalance"));
     }
 
     // --- Item 10: PIN strength --------------------------------------------------------------------
