@@ -21,6 +21,9 @@ logging:
     com.zekodnix.zaramoney: DEBUG
 
 spring:
+  config:
+    # Local secrets (git-ignored). Copy .env.example to .env and fill it in.
+    import: optional:file:.env[.properties]
   devtools:
     restart:
       enabled: true
@@ -81,8 +84,9 @@ jhipster:
   security:
     authentication:
       jwt:
+        # DEV ONLY secret: never reuse it in prod (prod reads JHIPSTER_SECURITY_AUTHENTICATION_JWT_BASE64_SECRET).
         # This token must be encoded using Base64 and be at least 256 bits long (you can type `openssl rand -base64 64` on your command line to generate a 512 bits one)
-        base64-secret: NzdmOWVhNjg4NzkxNTc3Yjg3NzM0NmIxMjgwYjFkMTM1ZWRlYmYzZmRjZWE3YzIwZWY0YTMwMWViZGE1M2I4NjM5NTQ5YTRiNzk4MmMxYWY5YTgxODAxOTJmMDlhMzQzNDcyYzkxZTAwM2FhNzNjN2ZjMjhkYTNhYmFlZDhhNzA=
+        base64-secret: W0zXrKGsFq79sYD3H5Ano7BYmW3RpncGIvWdfiu+G1gWsuhjDTLrf6DagY0YK/ADQClkWx3RwarKzg2AlVRgxA==
         # Token is valid 24 hours
         token-validity-in-seconds: 86400
         token-validity-in-seconds-for-remember-me: 2592000
@@ -107,6 +111,7 @@ jhipster:
 # application:
 application:
   cloudinary:
-    cloud_name: dpbjucpvf
-    api_key: 192752192549435
-    api_secret: eoH_oOkADsscDVAVU3aG94e5mC4
+    # Set these in your shell or in a local .env file (git-ignored, see .env.example). Uploads fail until they are set.
+    cloud_name: ${CLOUDINARY_CLOUD_NAME:}
+    api_key: ${CLOUDINARY_API_KEY:}
+    api_secret: ${CLOUDINARY_API_SECRET:}

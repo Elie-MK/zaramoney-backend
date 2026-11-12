@@ -1,5 +1,8 @@
 package com.zekodnix.zaramoney.web.rest;
 
+import com.zekodnix.zaramoney.security.AuthoritiesConstants;
+import org.springframework.security.access.prepost.PreAuthorize;
+
 import com.zekodnix.zaramoney.repository.TransactionFeeRepository;
 import com.zekodnix.zaramoney.service.TransactionFeeQueryService;
 import com.zekodnix.zaramoney.service.TransactionFeeService;
@@ -28,7 +31,10 @@ import tech.jhipster.web.util.ResponseUtil;
 
 /**
  * REST controller for managing {@link com.zekodnix.zaramoney.domain.TransactionFee}.
+ * <p>
+ * Generated CRUD endpoint: restricted to admins. Customers must use the dedicated *Plus endpoints.
  */
+@PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
 @RestController
 @RequestMapping("/api/transaction-fees")
 public class TransactionFeeResource {

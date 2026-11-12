@@ -1,5 +1,7 @@
 package com.zekodnix.zaramoney.web.rest;
 
+import com.zekodnix.zaramoney.security.AuthoritiesConstants;
+
 import static com.zekodnix.zaramoney.domain.IdempotencyRecordAsserts.*;
 import static com.zekodnix.zaramoney.web.rest.TestUtil.createUpdateProxyForBean;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -33,7 +35,7 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @IntegrationTest
 @AutoConfigureMockMvc
-@WithMockUser
+@WithMockUser(authorities = AuthoritiesConstants.ADMIN)
 class IdempotencyRecordResourceIT {
 
     private static final String DEFAULT_KEY_HASH = "AAAAAAAAAA";

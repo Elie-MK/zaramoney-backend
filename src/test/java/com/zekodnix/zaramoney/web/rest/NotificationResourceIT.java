@@ -1,5 +1,7 @@
 package com.zekodnix.zaramoney.web.rest;
 
+import com.zekodnix.zaramoney.security.AuthoritiesConstants;
+
 import static com.zekodnix.zaramoney.domain.NotificationAsserts.*;
 import static com.zekodnix.zaramoney.web.rest.TestUtil.createUpdateProxyForBean;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -48,7 +50,7 @@ import org.springframework.transaction.annotation.Transactional;
 @IntegrationTest
 @ExtendWith(MockitoExtension.class)
 @AutoConfigureMockMvc
-@WithMockUser
+@WithMockUser(authorities = AuthoritiesConstants.ADMIN)
 class NotificationResourceIT {
 
     private static final String DEFAULT_TITLE = "AAAAAAAAAA";

@@ -48,6 +48,20 @@ public class SecurityConfiguration {
                     .requestMatchers(mvc.pattern("/api/account/reset-password/init")).permitAll()
                     .requestMatchers(mvc.pattern("/api/account/reset-password/finish")).permitAll()
                     .requestMatchers(mvc.pattern("/api/admin/**")).hasAuthority(AuthoritiesConstants.ADMIN)
+                    // Customer-facing custom endpoints nested under generated CRUD paths (must stay before the admin-only rules below)
+                    .requestMatchers(mvc.pattern("/api/bank-accounts/plus/**")).authenticated()
+                    .requestMatchers(mvc.pattern("/api/ledger-entries/plus/**")).authenticated()
+                    // JHipster-generated CRUD endpoints: admin only (they allow raw edits of balances, ledger, etc.)
+                    .requestMatchers(
+                        mvc.pattern("/api/bank-accounts/**"),
+                        mvc.pattern("/api/transaction-records/**"),
+                        mvc.pattern("/api/ledger-entries/**"),
+                        mvc.pattern("/api/transaction-fees/**"),
+                        mvc.pattern("/api/transaction-limits/**"),
+                        mvc.pattern("/api/idempotency-records/**"),
+                        mvc.pattern("/api/notifications/**"),
+                        mvc.pattern("/api/user-details-accounts/**")
+                    ).hasAuthority(AuthoritiesConstants.ADMIN)
                     .requestMatchers(mvc.pattern("/api/**")).authenticated()
                     .requestMatchers(mvc.pattern("/v3/api-docs/**")).hasAuthority(AuthoritiesConstants.ADMIN)
                     .requestMatchers(mvc.pattern("/management/health")).permitAll()

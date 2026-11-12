@@ -1,5 +1,7 @@
 package com.zekodnix.zaramoney.web.rest;
 
+import com.zekodnix.zaramoney.security.AuthoritiesConstants;
+
 import static com.zekodnix.zaramoney.domain.BankAccountAsserts.*;
 import static com.zekodnix.zaramoney.web.rest.TestUtil.createUpdateProxyForBean;
 import static com.zekodnix.zaramoney.web.rest.TestUtil.sameNumber;
@@ -48,7 +50,7 @@ import org.springframework.transaction.annotation.Transactional;
 @IntegrationTest
 @ExtendWith(MockitoExtension.class)
 @AutoConfigureMockMvc
-@WithMockUser
+@WithMockUser(authorities = AuthoritiesConstants.ADMIN)
 class BankAccountResourceIT {
 
     private static final String DEFAULT_ACCOUNT_NUMBER = "AAAAAAAAAA";

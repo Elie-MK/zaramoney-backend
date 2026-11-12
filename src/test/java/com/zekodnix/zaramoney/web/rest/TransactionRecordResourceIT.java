@@ -1,5 +1,7 @@
 package com.zekodnix.zaramoney.web.rest;
 
+import com.zekodnix.zaramoney.security.AuthoritiesConstants;
+
 import static com.zekodnix.zaramoney.domain.TransactionRecordAsserts.*;
 import static com.zekodnix.zaramoney.web.rest.TestUtil.createUpdateProxyForBean;
 import static com.zekodnix.zaramoney.web.rest.TestUtil.sameNumber;
@@ -50,7 +52,7 @@ import org.springframework.transaction.annotation.Transactional;
 @IntegrationTest
 @ExtendWith(MockitoExtension.class)
 @AutoConfigureMockMvc
-@WithMockUser
+@WithMockUser(authorities = AuthoritiesConstants.ADMIN)
 class TransactionRecordResourceIT {
 
     private static final TransactionType DEFAULT_TRANSACTION_TYPE = TransactionType.DEPOSIT;

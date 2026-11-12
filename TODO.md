@@ -8,20 +8,38 @@ Legend: 🔴 Critical · 🟠 High · 🟡 Bug · 🔵 Improvement
 
 ## Phase 1 — Do immediately
 
-### 🔴 1. Lock down the JHipster CRUD endpoints (anyone logged in can edit balances)
-- [ ] `/api/bank-accounts/**` lets any authenticated user POST, PUT, PATCH or DELETE, so `PATCH {"id":X,"balance":1000000}` works (`web/rest/BankAccountResource.java`)
-- [ ] Same problem on `/api/transaction-records/**`, `/api/ledger-entries/**`, `/api/transaction-fees/**`, `/api/transaction-limits/**`, `/api/idempotency-records/**`, `/api/notifications/**` and `/api/user-details-accounts/**`
-- [ ] Fix: delete these resources, or add `@PreAuthorize("hasAuthority('ROLE_ADMIN')")` at class level, or move them under `/api/admin/**`
-- [ ] Add an integration test: a `ROLE_USER` call to each of these endpoints returns 403
+### 🔴 1. Lock down the JHipster CRUD endpoints (anyone logged in can edit balances) — ✅ DONE 2026-11-11
+- [x] `/api/bank-accounts/**` lets any authenticated user POST, PUT, PATCH or DELETE, so `PATCH {"id":X,"balance":1000000}` works (`web/rest/BankAccountResource.java`)
+- [x] Same problem on `/api/transaction-records/**`, `/api/ledger-entries/**`, `/api/transaction-fees/**`, `/api/transaction-limits/**`, `/api/idempotency-records/**`, `/api/notifications/**` and `/api/user-details-accounts/**`
+- [x] Fix, in two layers:
+  - [x] URL rules in `SecurityConfiguration`: these paths are now `ROLE_ADMIN`; `/api/bank-accounts/plus/**` and `/api/ledger-entries/plus/**` stay open to authenticated users
+  - [x] Class-level `@PreAuthorize(ADMIN)` on the 8 generated resources
+- [x] Integration test `AdminOnlyCrudResourcesIT`:
+  - [x] `ROLE_USER` gets 403 on every verb of the 8 endpoints
+  - [x] The nested `/plus` endpoints still return 200
+- [x] Generated `*ResourceIT` tests now run as admin
+- [ ] Check the mobile app doesn't call any of these generated endpoints (it should use the `/plus` ones)
 
-### 🔴 2. Remove and rotate the committed secrets
-- [ ] Prod DB password: `src/main/resources/config/application-prod.yml:38`
-- [ ] JWT base64 secret, identical in dev and prod: `application-prod.yml:102`, `application-dev.yml:85`, `.yo-rc.json` (`jwtSecretKey`)
-- [ ] TLS keystore password `password`: `application-tls.yml:13`
-- [ ] Rotate all of them (the old values must be treated as leaked)
-- [ ] Load them from environment variables, e.g. `${JHIPSTER_SECURITY_AUTHENTICATION_JWT_BASE64_SECRET}` or `${SPRING_DATASOURCE_PASSWORD}`
-- [ ] Purge them from git history (git-filter-repo / BFG) and add gitleaks to CI
-- [ ] Use a different JWT secret in dev and prod
+### 🔴 2. Remove and rotate the committed secrets — code part DONE 2026-11-11, manual steps left
+- [x] Prod DB password: `application-prod.yml` now reads `${SPRING_DATASOURCE_PASSWORD}` (URL and username can also be overridden)
+- [x] JWT secret:
+  - [x] prod reads `${JHIPSTER_SECURITY_AUTHENTICATION_JWT_BASE64_SECRET}` (no default → fails fast)
+  - [x] dev and test got new dev-only / test-only secrets
+  - [x] removed from `.yo-rc.json` and `src/main/docker/jhipster-control-center.yml`
+- [x] Cloudinary: prod reads `CLOUDINARY_CLOUD_NAME/API_KEY/API_SECRET` (required); dev reads the same with empty defaults
+- [x] Dev loads a git-ignored `.env` (`spring.config.import: optional:file:.env[.properties]`); template in `.env.example`; `.env` added to `.gitignore`
+- [x] TLS keystore password → `${SSL_KEYSTORE_PASSWORD:password}` (the default only fits the committed self-signed dev keystore)
+- [x] Use a different JWT secret in dev and prod
+- [ ] **Manual: set the env vars on the server BEFORE the next push to `develop`** (a push deploys automatically, and the app now refuses to start without them). E.g. an `EnvironmentFile=/etc/zaramoney/zaramoney.env` (chmod 600) in the `zaramoney` systemd unit
+- [ ] **Manual: rotate everything** (old values must be treated as leaked):
+  - [ ] Postgres `zaramoney` user password
+  - [ ] New prod JWT secret (`openssl rand -base64 64`); this logs everyone out
+  - [ ] Cloudinary API secret (regenerate in the Cloudinary console)
+- [ ] Purge the old values from git history (git-filter-repo / BFG; requires a force-push and every clone to re-clone), then add gitleaks to CI (add it after the purge, or it will flag history)
+
+### 🟡 Test infrastructure (found while running Phase 1 tests)
+- [ ] Testcontainers 1.20.6 (managed by Spring Boot 3.4.5) can't talk to Docker 29 ("client version 1.32 is too old"). Fix: pin `<testcontainers.version>1.21.4</testcontainers.version>` (or newer) in `pom.xml`. For now tests run with `./mvnw verify -Dtestcontainers.version=1.21.4`
+- [ ] 119 generated tests were already failing before the Phase 1 changes (verified on the original code). They fail on `JSON path "$.[*].createdAt"` (timestamp format/precision) in `BankAccountResourceIT`, `IdempotencyRecordResourceIT`, `LedgerEntryResourceIT` and `NotificationResourceIT`
 
 ---
 

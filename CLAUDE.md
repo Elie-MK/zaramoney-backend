@@ -12,7 +12,8 @@ Fintech wallet backend (P2P transfers, agent withdrawals, admin deposits) for a 
 
 ## Commands
 - Run dev: `./mvnw` (profile `dev`); DB: `npm run docker:db:up`
-- Tests: `./mvnw verify` (or `npm run backend:unit:test`)
+- Tests: `./mvnw verify` (or `npm run backend:unit:test`). Integration tests (`*IT`) use Testcontainers Postgres; with Docker 29 add `-Dtestcontainers.version=1.21.4` until the pom pins it. Single IT: `-Dtest=NoSuchTest -Dsurefire.failIfNoSpecifiedTests=false -Dit.test=SomeIT -Dfailsafe.failIfNoSpecifiedTests=false`
+- Local secrets: copy `.env.example` → `.env` (git-ignored, loaded by the dev profile). Prod reads them from environment variables (no defaults)
 - Prod jar: `./mvnw clean package -Pprod -DskipTests`
 - Format: `npm run prettier:format` (Prettier + prettier-plugin-java; husky pre-commit runs lint-staged)
 
@@ -38,7 +39,7 @@ Entities: `User` (login = email), `UserDetailsAccount` (KYC, phone, isAgent, exp
 - All amounts are `BigDecimal`, scale 2, `RoundingMode.HALF_UP`.
 
 ## Security config
-`config/SecurityConfiguration.java`: `/api/admin/**` → ROLE_ADMIN; everything else under `/api/**` → just authenticated. Generated CRUD resources have **no** per-endpoint role checks, so always add an explicit authorization check when you add or touch an endpoint.
+`config/SecurityConfiguration.java`: `/api/admin/**` → ROLE_ADMIN. The 8 JHipster-generated CRUD paths (`/api/bank-accounts/**`, `/api/transaction-records/**`, `/api/ledger-entries/**`, `/api/transaction-fees/**`, `/api/transaction-limits/**`, `/api/idempotency-records/**`, `/api/notifications/**`, `/api/user-details-accounts/**`) → ROLE_ADMIN, both by URL rule and by class-level `@PreAuthorize`; `AdminOnlyCrudResourcesIT` guards this. The nested customer paths `/api/bank-accounts/plus/**` and `/api/ledger-entries/plus/**` are matched first and stay authenticated-only. Everything else under `/api/**` → just authenticated. Put new customer endpoints under `/api/plus/...` and check ownership in the service; when adding a matcher, keep the specific `/plus` rules before the admin-only CRUD rules.
 
 ## Deployment
 `.github/workflows/deploy.yml`: push to `develop` → build `-Pprod -DskipTests` → scp the jar to `/opt/zaramoney/` → `systemctl restart zaramoney`. `develop` is the main branch.
