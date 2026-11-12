@@ -205,6 +205,8 @@ class MoneyTestData {
         jdbcTemplate.update("delete from transaction_pin where user_id = ?", userId);
         jdbcTemplate.update("delete from user_details_account where user_id = ?", userId);
         jdbcTemplate.update("delete from bank_account where user_id = ?", userId);
+        jdbcTemplate.update("delete from refresh_token where session_id in (select id from user_session where user_id = ?)", userId);
+        jdbcTemplate.update("delete from user_session where user_id = ?", userId);
         jdbcTemplate.update("delete from jhi_user_authority where user_id = ?", userId);
         jdbcTemplate.update("delete from jhi_user where id = ?", userId);
     }

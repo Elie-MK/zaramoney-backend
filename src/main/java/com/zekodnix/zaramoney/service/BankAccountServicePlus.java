@@ -11,6 +11,7 @@ import com.zekodnix.zaramoney.repository.LedgerEntryRepository;
 import com.zekodnix.zaramoney.repository.TransactionLimitRepository;
 import com.zekodnix.zaramoney.repository.TransactionRecordRepository;
 import com.zekodnix.zaramoney.repository.UserRepository;
+import com.zekodnix.zaramoney.security.device.RevokeUserSessionsEvent;
 import com.zekodnix.zaramoney.service.dto.BankAccountDTO;
 import com.zekodnix.zaramoney.service.dto.LockedAccountsDTO;
 import com.zekodnix.zaramoney.service.dto.UserDTO;
@@ -24,6 +25,7 @@ import java.util.Objects;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -46,6 +48,11 @@ public class BankAccountServicePlus {
     private final LedgerEntryRepository ledgerEntryRepository;
     private final TransactionLimitRepository transactionLimitRepository;
     private final UserRepository userRepository;
+    private final ApplicationEventPublisher eventPublisher;
+
+    /** Session revoke reasons (shown as {@code revokeReason} in the sessions list). */
+    static final String REASON_ACCOUNT_SUSPENDED = "account_suspended";
+    static final String REASON_ACCOUNT_CLOSED = "account_closed";
 
     private final AuditService auditService;
 
@@ -58,6 +65,7 @@ public class BankAccountServicePlus {
         LedgerEntryRepository ledgerEntryRepository,
         TransactionLimitRepository transactionLimitRepository,
         UserRepository userRepository,
+        ApplicationEventPublisher eventPublisher,
         AuditService auditService
     ) {
         this.auditService = auditService;
@@ -69,6 +77,7 @@ public class BankAccountServicePlus {
         this.ledgerEntryRepository = ledgerEntryRepository;
         this.transactionLimitRepository = transactionLimitRepository;
         this.userRepository = userRepository;
+        this.eventPublisher = eventPublisher;
     }
 
     public LockedAccountsDTO lockAccounts(String senderAcc, String receiverAcc) {
@@ -165,7 +174,9 @@ public class BankAccountServicePlus {
             requireUser(newOwnerId); // 400 instead of a foreign-key 500
         }
         String changes = changes(locked, dto, true);
+        AccountStatus statusBefore = locked.getStatus();
         BankAccountDTO saved = bankAccountService.update(dto);
+        changes += revokeSessionsIfFrozen(locked.getAccountType(), statusBefore, dto.getStatus(), newOwnerId);
         auditUpdate(saved.getAccountNumber(), changes);
         return saved;
     }
@@ -186,7 +197,8 @@ public class BankAccountServicePlus {
             ownerSupplied,
             ownerSupplied ? dto.getUser().getId() : null
         );
-        String changes = changes(locked, dto, ownerSupplied);
+        String diff = changes(locked, dto, ownerSupplied);
+        AccountStatus statusBefore = locked.getStatus();
         if (ownerSupplied) {
             // Never let the mapper touch the owner: MapStruct's partialUpdate copies the DTO's id/login INTO the
             // current owner's managed User (renaming that user) instead of switching the reference.
@@ -194,7 +206,10 @@ public class BankAccountServicePlus {
             dto.setUser(null);
         }
         String accountNumber = locked.getAccountNumber();
+        BankAccountType type = locked.getAccountType();
+        Long ownerId = locked.getUser() == null ? null : locked.getUser().getId(); // after a possible owner change
         Optional<BankAccountDTO> saved = bankAccountService.partialUpdate(dto);
+        String changes = diff + revokeSessionsIfFrozen(type, statusBefore, dto.getStatus(), ownerId);
         saved.ifPresent(s -> auditUpdate(accountNumber, changes));
         return saved;
     }
@@ -263,6 +278,23 @@ public class BankAccountServicePlus {
         if (after != null && !after.equals(before)) {
             c.add(field + " " + before + "->" + after);
         }
+    }
+
+    /**
+     * A customer account that becomes SUSPENDED or CLOSED logs its owner out everywhere (all sessions + refresh
+     * tokens revoked, in this transaction). The user can still log in again — payments are refused anyway
+     * (403 accountnotactive); to keep someone out entirely, block the user ({@code /api/admin/security}).
+     *
+     * @return text for the audit details ("" when nothing was revoked)
+     */
+    private String revokeSessionsIfFrozen(BankAccountType type, AccountStatus before, AccountStatus after, Long ownerId) {
+        boolean frozen = after == AccountStatus.SUSPENDED || after == AccountStatus.CLOSED;
+        if (!frozen || after == before || type != BankAccountType.CUSTOMER || ownerId == null) {
+            return "";
+        }
+        String reason = after == AccountStatus.SUSPENDED ? REASON_ACCOUNT_SUSPENDED : REASON_ACCOUNT_CLOSED;
+        eventPublisher.publishEvent(new RevokeUserSessionsEvent(ownerId, null, reason));
+        return ", owner's sessions revoked (" + reason + ")";
     }
 
     private void auditUpdate(String accountNumber, String changes) {

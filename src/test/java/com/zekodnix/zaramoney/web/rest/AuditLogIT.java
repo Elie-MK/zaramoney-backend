@@ -161,7 +161,9 @@ class AuditLogIT {
                     .content("{\"id\":" + alice.account().getId() + ",\"status\":\"SUSPENDED\",\"balance\":999}")
             )
             .andExpect(status().isOk());
-        assertThat(single("BANK_ACCOUNT_UPDATED", alice.accountNumber()).get("details")).isEqualTo("status ACTIVE->SUSPENDED");
+        assertThat(single("BANK_ACCOUNT_UPDATED", alice.accountNumber()).get("details")).isEqualTo(
+            "status ACTIVE->SUSPENDED, owner's sessions revoked (account_suspended)"
+        );
     }
 
     @Test

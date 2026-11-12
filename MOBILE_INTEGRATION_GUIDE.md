@@ -463,6 +463,7 @@ Route on `data.type`: `TRANSACTION_ALERT` → transaction screen, `KYC_STATUS` �
   ```
 - `DELETE /api/account/sessions/{sid}` → `204` (logs that device out; `404 sessionnotfound`)
 - `POST /api/account/sessions/revoke-all?keepCurrent=true` → `{ "revoked": 3 }` ("log out all other devices")
+- **The server can end sessions on its own**: password / PIN change (other devices), admin action, blocked user or device, and when ZaraMoney **suspends or closes the user's wallet** (`revokeReason` `account_suspended` / `account_closed`). The app then gets `401` (`error.session_revoked` on refresh): go back to login. After logging in again with a suspended / closed wallet, payments return `403 accountnotactive`: show "Votre compte est suspendu, contactez le support ZaraMoney" instead of the send / withdraw buttons
 
 ---
 
@@ -542,3 +543,4 @@ Plus the login lockout: 5 wrong passwords in 15 min → `429 loginlocked`.
 | 2026-11-12 | Fraud scoring on send / withdrawal (starts in **monitor** mode: scores and flags, blocks nothing). Customer history now lists only `COMPLETED` transactions | Handle `403 transactionblocked` (needed before the server switches to `enforce`). No other change |
 | 2026-11-12 | Server-side audit trail of admin actions and sensitive changes (PIN, password, blocked payments) | None |
 | 2026-11-12 | **Privacy fix**: `counterpartyName` is now `"Firstname L."` as documented (the full name was returned by mistake). `GET /api/plus/notifications`: newest first, exactly the documented fields (the extra `user` object and the null fields inside `transaction` are gone) | Don't parse a surname from `counterpartyName`; don't read `notification.user` (removed) |
+| 2026-11-12 | Suspending or closing a wallet (admin) logs the user out of every device (`revokeReason` `account_suspended` / `account_closed`) | Handle the `401` like any revoked session (back to login); then `403 accountnotactive` on payments |

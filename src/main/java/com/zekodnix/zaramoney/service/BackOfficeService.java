@@ -171,7 +171,6 @@ public class BackOfficeService {
         ledgerEntryServicePlus.validateDoubleEntry(debit, credit);
 
         idempotencyRecordServicePlus.complete(reservation, saved.getTransactionReference(), saved.getId());
-        // TODO(Phase 3): send the push after commit (@TransactionalEventListener)
         notificationServicePlus.createTransactionNotification(saved, owner, amount, false);
 
         auditService.record(

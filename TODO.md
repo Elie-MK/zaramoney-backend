@@ -153,7 +153,7 @@ Decisions: device-key signature (ECDSA P-256) on every customer request; admins 
 **Left for later**
 - [ ] Notify the user (push / email) when a new device logs in, and on blocks (KYC decisions: done)
 - [ ] Count signature failures in Prometheus metrics (currently WARN logs only)
-- [ ] Revoke sessions when an account is frozen/closed (no status-change flow exists yet; Phase 3)
+- [x] Revoke sessions when an account is frozen/closed (no status-change flow exists yet; Phase 3) — DONE 2026-11-12: an admin setting a CUSTOMER account to SUSPENDED / CLOSED (`PUT`/`PATCH /api/bank-accounts`) revokes all the owner's sessions in the same transaction (`RevokeUserSessionsEvent`, reasons `account_suspended` / `account_closed`; recorded in the audit details). Not a login block (payments are refused anyway; block the user to keep them out). Tests: `AccountFreezeLogsOutIT`
 - [ ] Play Integrity / App Attest at login
 - [x] Use a monotonic clock in `RateLimiter` (WSL/NTP wall-clock jumps reset the windows) — DONE 2026-11-12 (`RateLimiter.MONOTONIC`, `System.nanoTime`). Found when a ~1 h WSL clock jump ended the login lockout mid-test in `TransactionFlowIT` (its clean-up now also deletes sessions). Signature windows / token expiry must stay on the wall clock (they compare to device/JWT timestamps)
 
