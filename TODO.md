@@ -197,7 +197,7 @@ Decisions: device-key signature (ECDSA P-256) on every customer request; admins 
 - [x] Class-level `@PreAuthorize(ADMIN)` on `BackOfficeResource` (on top of the `/api/admin/**` URL rule)
 - [x] Tests: `BackOfficeDepositIT` (8): balanced ledger + admin recorded + customer view, retry/conflict, parallel double click, parallel deposits, invalid amounts/keys, 4xx targets, case-insensitive e-mail, customer gets 403
 - [ ] **Admin tooling (Postman) must now send `idempotencyKey`** (a new UUID per deposit; reuse it only to retry)
-- [ ] Note: the test pool has 1 connection, so the "parallel" ITs serialize at the pool; they prove idempotency and no lost update, but don't race two open transactions. A real lock-contention test needs a pool ≥ 2 (Phase 5)
+- [x] Note: the test pool has 1 connection, so the "parallel" ITs serialize at the pool; they prove idempotency and no lost update, but don't race two open transactions. A real lock-contention test needs a pool ≥ 2 (Phase 5) — done: `ConcurrentTransfersIT`
 - [x] Push notification sent after commit (Phase 3)
 
 ---
@@ -237,13 +237,14 @@ Decisions: device-key signature (ECDSA P-256) on every customer request; admins 
 
 ## Phase 5 — Additions and hardening
 
-- [ ] 🔵 Tests (none exist for custom code):
-  - [ ] Fee math
-  - [ ] Balance and minimum balance
-  - [ ] Self-transfer
-  - [ ] Concurrent transfers (parallel threads)
-  - [ ] Idempotency replay
-  - [ ] Authorization (user vs admin)
+- [x] 🔵 Tests (none exist for custom code) — DONE 2026-11-12:
+  - [x] Fee math — `FeeScheduleTest`, `FeeRevenueIT`, `Phase3RulesIT`
+  - [x] Balance and minimum balance — `Phase2UnitTest`, `TransactionFlowIT`
+  - [x] Self-transfer — `TransactionFlowIT.cannotSendToSelfOrToASystemAccount`
+  - [x] Concurrent transfers (parallel threads) — `ConcurrentTransfersIT` (own context, **8-connection pool**, so transactions really overlap): overdraft race, A→B / B→A deadlock, parallel double-click, many senders → one receiver; books checked with the reconciliation service
+  - [x] Idempotency replay — `TransactionFlowIT`, `BackOfficeDepositIT`, `ConcurrentTransfersIT`
+  - [x] Authorization (user vs admin) — `AdminOnlyCrudResourcesIT`, `BackOfficeDepositIT`, `LedgerIntegrityIT`, `TransactionFlowIT`
+  - [x] 🔴 **Bug found by `ConcurrentTransfersIT` and fixed (2026-11-12): lost updates under concurrency.** The transfer flow loads the counterparty (and possibly the sender) before locking; Hibernate's `@Lock(PESSIMISTIC_WRITE)` query then locked the row but returned the STALE managed entity, so concurrent transfers overwrote each other (10 parallel sends let 6 through instead of 4; a receiver of 12 × 10 ended with 20). The 1-connection test pool could never show it. Fix: `BankAccountLocking` fragment — `findByAccountNumberForUpdate` / `findByIdForUpdate` lock, then `refresh` under the lock (all call sites). Introduced by the Phase 3 refactor (local commits, **never pushed**: production runs the older `1d91482`)
 - [ ] 🔵 Fraud: compute `riskScore` and `FraudStatus` instead of hard-coding them to 0 / `CLEAN`; add velocity checks
 - [ ] 🔵 Audit log for admin and sensitive actions
 - [ ] 🔵 Customer-facing DTOs that never expose other users' balances, logins or internal IDs

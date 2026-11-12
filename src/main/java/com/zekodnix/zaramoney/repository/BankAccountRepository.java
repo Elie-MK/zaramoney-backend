@@ -1,7 +1,6 @@
 package com.zekodnix.zaramoney.repository;
 
 import com.zekodnix.zaramoney.domain.BankAccount;
-import jakarta.persistence.LockModeType;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
@@ -14,7 +13,8 @@ import org.springframework.stereotype.Repository;
  * Spring Data JPA repository for the BankAccount entity.
  */
 @Repository
-public interface BankAccountRepository extends JpaRepository<BankAccount, Long>, JpaSpecificationExecutor<BankAccount> {
+public interface BankAccountRepository
+    extends JpaRepository<BankAccount, Long>, JpaSpecificationExecutor<BankAccount>, BankAccountLocking {
     @Query("select bankAccount from BankAccount bankAccount where bankAccount.user.login = ?#{authentication.name}")
     List<BankAccount> findByUserIsCurrentUser();
 
@@ -42,13 +42,8 @@ public interface BankAccountRepository extends JpaRepository<BankAccount, Long>,
     @Query("select bankAccount from BankAccount bankAccount left join fetch bankAccount.user where bankAccount.id =:id")
     Optional<BankAccount> findOneWithToOneRelationships(@Param("id") Long id);
 
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT b FROM BankAccount b WHERE b.accountNumber = :accountNumber")
-    Optional<BankAccount> findByAccountNumberForUpdate(@Param("accountNumber") String accountNumber);
+    // findByAccountNumberForUpdate / findByIdForUpdate: see BankAccountLocking (lock + re-read; a plain @Lock query can return stale state)
 
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT b FROM BankAccount b WHERE b.id = :id")
-    Optional<BankAccount> findByIdForUpdate(@Param("id") Long id);
 
     Optional<BankAccount> findByAccountNumber(String accountNumber);
 

@@ -40,6 +40,7 @@ Entities: `User` (login = email), `UserDetailsAccount` (KYC, phone, isAgent, exp
 - **Responses to customers** are `TransactionReceiptDTO` (`TransactionReceiptService`): never another user's balance/email/ids. Lists/details are scoped to the current user (404 otherwise)
 - **Admin deposit** — `POST /api/admin/backoffice/user/deposit` → `BackOfficeService.addMoneyToUserAccount` (one `@Transactional`: idempotency per admin, lock customer row then the SYSTEM settlement account `999900000002`, DEBIT settlement / CREDIT customer). `idempotencyKey` required
 - **Onboarding/KYC** — `POST /api/user-account/create` (multipart, both pictures required) → one account per user (409 otherwise), private Cloudinary uploads (`UploadFileService`, refs `"<publicId>.<format>"`), USD `BankAccount` at 0 + default `TransactionLimit` + $5 bonus (`SignupBonusService`, from the SYSTEM promo account `999900000001` through the ledger), KYC `PENDING`. Admin review: `/api/admin/backoffice/kyc…` (`KycReviewService`)
+- **Row locks**: lock accounts only with `BankAccountRepository.findByAccountNumberForUpdate` / `findByIdForUpdate` (`BankAccountLocking`: lock, then refresh). Never add a plain `@Lock` query for an entity that may already be loaded in the transaction: Hibernate keeps the stale state (lost updates)
 - **Account types**: `BankAccountType.CUSTOMER` (balance ≥ 0, DB check constraint) vs `SYSTEM` (no user, may go negative, never a customer counterparty). Use `BankAccountServicePlus.findCustomerAccount` for any user-supplied account number
 - **PIN**: `TransactionPinService` / `PUT /api/plus/security/pin` (needs login password); 5 wrong → locked 30 min
 - **Rate limiting / login lockout**: `security/ratelimit/` (in-memory, single instance). Disabled in tests via `application.security.rate-limit-enabled: false`
@@ -52,6 +53,7 @@ Entities: `User` (login = email), `UserDetailsAccount` (KYC, phone, isAgent, exp
 ## Testing notes
 - ITs that exercise the PIN or anything REQUIRES_NEW must NOT be `@Transactional` (see `TransactionFlowIT`): create committed data and delete it in `@AfterEach` **inside a `TransactionTemplate`** (the test pool is `auto-commit: false`, plain `JdbcTemplate` deletes get rolled back)
 - If test resources look stale (e.g. a config change is ignored), run with `clean`: the IDE also writes into `target/`
+- The shared test pool has 1 connection, so "parallel" requests in normal ITs never overlap. Real lock contention lives in `ConcurrentTransfersIT` (`@TestPropertySource` pool of 8, own context): add a case there for any new money flow
 - Known pre-existing failures (not regressions): 81 `createdAt` JSON-format failures in `BankAccountResourceIT`/`IdempotencyRecordResourceIT`/`LedgerEntryResourceIT`, 38 in `NotificationResourceIT`, and 2 in `AccountResourceIT` (registration auto-activates users, so JHipster's "re-register non-activated user" tests can't pass)
 
 ## Security config
