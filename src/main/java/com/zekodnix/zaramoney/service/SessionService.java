@@ -23,7 +23,7 @@ import com.zekodnix.zaramoney.security.device.RevokeUserSessionsEvent;
 import com.zekodnix.zaramoney.service.dto.AuthTokensDTO;
 import com.zekodnix.zaramoney.service.dto.SessionDTO;
 import com.zekodnix.zaramoney.web.rest.errors.ApiException;
-import com.zekodnix.zaramoney.web.rest.vm.LoginVM;
+import com.zekodnix.zaramoney.service.dto.LoginVM;
 import jakarta.servlet.http.HttpServletRequest;
 import java.security.SecureRandom;
 import java.time.Duration;

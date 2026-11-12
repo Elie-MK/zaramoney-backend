@@ -5,7 +5,7 @@ import com.zekodnix.zaramoney.domain.enumeration.Currency;
 import com.zekodnix.zaramoney.domain.enumeration.KycStatus;
 import com.zekodnix.zaramoney.service.dto.*;
 import com.zekodnix.zaramoney.service.mapper.UserMapper;
-import com.zekodnix.zaramoney.web.rest.vm.UserAccountVM;
+import com.zekodnix.zaramoney.service.dto.UserAccountVM;
 import com.zekodnix.zaramoney.web.rest.errors.ApiException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

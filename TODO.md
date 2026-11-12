@@ -38,7 +38,7 @@ Legend: 🔴 Critical · 🟠 High · 🟡 Bug · 🔵 Improvement
 - [x] Purge the old values from git history (git-filter-repo / BFG; requires a force-push and every clone to re-clone), then add gitleaks to CI (add it after the purge, or it will flag history)
 
 ### 🟡 Test infrastructure (found while running Phase 1 tests)
-- [ ] `TechnicalStructureTest` (ArchUnit layering) reports 0 tests run, so the layer rules are never checked; existing code already breaks them (services use `web.rest.errors` and VMs). Decide: fix the engine setup and relax the rules, or delete the test
+- [x] `TechnicalStructureTest` (ArchUnit layering) reports 0 tests run — FIXED 2026-11-12: the ArchUnit JUnit 5 engine's `@ArchTest` fields were never reported by surefire (so never failed); the rules now run from a plain `@Test` (+ a guard that the import really sees the app). The 139 violations were: services throwing `ApiException` (`web.rest.errors`, now an explicit, documented exception: the shared error vocabulary) and services taking request bodies from `web.rest.vm` (`TransactionRecordVM`, `WithdrawalTransactionRecordVM`, `UserAccountVM`, `LoginVM` moved to `service.dto`; JSON unchanged). Verified the rule fails on a deliberate violation
 - [x] Testcontainers 1.20.6 (managed by Spring Boot 3.4.5) can't talk to Docker 29 ("client version 1.32 is too old"). Fixed 2026-11-12: `<testcontainers.version>1.21.4</testcontainers.version>` pinned in `pom.xml`; plain `./mvnw verify` works
 - [ ] `DeviceSessionIT` is flaky **on this WSL machine only** — cause CONFIRMED 2026-11-12: the system clock flips by exactly ±1 h during test runs (one JVM logs `20:45:45` then `19:46:21`), so a request signed before the flip fails the ±60 s signature window (`device_signature_expired`) or a 15-min token looks expired. Same root cause as the `~3570 s elapsed` reports, the `TransactionFlowIT` lockout failure and the `DeviceSignatureTest` failure (that unit test now uses a fixed clock; `RateLimiter` uses a monotonic clock). Not a code bug; GitHub runners are not affected. Fix the WSL clock (Windows/WSL local-time vs UTC disagreement): e.g. `wsl --shutdown`, check Windows time sync / time zone, `sudo hwclock -s` inside WSL
 - [x] 119 generated tests were already failing before the Phase 1 changes (verified on the original code). — FIXED 2026-11-12: `@PrePersist` overwrote the `createdAt` the tests set (now only fills it when null; the admin CRUD keeps `createdAt` server-owned like `balance`); `BankAccountResourceIT` filter checks scoped to the test account (SYSTEM accounts are always in the table); the 2 `AccountResourceIT` registration tests rewritten for the real rule (registration activates immediately, duplicates are rejected). The suite is fully green
@@ -282,7 +282,7 @@ Decisions: device-key signature (ECDSA P-256) on every customer request; admins 
   - Tests: `ExpoPushServiceTest` (local HTTP server), `PushAfterCommitIT`
   - [ ] Later
   - : poll Expo push receipts (second step of Expo's protocol) for delivery errors reported after the ticket; re-send FAILED pushes from an admin action if needed; pushes in flight are lost on restart (in-memory)
-- [ ] 🔵 Cleanup:
-  - [ ] Remove commented-out code (`TransactionRecordServicePlus`)
-  - [ ] Remove unused injected beans
-  - [ ] Make error messages consistent (FR/EN mix)
+- [x] 🔵 Cleanup — DONE 2026-11-12:
+  - [x] Remove commented-out code (`TransactionRecordServicePlus`) — already gone with the Phase 3 rewrite; none left in `src/main/java`
+  - [x] Remove unused injected beans — the only two: `LedgerEntryResource.ledgerEntryRepository` (+ `ENTITY_NAME`, `applicationName`; unused since the write endpoints were removed) and `SecurityConfiguration.jHipsterProperties`
+  - [x] Make error messages consistent (FR/EN mix) — rule written down (CLAUDE.md, mobile guide §2): all 87 API error titles are English (developer-facing, app translates by `error.<key>`); customer-facing stored content (notifications, push, transaction descriptions) is French. Already true in the code

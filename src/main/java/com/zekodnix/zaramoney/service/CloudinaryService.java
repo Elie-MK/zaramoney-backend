@@ -1,7 +1,7 @@
 package com.zekodnix.zaramoney.service;
 
 import com.zekodnix.zaramoney.web.rest.errors.ApiException;
-import com.zekodnix.zaramoney.web.rest.vm.UserAccountVM;
+import com.zekodnix.zaramoney.service.dto.UserAccountVM;
 import java.util.ArrayList;
 import java.util.List;
 import org.springframework.stereotype.Service;

@@ -70,6 +70,7 @@ Every error is Problem JSON (`application/problem+json`):
 ```
 
 - **Switch on `message`** (`error.<code>`), not on `title` (`title` is English text for logs and may change).
+- **Language rule:** API error `title`s are always English (developer-facing) — never show them to users; show your own French text for each code in [section 13](#13-error-code-reference) (fallback: a generic "Une erreur est survenue"). Content the server writes for the customer (notification titles/messages, push texts, transaction descriptions such as `Dépôt de 25.00 USD`, `Retrait de …`, `Bonus de bienvenue`) is French and can be displayed as is.
 - `429` responses carry a `Retry-After` header (seconds).
 - `device_signature_expired` also carries `serverTime` (epoch ms) so the app can fix its clock offset.
 - Validation errors (`400`, `message: "error.validation"`) include `fieldErrors: [{objectName, field, message}]`.

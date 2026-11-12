@@ -1,4 +1,4 @@
-package com.zekodnix.zaramoney.web.rest.vm;
+package com.zekodnix.zaramoney.service.dto;
 
 import jakarta.validation.constraints.*;
 import org.springframework.web.multipart.MultipartFile;

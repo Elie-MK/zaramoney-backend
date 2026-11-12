@@ -23,26 +23,22 @@ import org.springframework.security.oauth2.server.resource.web.authentication.Be
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.servlet.util.matcher.MvcRequestMatcher;
 import org.springframework.web.servlet.handler.HandlerMappingIntrospector;
-import tech.jhipster.config.JHipsterProperties;
 
 @Configuration
 @EnableMethodSecurity(securedEnabled = true)
 public class SecurityConfiguration {
 
-    private final JHipsterProperties jHipsterProperties;
     private final ApplicationProperties applicationProperties;
     private final RateLimiter rateLimiter;
     private final SessionService sessionService;
     private final DeviceSignatureVerifier deviceSignatureVerifier;
 
     public SecurityConfiguration(
-        JHipsterProperties jHipsterProperties,
         ApplicationProperties applicationProperties,
         RateLimiter rateLimiter,
         @Lazy SessionService sessionService,
         DeviceSignatureVerifier deviceSignatureVerifier
     ) {
-        this.jHipsterProperties = jHipsterProperties;
         this.applicationProperties = applicationProperties;
         this.rateLimiter = rateLimiter;
         this.sessionService = sessionService;

@@ -2,8 +2,8 @@ package com.zekodnix.zaramoney.web.rest;
 
 import com.zekodnix.zaramoney.service.TransactionRecordServicePlus;
 import com.zekodnix.zaramoney.service.dto.TransactionReceiptDTO;
-import com.zekodnix.zaramoney.web.rest.vm.TransactionRecordVM;
-import com.zekodnix.zaramoney.web.rest.vm.WithdrawalTransactionRecordVM;
+import com.zekodnix.zaramoney.service.dto.TransactionRecordVM;
+import com.zekodnix.zaramoney.service.dto.WithdrawalTransactionRecordVM;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

@@ -3,7 +3,6 @@ package com.zekodnix.zaramoney.web.rest;
 import com.zekodnix.zaramoney.security.AuthoritiesConstants;
 import org.springframework.security.access.prepost.PreAuthorize;
 
-import com.zekodnix.zaramoney.repository.LedgerEntryRepository;
 import com.zekodnix.zaramoney.service.LedgerEntryQueryService;
 import com.zekodnix.zaramoney.service.LedgerEntryService;
 import com.zekodnix.zaramoney.service.criteria.LedgerEntryCriteria;
@@ -12,7 +11,6 @@ import java.util.List;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpHeaders;
@@ -36,24 +34,15 @@ public class LedgerEntryResource {
 
     private static final Logger LOG = LoggerFactory.getLogger(LedgerEntryResource.class);
 
-    private static final String ENTITY_NAME = "ledgerEntry";
-
-    @Value("${jhipster.clientApp.name}")
-    private String applicationName;
-
     private final LedgerEntryService ledgerEntryService;
-
-    private final LedgerEntryRepository ledgerEntryRepository;
 
     private final LedgerEntryQueryService ledgerEntryQueryService;
 
     public LedgerEntryResource(
         LedgerEntryService ledgerEntryService,
-        LedgerEntryRepository ledgerEntryRepository,
         LedgerEntryQueryService ledgerEntryQueryService
     ) {
         this.ledgerEntryService = ledgerEntryService;
-        this.ledgerEntryRepository = ledgerEntryRepository;
         this.ledgerEntryQueryService = ledgerEntryQueryService;
     }
 

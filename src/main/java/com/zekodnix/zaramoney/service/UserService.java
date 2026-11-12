@@ -11,7 +11,6 @@ import com.zekodnix.zaramoney.security.SecurityUtils;
 import com.zekodnix.zaramoney.security.device.RevokeUserSessionsEvent;
 import com.zekodnix.zaramoney.service.dto.AdminUserDTO;
 import com.zekodnix.zaramoney.service.dto.UserDTO;
-import com.zekodnix.zaramoney.web.rest.vm.TransactionRecordVM;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.*;

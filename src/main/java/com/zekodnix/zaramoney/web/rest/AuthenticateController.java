@@ -3,7 +3,7 @@ package com.zekodnix.zaramoney.web.rest;
 import com.zekodnix.zaramoney.security.ratelimit.LoginAttemptService;
 import com.zekodnix.zaramoney.service.SessionService;
 import com.zekodnix.zaramoney.service.dto.AuthTokensDTO;
-import com.zekodnix.zaramoney.web.rest.vm.LoginVM;
+import com.zekodnix.zaramoney.service.dto.LoginVM;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.security.Principal;
