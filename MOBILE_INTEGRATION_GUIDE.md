@@ -23,6 +23,8 @@ Everything the Expo / React Native app needs to talk to the ZaraMoney backend.
 13. [Error code reference](#13-error-code-reference)
 14. [Changelog](#14-changelog)
 
+- [Appendix A. Expo / React Native implementation](#appendix-a-expo--react-native-implementation-reference-code)
+
 ---
 
 ## 1. Basics
@@ -92,6 +94,7 @@ The app holds **two EC P-256 key pairs** created in the Secure Enclave (iOS) / A
 - Signatures: **ECDSA with SHA-256**, encoded as **base64 DER** (raw 64-byte `r||s` is also accepted).
 - `deviceId`: a random ID generated once at install, 8–64 chars `[A-Za-z0-9_-]`, kept in secure storage. A new install = a new device.
 - If the user enrols a new fingerprint, Android/iOS invalidate the transaction key. Create a new one and register it with [`POST /api/auth/transaction-key`](#transaction-key-replacement).
+- Reference implementation (native module + JS): [Appendix A](#appendix-a-expo--react-native-implementation-reference-code).
 
 ---
 
@@ -544,3 +547,246 @@ Plus the login lockout: 5 wrong passwords in 15 min → `429 loginlocked`.
 | 2026-11-12 | Server-side audit trail of admin actions and sensitive changes (PIN, password, blocked payments) | None |
 | 2026-11-12 | **Privacy fix**: `counterpartyName` is now `"Firstname L."` as documented (the full name was returned by mistake). `GET /api/plus/notifications`: newest first, exactly the documented fields (the extra `user` object and the null fields inside `transaction` are gone) | Don't parse a surname from `counterpartyName`; don't read `notification.user` (removed) |
 | 2026-11-12 | Suspending or closing a wallet (admin) logs the user out of every device (`revokeReason` `account_suspended` / `account_closed`) | Handle the `401` like any revoked session (back to login); then `403 accountnotactive` on payments |
+| 2026-11-12 | Docs only: [Appendix A](#appendix-a-expo--react-native-implementation-reference-code), reference Expo code for device keys, login and request signing | None (no API change) |
+
+---
+
+## Appendix A. Expo / React Native implementation (reference code)
+
+How the app produces the login fields of [section 4.2](#42-login-device-bound-) and the signed headers of [section 5](#5-signing-every-request-). This is a starting point checked against the server's verification code; it has not been compiled by the backend team, so test it on real devices.
+
+### A.1 Where each login field comes from
+
+| Field | Source |
+|---|---|
+| `deviceId` | `Crypto.randomUUID()` (`expo-crypto`), generated once, kept in `expo-secure-store` |
+| `deviceName` | `Device.deviceName ?? Device.modelName` (`expo-device`), max 100 chars (iOS 16+ returns a generic "iPhone": fine) |
+| `platform` | `Platform.OS` (`"ios"` / `"android"`) |
+| `devicePublicKey` | P-256 key in the Secure Enclave / Android Keystore, **no** user presence |
+| `transactionPublicKey` | second P-256 key, **biometric** required on every use |
+| `nonce` | `GET /api/auth/challenge` |
+| `signature` | device key signs `"login\n" + nonce + "\n" + deviceId + "\n" + username` |
+
+Requirements:
+- **Expo Go cannot do this**: the keys must live in secure hardware, which needs a native module → development build (`npx expo run:android` / `run:ios`, or EAS Build).
+- **Do not use `react-native-biometrics`** for these keys: it creates RSA keys, the server only accepts **EC P-256**.
+- iOS simulator: no Secure Enclave (the code below falls back to a software keychain key there). Android emulator: works, without StrongBox.
+
+### A.2 Native module
+
+Create a local Expo module once:
+```bash
+npx create-expo-module@latest --local device-keys   # → modules/device-keys
+```
+It exposes three functions:
+
+| Function | Returns |
+|---|---|
+| `getOrCreatePublicKey(alias, biometric)` | base64 SPKI public key (creates the key pair the first time) |
+| `sign(alias, data, prompt)` | base64 DER ECDSA-SHA256 signature of `data` (UTF-8); `prompt` = biometric prompt title, `""` for the device key |
+| `deleteKey(alias)` | — |
+
+Errors: `KEY_INVALIDATED` (biometric enrolment changed, see A.4), `BIOMETRIC_CANCELLED`.
+
+**Android** — `modules/device-keys/android/src/main/java/.../DeviceKeysModule.kt`. Add `implementation "androidx.biometric:biometric:1.1.0"` to the module's `build.gradle`.
+
+```kotlin
+class DeviceKeysModule : Module() {
+  private fun ks() = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+  private fun b64(b: ByteArray) = Base64.encodeToString(b, Base64.NO_WRAP)
+
+  override fun definition() = ModuleDefinition {
+    Name("DeviceKeys")
+
+    AsyncFunction("getOrCreatePublicKey") { alias: String, biometric: Boolean ->
+      ks().getCertificate(alias)?.let { return@AsyncFunction b64(it.publicKey.encoded) } // encoded = SPKI DER
+      val spec = KeyGenParameterSpec.Builder(alias, KeyProperties.PURPOSE_SIGN)
+        .setAlgorithmParameterSpec(ECGenParameterSpec("secp256r1"))
+        .setDigests(KeyProperties.DIGEST_SHA256)
+        .apply {
+          if (biometric) {
+            setUserAuthenticationRequired(true)
+            setInvalidatedByBiometricEnrollment(true)
+            if (Build.VERSION.SDK_INT >= 30) setUserAuthenticationParameters(0, KeyProperties.AUTH_BIOMETRIC_STRONG)
+          }
+        }.build()
+      // optional: try setIsStrongBoxBacked(true) first and fall back on StrongBoxUnavailableException
+      KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_EC, "AndroidKeyStore")
+        .apply { initialize(spec) }.generateKeyPair()
+      b64(ks().getCertificate(alias).publicKey.encoded)
+    }
+
+    AsyncFunction("sign") { alias: String, data: String, prompt: String, promise: Promise ->
+      val sig = Signature.getInstance("SHA256withECDSA")      // DER output, accepted by the server
+      try { sig.initSign(ks().getKey(alias, null) as PrivateKey) }
+      catch (e: KeyPermanentlyInvalidatedException) { promise.reject("KEY_INVALIDATED", e.message, e); return@AsyncFunction }
+      val bytes = data.toByteArray(Charsets.UTF_8)
+      if (prompt.isEmpty()) { sig.update(bytes); promise.resolve(b64(sig.sign())); return@AsyncFunction }
+
+      val activity = appContext.currentActivity as FragmentActivity
+      activity.runOnUiThread {
+        BiometricPrompt(activity, ContextCompat.getMainExecutor(activity), object : BiometricPrompt.AuthenticationCallback() {
+          override fun onAuthenticationSucceeded(r: BiometricPrompt.AuthenticationResult) {
+            val s = r.cryptoObject!!.signature!!; s.update(bytes); promise.resolve(b64(s.sign()))
+          }
+          override fun onAuthenticationError(code: Int, msg: CharSequence) =
+            promise.reject("BIOMETRIC_CANCELLED", msg.toString(), null)
+        }).authenticate(
+          BiometricPrompt.PromptInfo.Builder().setTitle(prompt).setNegativeButtonText("Annuler")
+            .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG).build(),
+          BiometricPrompt.CryptoObject(sig))
+      }
+    }
+
+    AsyncFunction("deleteKey") { alias: String -> ks().deleteEntry(alias) }
+  }
+}
+```
+
+**iOS** — `modules/device-keys/ios/DeviceKeysModule.swift`. Add to `app.json`: `"ios": { "infoPlist": { "NSFaceIDUsageDescription": "Confirmer vos opérations ZaraMoney" } }`.
+
+```swift
+import ExpoModulesCore
+import LocalAuthentication
+import Security
+
+// iOS exports the bare 65-byte EC point; the server wants X.509 SPKI → prepend the fixed P-256 header
+private let p256SpkiHeader: [UInt8] = [0x30,0x59,0x30,0x13,0x06,0x07,0x2a,0x86,0x48,0xce,0x3d,0x02,0x01,
+                                       0x06,0x08,0x2a,0x86,0x48,0xce,0x3d,0x03,0x01,0x07,0x03,0x42,0x00]
+
+public class DeviceKeysModule: Module {
+  private func tag(_ a: String) -> Data { Data("com.zekodnix.zaramoney.\(a)".utf8) }
+
+  private func load(_ alias: String, _ ctx: LAContext? = nil) -> SecKey? {
+    var q: [String: Any] = [kSecClass as String: kSecClassKey, kSecAttrApplicationTag as String: tag(alias),
+                            kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom, kSecReturnRef as String: true]
+    if let ctx { q[kSecUseAuthenticationContext as String] = ctx }
+    var item: CFTypeRef?
+    return SecItemCopyMatching(q as CFDictionary, &item) == errSecSuccess ? (item as! SecKey) : nil
+  }
+
+  public func definition() -> ModuleDefinition {
+    Name("DeviceKeys")
+
+    AsyncFunction("getOrCreatePublicKey") { (alias: String, biometric: Bool) throws -> String in
+      var key = self.load(alias)
+      if key == nil {
+        var flags: SecAccessControlCreateFlags = [.privateKeyUsage]
+        if biometric { flags.insert(.biometryCurrentSet) }   // a new fingerprint / face invalidates the key
+        let access = SecAccessControlCreateWithFlags(nil, kSecAttrAccessibleWhenUnlockedThisDeviceOnly, flags, nil)!
+        var attrs: [String: Any] = [
+          kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom, kSecAttrKeySizeInBits as String: 256,
+          kSecPrivateKeyAttrs as String: [kSecAttrIsPermanent as String: true,
+                                          kSecAttrApplicationTag as String: self.tag(alias),
+                                          kSecAttrAccessControl as String: access]]
+        #if !targetEnvironment(simulator)
+        attrs[kSecAttrTokenID as String] = kSecAttrTokenIDSecureEnclave
+        #endif
+        var err: Unmanaged<CFError>?
+        guard let k = SecKeyCreateRandomKey(attrs as CFDictionary, &err) else { throw err!.takeRetainedValue() as Error }
+        key = k
+      }
+      var err: Unmanaged<CFError>?
+      let raw = SecKeyCopyExternalRepresentation(SecKeyCopyPublicKey(key!)!, &err)! as Data
+      return (Data(p256SpkiHeader) + raw).base64EncodedString()
+    }
+
+    AsyncFunction("sign") { (alias: String, data: String, prompt: String) throws -> String in
+      let ctx = LAContext(); ctx.localizedReason = prompt.isEmpty ? "ZaraMoney" : prompt
+      guard let key = self.load(alias, ctx) else { throw Exception(name: "KEY_INVALIDATED", description: "Key missing") }
+      var err: Unmanaged<CFError>?
+      guard let sig = SecKeyCreateSignature(key, .ecdsaSignatureMessageX962SHA256, Data(data.utf8) as CFData, &err)
+      else { throw err!.takeRetainedValue() as Error }   // also thrown when the user cancels Face ID
+      return (sig as Data).base64EncodedString()           // DER
+    }
+
+    AsyncFunction("deleteKey") { (alias: String) in
+      SecItemDelete([kSecClass as String: kSecClassKey, kSecAttrApplicationTag as String: self.tag(alias)] as CFDictionary)
+    }
+  }
+}
+```
+
+### A.3 JS: login and signed requests
+
+```ts
+// src/security/device.ts
+import * as Crypto from 'expo-crypto';
+import * as Device from 'expo-device';
+import * as SecureStore from 'expo-secure-store';
+import { Platform } from 'react-native';
+import DeviceKeys from '../../modules/device-keys';
+
+const DEVICE_KEY = 'zm.device';
+const TX_KEY = 'zm.transaction';
+let clockOffset = 0;
+
+async function getDeviceId(): Promise<string> {
+  let id = await SecureStore.getItemAsync('zm.deviceId');
+  if (!id) {
+    id = Crypto.randomUUID();                       // 36 chars, matches [A-Za-z0-9_-]{8,64}
+    await SecureStore.setItemAsync('zm.deviceId', id, { keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY });
+  }
+  return id;
+}
+
+export async function login(email: string, password: string) {
+  const username = email.trim().toLowerCase();      // sign EXACTLY the string you send
+  const deviceId = await getDeviceId();
+  const devicePublicKey = await DeviceKeys.getOrCreatePublicKey(DEVICE_KEY, false);
+  const transactionPublicKey = await DeviceKeys.getOrCreatePublicKey(TX_KEY, true);
+
+  const ch = await fetch(`${BASE}/api/auth/challenge`).then(r => r.json());
+  clockOffset = ch.serverTime - Date.now();
+
+  const signature = await DeviceKeys.sign(DEVICE_KEY, `login\n${ch.nonce}\n${deviceId}\n${username}`, '');
+
+  const res = await fetch(`${BASE}/api/authenticate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      username, password, deviceId,
+      deviceName: (Device.deviceName ?? Device.modelName ?? 'Unknown').slice(0, 100),
+      platform: Platform.OS,
+      devicePublicKey, transactionPublicKey,
+      nonce: ch.nonce, signature,
+    }),
+  });
+  if (!res.ok) throw await res.json();               // Problem JSON, see section 2
+  return res.json();                                  // access_token, refresh_token, session_type: "DEVICE", ...
+}
+
+// Every authenticated request (section 5). opts.tx = biometric prompt title for money operations
+export async function signedFetch(method: string, pathAndQuery: string, body?: unknown, opts: { tx?: string } = {}) {
+  const deviceId = await getDeviceId();
+  const bodyStr = body === undefined ? '' : JSON.stringify(body);   // serialize ONCE: hash and send the same string
+  const ts = String(Date.now() + clockOffset);
+  const nonce = Crypto.randomUUID();
+  const bodyHash = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, bodyStr,
+                                                  { encoding: Crypto.CryptoEncoding.BASE64 });
+  const canonical = [method.toUpperCase(), pathAndQuery, ts, nonce, deviceId, bodyHash].join('\n');
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${accessToken}`,
+    'X-Device-Id': deviceId, 'X-Timestamp': ts, 'X-Nonce': nonce,
+    'X-Signature': await DeviceKeys.sign(DEVICE_KEY, canonical, ''),
+  };
+  if (opts.tx) headers['X-Tx-Signature'] = await DeviceKeys.sign(TX_KEY, canonical, opts.tx);
+  return fetch(BASE + pathAndQuery, { method, headers, body: bodyStr || undefined });
+}
+
+// signedFetch('POST', '/api/plus/transaction-records/send', body, { tx: 'Confirmer l’envoi de 10 USD' })
+```
+
+### A.4 Pitfalls and edge cases
+
+| Symptom / case | Cause → fix |
+|---|---|
+| `device_signature_invalid` at login | the signed `username` differs from the sent one (case, spaces): the server does **not** normalize before verifying |
+| `device_signature_invalid` on requests | path/query signed differently from what is sent (encoding, parameter order), or the body re-serialized after hashing (axios transforms!). Build the URL and body string once |
+| Multipart (KYC upload) fails | use the literal `MULTIPART` instead of the body hash; let `fetch` set the `Content-Type` boundary |
+| `device_signature_expired` | update `clockOffset` from the `serverTime` in the error body, retry once with a new nonce |
+| No biometrics enrolled | creating the transaction key fails, and login needs both keys. Product decision: ask the user to enrol biometrics, or accept the device passcode (iOS `.userPresence` instead of `.biometryCurrentSet`; Android `AUTH_BIOMETRIC_STRONG or AUTH_DEVICE_CREDENTIAL`) |
+| `KEY_INVALIDATED` (new fingerprint / face enrolled) | `deleteKey('zm.transaction')`, `getOrCreatePublicKey('zm.transaction', true)`, then [`POST /api/auth/transaction-key`](#transaction-key-replacement) with password + PIN |
+| Reinstall on iOS | the keychain survives uninstall, so `deviceId` and keys can come back: fine while they stay together. If one is missing, delete both keys and the id and create new ones (= a new device) |
