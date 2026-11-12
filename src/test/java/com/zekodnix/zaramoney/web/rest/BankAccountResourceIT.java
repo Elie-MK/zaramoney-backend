@@ -665,6 +665,8 @@ class BankAccountResourceIT {
 
         // Validate the BankAccount in the database
         assertSameRepositoryCount(databaseSizeBeforeUpdate);
+        // balance is read-only in the admin CRUD (only ledger-backed flows change it): the original balance is kept
+        updatedBankAccount.setBalance(DEFAULT_BALANCE);
         assertPersistedBankAccountToMatchAllProperties(updatedBankAccount);
     }
 
@@ -755,6 +757,8 @@ class BankAccountResourceIT {
         // Validate the BankAccount in the database
 
         assertSameRepositoryCount(databaseSizeBeforeUpdate);
+        // balance is read-only in the admin CRUD (only ledger-backed flows change it): the original balance is kept
+        partialUpdatedBankAccount.setBalance(DEFAULT_BALANCE);
         assertBankAccountUpdatableFieldsEquals(
             createUpdateProxyForBean(partialUpdatedBankAccount, bankAccount),
             getPersistedBankAccount(bankAccount)
@@ -791,6 +795,8 @@ class BankAccountResourceIT {
         // Validate the BankAccount in the database
 
         assertSameRepositoryCount(databaseSizeBeforeUpdate);
+        // balance is read-only in the admin CRUD (only ledger-backed flows change it): the original balance is kept
+        partialUpdatedBankAccount.setBalance(DEFAULT_BALANCE);
         assertBankAccountUpdatableFieldsEquals(partialUpdatedBankAccount, getPersistedBankAccount(partialUpdatedBankAccount));
     }
 

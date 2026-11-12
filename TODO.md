@@ -163,7 +163,7 @@ Decisions: device-key signature (ECDSA P-256) on every customer request; admins 
 - [x] `app.jdl` + `.jhipster/` brought up to date: `BankAccount.accountType`, `IdempotencyRecord.requestHash`, enums `BankAccountType`/`SessionType`/`AccessBlockType`, and the hand-written entities `TransactionPin`, `UserSession`, `RefreshToken`, `AccessBlock` (marked `skipServer`, so regeneration never creates CRUD for them). Validated with `jhipster jdl --json-only` (8.11.0): the 6 other entities are unchanged
 - [x] `MOBILE_INTEGRATION_GUIDE.md` created (auth/device signing, onboarding, PIN, money, history, sessions, rate limits, error codes, changelog)
 
-## Phase 3 — Transaction-flow bugs (`TransactionRecordServicePlus`, `TransactionValidatorService`) — ✅ DONE 2026-11-12 (except `@Version`)
+## Phase 3 — Transaction-flow bugs (`TransactionRecordServicePlus`, `TransactionValidatorService`) — ✅ DONE 2026-11-12
 
 - [x] 🟡 Block self-transfers on `/send` (sender == receiver) (done in Phase 2)
 - [x] 🟡 Check sender and receiver `AccountStatus`: sender not ACTIVE → 403 `accountnotactive`; receiver/agent not ACTIVE → 400 `receivernotactive` (`TransactionValidatorService.checkAccounts`, on the locked rows). Sender KYC was done in Phase 2
@@ -183,7 +183,7 @@ Decisions: device-key signature (ECDSA P-256) on every customer request; admins 
 - [x] 🟡 `LedgerEntryServicePlus.getCurrentUserEntryById` throws an NPE when the ledger entry is null (404 since Phase 2)
 - [x] Amounts with more than 2 decimals are rejected (`@Digits(fraction = 2)` on `/send` and `/withdrawal`) instead of being rounded silently
 - [x] Tests: `FeeScheduleTest` (19 unit: tier boundaries, rounding, 0.8%, broken config), `Phase3RulesIT` (7), `PushAfterCommitIT` (3); `TransactionRecordResourceIT` (92 generated) still green with the new column
-- [ ] 🟡 `@Version` on `BankAccount` — **deferred, needs a decision.** The money paths no longer merge DTOs (they mutate locked rows), so the only unlocked balance writer left is the admin CRUD `PUT/PATCH /api/bank-accounts`, which can set any balance without a ledger entry. `@Version` there would need the version in `BankAccountDTO` (JHipster's `save(dto)` merges with a null version otherwise). Recommended instead: make `balance` read-only in the admin CRUD (ignored on create/update/patch); balances only change through ledger-backed flows (deposit, transfer, bonus)
+- [x] ~~`@Version` on `BankAccount`~~ — replaced (decision 2026-11-12) by making `balance` **read-only in the admin CRUD** `/api/bank-accounts`: create always starts at 0.00, PUT keeps the current balance, PATCH drops it (`BankAccountServicePlus.adminCreate/adminUpdate/adminPartialUpdate`; the row is locked with `findByIdForUpdate` first, so an update built from a stale read cannot write an old balance back; a supplied balance is logged as a warning). Balances now only change through ledger-backed flows (deposit, transfer, withdrawal, bonus). Tests: `AdminBankAccountBalanceReadOnlyIT` (incl. stale-read and parallel transfers + PUTs). Still open on the same CRUD: changing `currency`, `user` or `accountType` of an account that holds money, and `DELETE` of a funded account, are not blocked yet
 
 ## Phase 3b — Back office deposit (`BackOfficeService.addMoneyToUserAccount`) — ✅ DONE 2026-11-12
 - [x] 🟡 Validate `amount > 0` (`@DecimalMin("0.01")` + `@Digits(fraction = 2)` on `DepositDto`)

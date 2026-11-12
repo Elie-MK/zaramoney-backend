@@ -6,6 +6,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import com.zekodnix.zaramoney.repository.BankAccountRepository;
 import com.zekodnix.zaramoney.service.BankAccountQueryService;
 import com.zekodnix.zaramoney.service.BankAccountService;
+import com.zekodnix.zaramoney.service.BankAccountServicePlus;
 import com.zekodnix.zaramoney.service.criteria.BankAccountCriteria;
 import com.zekodnix.zaramoney.service.dto.BankAccountDTO;
 import com.zekodnix.zaramoney.web.rest.errors.BadRequestAlertException;
@@ -52,14 +53,18 @@ public class BankAccountResource {
 
     private final BankAccountQueryService bankAccountQueryService;
 
+    private final BankAccountServicePlus bankAccountServicePlus;
+
     public BankAccountResource(
         BankAccountService bankAccountService,
         BankAccountRepository bankAccountRepository,
-        BankAccountQueryService bankAccountQueryService
+        BankAccountQueryService bankAccountQueryService,
+        BankAccountServicePlus bankAccountServicePlus
     ) {
         this.bankAccountService = bankAccountService;
         this.bankAccountRepository = bankAccountRepository;
         this.bankAccountQueryService = bankAccountQueryService;
+        this.bankAccountServicePlus = bankAccountServicePlus;
     }
 
     /**
@@ -75,7 +80,7 @@ public class BankAccountResource {
         if (bankAccountDTO.getId() != null) {
             throw new BadRequestAlertException("A new bankAccount cannot already have an ID", ENTITY_NAME, "idexists");
         }
-        bankAccountDTO = bankAccountService.save(bankAccountDTO);
+        bankAccountDTO = bankAccountServicePlus.adminCreate(bankAccountDTO); // balance is read-only: starts at 0
         return ResponseEntity.created(new URI("/api/bank-accounts/" + bankAccountDTO.getId()))
             .headers(HeaderUtil.createEntityCreationAlert(applicationName, false, ENTITY_NAME, bankAccountDTO.getId().toString()))
             .body(bankAccountDTO);
@@ -108,7 +113,7 @@ public class BankAccountResource {
             throw new BadRequestAlertException("Entity not found", ENTITY_NAME, "idnotfound");
         }
 
-        bankAccountDTO = bankAccountService.update(bankAccountDTO);
+        bankAccountDTO = bankAccountServicePlus.adminUpdate(bankAccountDTO); // balance is read-only: kept
         return ResponseEntity.ok()
             .headers(HeaderUtil.createEntityUpdateAlert(applicationName, false, ENTITY_NAME, bankAccountDTO.getId().toString()))
             .body(bankAccountDTO);
@@ -142,7 +147,7 @@ public class BankAccountResource {
             throw new BadRequestAlertException("Entity not found", ENTITY_NAME, "idnotfound");
         }
 
-        Optional<BankAccountDTO> result = bankAccountService.partialUpdate(bankAccountDTO);
+        Optional<BankAccountDTO> result = bankAccountServicePlus.adminPartialUpdate(bankAccountDTO); // balance is read-only: ignored
 
         return ResponseUtil.wrapOrNotFound(
             result,

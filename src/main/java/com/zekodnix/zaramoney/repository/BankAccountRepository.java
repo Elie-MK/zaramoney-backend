@@ -46,6 +46,10 @@ public interface BankAccountRepository extends JpaRepository<BankAccount, Long>,
     @Query("SELECT b FROM BankAccount b WHERE b.accountNumber = :accountNumber")
     Optional<BankAccount> findByAccountNumberForUpdate(@Param("accountNumber") String accountNumber);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT b FROM BankAccount b WHERE b.id = :id")
+    Optional<BankAccount> findByIdForUpdate(@Param("id") Long id);
+
     Optional<BankAccount> findByAccountNumber(String accountNumber);
 
     boolean existsByAccountNumber(String accountNumber);

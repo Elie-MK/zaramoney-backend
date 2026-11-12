@@ -13,12 +13,16 @@ import java.math.BigDecimal;
 import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.Optional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class BankAccountServicePlus {
+
+    private static final Logger LOG = LoggerFactory.getLogger(BankAccountServicePlus.class);
 
     private static final String ACCOUNT_NUMBER_PREFIX = "2512";
     private static final int ACCOUNT_NUMBER_LENGTH = 12;
@@ -95,6 +99,52 @@ public class BankAccountServicePlus {
         signupBonusService.grant(account.getAccountNumber());
 
         return bankAccountService.findOne(account.getId()).orElse(account);
+    }
+
+    // ---------------------------------------------------------------------------------------------- admin CRUD
+    // The balance is read-only in /api/bank-accounts: it only changes through ledger-backed flows (deposit,
+    // transfer, withdrawal, bonus). A balance in the request is ignored; the row is locked like a transfer does,
+    // so an update based on a stale read can never write an old balance back.
+
+    /** Admin create: always starts at 0.00 (fund it with an admin deposit). */
+    @Transactional
+    public BankAccountDTO adminCreate(BankAccountDTO dto) {
+        warnIfBalanceSupplied(dto, BigDecimal.ZERO);
+        dto.setBalance(BigDecimal.ZERO.setScale(2));
+        return bankAccountService.save(dto);
+    }
+
+    /** Admin full update (PUT): every field except the balance, which keeps its current value. */
+    @Transactional
+    public BankAccountDTO adminUpdate(BankAccountDTO dto) {
+        BankAccount locked = lockById(dto.getId());
+        warnIfBalanceSupplied(dto, locked.getBalance());
+        dto.setBalance(locked.getBalance());
+        return bankAccountService.update(dto);
+    }
+
+    /** Admin partial update (PATCH): a balance in the request is dropped. */
+    @Transactional
+    public Optional<BankAccountDTO> adminPartialUpdate(BankAccountDTO dto) {
+        BankAccount locked = lockById(dto.getId());
+        warnIfBalanceSupplied(dto, locked.getBalance());
+        dto.setBalance(null); // partialUpdate ignores null fields
+        return bankAccountService.partialUpdate(dto);
+    }
+
+    private BankAccount lockById(Long id) {
+        return bankAccountRepository.findByIdForUpdate(id).orElseThrow(() -> ApiException.notFound("Account not found", "accountnotfound"));
+    }
+
+    private static void warnIfBalanceSupplied(BankAccountDTO dto, BigDecimal current) {
+        if (dto.getBalance() != null && dto.getBalance().compareTo(current) != 0) {
+            LOG.warn(
+                "Ignored balance {} in admin CRUD for account id={} (balance is read-only, current {})",
+                dto.getBalance(),
+                dto.getId(),
+                current
+            );
+        }
     }
 
     private String generateUniqueAccountNumber() {
