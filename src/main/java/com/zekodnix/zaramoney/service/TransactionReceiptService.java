@@ -139,10 +139,15 @@ public class TransactionReceiptService {
         return account != null && account.getUser() != null && login.equals(account.getUser().getLogin());
     }
 
-    private static String displayName(User user) {
+    /**
+     * What a customer may see of the OTHER party: "Firstname L." (surname reduced to its initial), never the full
+     * name. "Client ZaraMoney" when the user has no name.
+     */
+    static String displayName(User user) {
         String first = user.getFirstName() != null ? user.getFirstName().trim() : "";
         String last = user.getLastName() != null ? user.getLastName().trim() : "";
-        String name = (first + " " + last).trim();
+        String initial = last.isEmpty() ? "" : last.substring(0, 1).toUpperCase(java.util.Locale.ROOT) + ".";
+        String name = (first + " " + initial).trim();
         return name.isEmpty() ? "Client ZaraMoney" : name;
     }
 

@@ -2,9 +2,11 @@ package com.zekodnix.zaramoney.web.rest;
 
 import com.zekodnix.zaramoney.service.NotificationService;
 import com.zekodnix.zaramoney.service.NotificationServicePlus;
+import com.zekodnix.zaramoney.service.dto.CustomerNotificationDTO;
 import com.zekodnix.zaramoney.service.dto.NotificationDTO;
 import com.zekodnix.zaramoney.web.rest.vm.PushTokenVM;
 import jakarta.validation.Valid;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import org.springframework.http.ResponseEntity;
@@ -28,9 +30,22 @@ public class NotificationResourcePlus {
         this.notificationServicePlus = notificationServicePlus;
     }
 
+    /** The user's notifications, newest first (customer view: {@link CustomerNotificationDTO}). */
     @GetMapping("/api/plus/notifications")
-    public ResponseEntity<List<NotificationDTO>> getCurrentUserNotifications() {
-        return ResponseEntity.ok(notificationService.getCurrentUserNotification());
+    public ResponseEntity<List<CustomerNotificationDTO>> getCurrentUserNotifications() {
+        return ResponseEntity.ok(
+            notificationService
+                .getCurrentUserNotification()
+                .stream()
+                .sorted(
+                    Comparator.comparing(NotificationDTO::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder())).thenComparing(
+                        NotificationDTO::getId,
+                        Comparator.reverseOrder()
+                    )
+                )
+                .map(CustomerNotificationDTO::of)
+                .toList()
+        );
     }
 
     /** {@code {"count": 3}} — for the app badge. */

@@ -260,7 +260,9 @@ Decisions: device-key signature (ECDSA P-256) on every customer request; admins 
   - Admin query: `GET /api/admin/backoffice/audit?actor&action&targetType&targetId&from&to` (newest first, paginated)
   - Tests: `AuditLogIT` (7)
   - [ ] Later: retention policy (e.g. keep 5 years, purge older with the maintenance switch); ship to an external store (SIEM / object storage) so a DB admin can't rewrite history; audit successful admin logins
-- [ ] 🔵 Customer-facing DTOs that never expose other users' balances, logins or internal IDs
+- [x] 🔵 Customer-facing DTOs that never expose other users' balances, logins or internal IDs — DONE 2026-11-12: every customer endpoint reviewed; guard test `CustomerDataExposureIT` (real transfer, every customer GET as both users, walks all JSON values: no other user's login / e-mail / surname / full account number / balance / internal ids). It found and fixed:
+  - 🔴 receipts returned the counterparty's **full name** (documented as "John D." since Phase 2) → `TransactionReceiptService.displayName` = "Firstname L."
+  - `GET /api/plus/notifications` returned the internal `NotificationDTO` (user object + a full `TransactionRecordDTO` of nulls, incl. fraud fields) → `CustomerNotificationDTO` with only the documented fields; newest first
 - [ ] 🔵 CI/CD (`.github/workflows/deploy.yml`):
   - [ ] Stop deploying with `-DskipTests`; add a test job before deploying
   - [ ] Add gitleaks and a dependency scan (OWASP / Dependabot)
@@ -268,7 +270,7 @@ Decisions: device-key signature (ECDSA P-256) on every customer request; admins 
 - [x] 🔵 App gaps found while writing `MOBILE_INTEGRATION_GUIDE.md`:
   - [x] No endpoint to update the Expo push token after onboarding (reinstall / token rotation): add `PUT /api/plus/push-token` — DONE 2026-11-12 (`null` clears; format validated; the token is removed from any other user who had it)
   - [x] No "mark notification as read" endpoint (`/api/plus/notifications`) — DONE 2026-11-12: `PUT /{id}/read` (404 if not the user's), `PUT /read-all`, `GET /unread-count`. Tests: `NotificationAppEndpointsIT`
-  - [ ] Later: paginate `GET /api/plus/notifications` (still the full list) and order it newest first
+  - [ ] Later: paginate `GET /api/plus/notifications` (still the full list; newest first since 2026-11-12)
 - [x] 🔵 `ExpoPushService`: use an SLF4J logger instead of `System.out`/`System.err`, and add retries / dead-letter handling — DONE 2026-11-12:
   - SLF4J, tokens masked; timeout 10 s; 3 retries with backoff only for network errors / timeouts / 5xx / 429 (`application.push`)
   - Expo tickets parsed: `DeviceNotRegistered` → token removed from the user; other errors final

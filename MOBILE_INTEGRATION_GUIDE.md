@@ -383,11 +383,11 @@ Fees are rounded half-up to the cent (e.g. 5.00 at 1.30 % = 0.065 → **0.07**).
   "transactionDate": "2026-11-12T10:15:30Z",
   "accountNumber": "12345678",
   "counterpartyName": "John D.",
-  "counterpartyAccountNumber": "****4321"
+  "counterpartyAccountNumber": "********4321"
 }
 ```
 - `direction`: `SENT` or `RECEIVED` (from the current user's point of view).
-- `accountNumber`: the user's **own** account. The counterparty account is **masked**.
+- `accountNumber`: the user's **own** account. The counterparty account is **masked** (all but the last 4 digits) and the counterparty name is `"Firstname L."` (surname initial only; `"Client ZaraMoney"` if the user has no name; `"ZaraMoney"` for deposits / bonus)
 - No other user's balance, e-mail or IDs are ever returned. Refresh the balance with `GET /api/user-account`.
 
 ### 9.6 Errors to handle
@@ -422,7 +422,7 @@ Fees are rounded half-up to the cent (e.g. 5.00 at 1.30 % = 0.065 → **0.07**).
 - `GET /api/plus/transaction-records/{id}` → one receipt (`404 transactionnotfound` if not the user's)
 - `GET /api/ledger-entries/plus/me?page=0&size=20` → `Page` of `{ "entryType": "DEBIT" | "CREDIT", "transactionRecord": TransactionReceiptDTO }`
 - `GET /api/ledger-entries/plus/transaction/{id}` → one entry (`404` if not the user's)
-- `GET /api/plus/notifications` → array (not paginated) of the user's notifications: `id`, `title`, `message`, `type`, `channel`, `status`, `isRead`, `deepLink`, `createdAt`, `sentAt`, `data` (JSON string), `transaction: { id, transactionReference }`. 
+- `GET /api/plus/notifications` → array (not paginated), **newest first**, of the user's notifications: `id`, `title`, `message`, `type`, `channel`, `status`, `isRead`, `deepLink`, `createdAt`, `sentAt`, `data` (JSON string), `transaction: { id, transactionReference }` (`null` for non-transaction notifications, e.g. KYC). Nothing else (no `user` object). 
 - Push delivery state on each notification: `status` = `PENDING` (push queued) → `SENT` (accepted by Expo; `sentAt` set) or `FAILED` (no push token, token no longer valid, or Expo kept failing). The notification is listed in all three cases: the in-app list does not depend on the push. Don't show `status` to users
 - `GET /api/plus/notifications/unread-count` → `{ "count": 3 }` (badge)
 - `PUT /api/plus/notifications/{id}/read` → `204` (idempotent). `404 notificationnotfound` if the id is not the user's. Call it when the user opens a notification
@@ -540,3 +540,4 @@ Plus the login lockout: 5 wrong passwords in 15 min → `429 loginlocked`.
 | 2026-11-12 | Push delivery: retried on network/5xx/429 errors; notification `status` is now `PENDING` → `SENT` / `FAILED` and `sentAt` is set only when Expo accepted the push (was always `SENT`); a token Expo reports as `DeviceNotRegistered` is removed | None required. After a reinstall the old token is dropped automatically: send the new one with `PUT /api/plus/push-token` |
 | 2026-11-12 | Fraud scoring on send / withdrawal (starts in **monitor** mode: scores and flags, blocks nothing). Customer history now lists only `COMPLETED` transactions | Handle `403 transactionblocked` (needed before the server switches to `enforce`). No other change |
 | 2026-11-12 | Server-side audit trail of admin actions and sensitive changes (PIN, password, blocked payments) | None |
+| 2026-11-12 | **Privacy fix**: `counterpartyName` is now `"Firstname L."` as documented (the full name was returned by mistake). `GET /api/plus/notifications`: newest first, exactly the documented fields (the extra `user` object and the null fields inside `transaction` are gone) | Don't parse a surname from `counterpartyName`; don't read `notification.user` (removed) |
