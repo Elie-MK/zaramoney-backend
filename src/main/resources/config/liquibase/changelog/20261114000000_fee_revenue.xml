@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Fee revenue through the ledger (TODO.md Phase 4, pulled forward on 2026-11-12).
+
+        Until now a fee was taken from the sender's balance (amount + fee) but credited to no account, and the sender's
+        DEBIT ledger entry only held the amount. From now on every fee is credited to the SYSTEM fee revenue account
+        999900000003 (TransactionRecordServicePlus.recordFeeAndLedger).
+
+        This changeset backfills the past: for every COMPLETED transfer / withdrawal with a transaction_fee > 0
+        (fee rows exist since 2026-05-24, and since then the sender was always debited amount + fee):
+          - CREDIT fee revenue account  fee
+          - sender's DEBIT entry        amount -> amount + fee
+        No customer balance changes (customers were already charged). Only transactions whose sender DEBIT entry
+        equals the send amount are touched, so the result is balanced; anything else is left for reconciliation.
+        IDs come from sequence_generator (Hibernate's pooled blocks skip values consumed here, so no collisions).
+    -->
+
+    <changeSet id="20261114000000-1" author="zaramoney" dbms="postgresql">
+        <comment>Create the SYSTEM fee revenue account (the app also creates it at startup if missing)</comment>
+        <sql>
+            INSERT INTO bank_account (id, account_number, balance, currency, status, created_at, account_type, user_id)
+            SELECT nextval('sequence_generator'), '999900000003', 0, 'USD', 'ACTIVE', (now() AT TIME ZONE 'UTC'), 'SYSTEM', NULL
+            WHERE NOT EXISTS (SELECT 1 FROM bank_account WHERE account_number = '999900000003');
+        </sql>
+    </changeSet>
+
+    <changeSet id="20261114000000-2" author="zaramoney" dbms="postgresql">
+        <comment>Backfill: credit past fees to the fee revenue account and include them in the sender DEBIT entries</comment>
+        <sql>
+            CREATE TEMPORARY TABLE fee_backfill ON COMMIT DROP AS
+            SELECT t.id AS tx_id, t.sender_id, t.send_amount, t.transaction_date, d.id AS debit_id, f.fee
+            FROM transaction_record t
+            JOIN (SELECT transaction_id, SUM(amount) AS fee FROM transaction_fee GROUP BY transaction_id) f
+              ON f.transaction_id = t.id
+            JOIN ledger_entry d
+              ON d.transaction_id = t.id AND d.account_id = t.sender_id AND d.entry_type = 'DEBIT' AND d.amount = t.send_amount
+            WHERE f.fee &gt; 0
+              AND t.transaction_status = 'COMPLETED'
+              AND t.transaction_type IN ('TRANSFER', 'WITHDRAWAL')
+              AND NOT EXISTS (
+                SELECT 1 FROM ledger_entry c JOIN bank_account a ON a.id = c.account_id
+                WHERE c.transaction_id = t.id AND a.account_number = '999900000003'
+              );
+
+            INSERT INTO ledger_entry (id, amount, currency, entry_type, created_at, account_id, transaction_id)
+            SELECT nextval('sequence_generator'), b.fee, 'USD', 'CREDIT', b.transaction_date,
+                   (SELECT id FROM bank_account WHERE account_number = '999900000003'), b.tx_id
+            FROM fee_backfill b;
+
+            UPDATE ledger_entry d SET amount = d.amount + b.fee
+            FROM fee_backfill b
+            WHERE d.id = b.debit_id;
+
+            UPDATE bank_account SET balance = (
+                SELECT COALESCE(SUM(CASE WHEN l.entry_type = 'CREDIT' THEN l.amount ELSE -l.amount END), 0)
+                FROM ledger_entry l WHERE l.account_id = bank_account.id
+            )
+            WHERE account_number = '999900000003';
+        </sql>
+    </changeSet>
+</databaseChangeLog>

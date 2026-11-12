@@ -45,8 +45,25 @@ public class LedgerEntryServicePlus {
     }
 
     public void validateDoubleEntry(LedgerEntryDTO debit, LedgerEntryDTO credit) {
-        if (debit.getAmount().compareTo(credit.getAmount()) != 0) {
-            throw new IllegalStateException("Unbalanced transaction");
+        validateDoubleEntry(java.util.List.of(debit, credit));
+    }
+
+    /** All entries of one transaction: sum of DEBITs must equal sum of CREDITs (and there must be at least one of each). */
+    public void validateDoubleEntry(java.util.List<LedgerEntryDTO> entries) {
+        BigDecimal debits = BigDecimal.ZERO;
+        BigDecimal credits = BigDecimal.ZERO;
+        for (LedgerEntryDTO e : entries) {
+            if (e.getAmount() == null || e.getAmount().signum() < 0) {
+                throw new IllegalStateException("Ledger entry with a missing or negative amount");
+            }
+            if (e.getEntryType() == EntryType.DEBIT) {
+                debits = debits.add(e.getAmount());
+            } else {
+                credits = credits.add(e.getAmount());
+            }
+        }
+        if (debits.signum() == 0 || debits.compareTo(credits) != 0) {
+            throw new IllegalStateException("Unbalanced transaction: debits " + debits + " != credits " + credits);
         }
     }
 

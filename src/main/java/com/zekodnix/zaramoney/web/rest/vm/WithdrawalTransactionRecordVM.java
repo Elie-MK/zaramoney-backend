@@ -9,6 +9,13 @@ public class WithdrawalTransactionRecordVM {
     @Size(min = 8, max = 16)
     private String agentAccountNumber;
 
+    /**
+     * Optional: which of the user's own accounts to debit. Required when the user has several accounts
+     * (400 senderaccountrequired otherwise); must be the user's own account (400 senderaccountnotfound).
+     */
+    @Size(min = 8, max = 16)
+    private String senderAccountNumber;
+
     @NotNull
     @DecimalMin(value = "1")
     private BigDecimal sendAmount;
@@ -53,5 +60,13 @@ public class WithdrawalTransactionRecordVM {
 
     public void setPin(String pin) {
         this.pin = pin;
+    }
+
+    public String getSenderAccountNumber() {
+        return senderAccountNumber;
+    }
+
+    public void setSenderAccountNumber(String senderAccountNumber) {
+        this.senderAccountNumber = senderAccountNumber;
     }
 }

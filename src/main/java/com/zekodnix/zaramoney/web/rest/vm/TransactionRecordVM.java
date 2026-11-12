@@ -21,6 +21,13 @@ public class TransactionRecordVM {
     @Size(min = 8, max = 16)
     private String receiverAccountNumber;
 
+    /**
+     * Optional: which of the user's own accounts to debit. Required when the user has several accounts
+     * (400 senderaccountrequired otherwise); must be the user's own account (400 senderaccountnotfound).
+     */
+    @Size(min = 8, max = 16)
+    private String senderAccountNumber;
+
     @NotNull
     private Currency currencySendAmount;
 
@@ -125,5 +132,13 @@ public class TransactionRecordVM {
 
     public void setPin(String pin) {
         this.pin = pin;
+    }
+
+    public String getSenderAccountNumber() {
+        return senderAccountNumber;
+    }
+
+    public void setSenderAccountNumber(String senderAccountNumber) {
+        this.senderAccountNumber = senderAccountNumber;
     }
 }

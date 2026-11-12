@@ -33,6 +33,12 @@ public class SystemAccountService {
      */
     public static final String SETTLEMENT_ACCOUNT_NUMBER = "999900000002";
 
+    /**
+     * Fee revenue: every transfer / withdrawal fee is credited here through the ledger. Its balance is the total fee
+     * income since launch; per-period income comes from its ledger entries ({@code RevenueReportService}).
+     */
+    public static final String FEE_REVENUE_ACCOUNT_NUMBER = "999900000003";
+
     private final BankAccountRepository bankAccountRepository;
     private final TransactionTemplate transactionTemplate;
 
@@ -46,6 +52,7 @@ public class SystemAccountService {
         transactionTemplate.executeWithoutResult(status -> {
             ensureSystemAccount(PROMO_ACCOUNT_NUMBER, "promo");
             ensureSystemAccount(SETTLEMENT_ACCOUNT_NUMBER, "settlement");
+            ensureSystemAccount(FEE_REVENUE_ACCOUNT_NUMBER, "fee revenue");
         });
     }
 
@@ -75,5 +82,15 @@ public class SystemAccountService {
         return bankAccountRepository
             .findByAccountNumberForUpdate(SETTLEMENT_ACCOUNT_NUMBER)
             .orElseThrow(() -> new IllegalStateException("System settlement account is missing"));
+    }
+
+    /**
+     * Must be called inside a transaction, after the customer rows are locked (system accounts are always locked last,
+     * so lock order stays 2512... before 9999...). Call it as late as possible: every fee-bearing operation serializes on it.
+     */
+    public BankAccount lockFeeRevenueAccount() {
+        return bankAccountRepository
+            .findByAccountNumberForUpdate(FEE_REVENUE_ACCOUNT_NUMBER)
+            .orElseThrow(() -> new IllegalStateException("System fee revenue account is missing"));
     }
 }

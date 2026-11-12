@@ -318,6 +318,7 @@ Every money request carries an `idempotencyKey` (8–128 chars):
 ```json
 {
   "receiverAccountNumber": "87654321",
+  "senderAccountNumber": "12345678",
   "sendAmount": "25.00",
   "currencySendAmount": "USD",
   "currencyReceiveAmount": "USD",
@@ -328,6 +329,7 @@ Every money request carries an `idempotencyKey` (8–128 chars):
 }
 ```
 - `sendAmount` ≥ 1. `description` ≤ 255 chars.
+- `senderAccountNumber` (optional, 8–16 chars): which of the user's own accounts to debit. Omit it when the user has one account. If the user has several accounts it is **required** (`400 senderaccountrequired`); an account that isn't the user's → `400 senderaccountnotfound`. It is part of the idempotency payload: send the same value on retries.
 - `transactionType` must be `"TRANSFER"`. 🔜 It will be set by the server and ignored (Phase 3).
 
 **Fee (P2P):**
@@ -342,8 +344,9 @@ The fee is **added** to the amount: the sender is debited `amount + fee`, the re
 ### 9.4 Withdraw at an agent
 `POST /api/plus/transaction-records/withdrawal` — signed + **`X-Tx-Signature`** 🚧
 ```json
-{ "agentAccountNumber": "11223344", "sendAmount": "40.00", "idempotencyKey": "…", "pin": "4826" }
+{ "agentAccountNumber": "11223344", "sendAmount": "40.00", "senderAccountNumber": "12345678", "idempotencyKey": "…", "pin": "4826" }
 ```
+`senderAccountNumber` is optional, same rules as for `/send`.
 **Fee (withdrawal):**
 | Amount | Fee |
 |---|---|
@@ -388,6 +391,9 @@ Same `+5` minimum balance rule. The receiver must be an agent (`400 notanagent`)
 | `dailylimitexceeded` / `monthlylimitexceeded` | 400 | "Limit reached" |
 | `receivernotfound` / `agentnotfound` / `notanagent` | 400 | "Check the account number" |
 | `sendtomyself` | 400 | "You can't send to yourself" |
+| `senderaccountrequired` | 400 | ask the user which account to pay from |
+| `senderaccountnotfound` | 400 | the chosen account isn't the user's → reload accounts |
+| `accountnotowned` | 403 | should not happen (account changed owner) → reload |
 | `noaccount` | 400 | go to onboarding |
 | `idempotencykeyreused` / `requestinprogress` | 409 | see 9.1 |
 | `transaction_signature_invalid` | 401 | biometric failed/cancelled, or key invalidated → re-register it (section 6) |
@@ -477,7 +483,7 @@ Plus the login lockout: 5 wrong passwords in 15 min → `429 loginlocked`.
 `pinnotset` 400 · `invalidpin` 400 · `invalidpinformat` 400 · `weakpin` 400 · `pinlocked` 423
 
 ### Money
-`kycnotverified` 403 · `insufficientbalance` 400 · `minimumbalance` 400 · `dailylimitexceeded` 400 · `monthlylimitexceeded` 400 · `invalidamount` 400 · `receivernotfound` 400 · `agentnotfound` 400 · `notanagent` 400 · `sendtomyself` 400 · `noaccount` 400 · `idempotencykeyreused` 409 · `requestinprogress` 409
+`kycnotverified` 403 · `senderaccountrequired` 400 · `senderaccountnotfound` 400 · `accountnotowned` 403 · `insufficientbalance` 400 · `minimumbalance` 400 · `dailylimitexceeded` 400 · `monthlylimitexceeded` 400 · `invalidamount` 400 · `receivernotfound` 400 · `agentnotfound` 400 · `notanagent` 400 · `sendtomyself` 400 · `noaccount` 400 · `idempotencykeyreused` 409 · `requestinprogress` 409
 
 ### Other
 `transactionnotfound` 404 · `sessionnotfound` 404 · `ratelimited` 429 · `validation` 400 · `unauthorized` 401
@@ -492,5 +498,6 @@ Plus the login lockout: 5 wrong passwords in 15 min → `429 loginlocked`.
 | 2026-11-12 | **Device-bound sessions** (🚧): challenge login, signed requests, 15-min access tokens + rotating refresh tokens, sessions screen, transaction key | **Breaking**: all old tokens invalid after deploy (everyone logs in once). New login flow + signing required (old app works only while server is `optional`) |
 | 2026-11-12 | **Phase 2 security** (🚧): `pin` replaces `password` on send/withdrawal; transaction PIN endpoints; `TransactionReceiptDTO` responses; KYC `PENDING` + admin review; both KYC photos required (≤ 500 KB, JPEG/PNG/WEBP); $5 bonus via ledger; limits enforced; per-user idempotency keys (8–128 chars); rate limits | **Breaking**: ship the app together with the backend. Existing users must create a PIN before sending |
 | 2026-11-12 | Admin deposits (🚧) now go through the ledger (from the ZaraMoney settlement account) and are idempotent | None for the app: deposits still appear as `DEPOSIT` / `RECEIVED` from `"ZaraMoney"`; the description is now `Dépôt de <amount> USD` |
+| 2026-11-12 | Optional `senderAccountNumber` on `/send` and `/withdrawal` (🚧); fees now credited to a ZaraMoney fee account in the ledger (no change in what the user pays) | Optional field; new errors `senderaccountrequired` / `senderaccountnotfound` / `accountnotowned`. Users with one account: nothing to change |
 | upcoming | Withdrawal fee 5.01–20 → **0.8 %** (currently 8 % by mistake) | Update fee preview |
 | upcoming | `transactionType` on `/send` set by the server; account status checks (`SUSPENDED`/`CLOSED`) | New error codes will be listed here |

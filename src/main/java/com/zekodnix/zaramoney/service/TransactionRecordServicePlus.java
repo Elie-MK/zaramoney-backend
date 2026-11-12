@@ -2,8 +2,10 @@ package com.zekodnix.zaramoney.service;
 
 import com.zekodnix.zaramoney.domain.BankAccount;
 import com.zekodnix.zaramoney.domain.User;
+import com.zekodnix.zaramoney.domain.enumeration.BankAccountType;
 import com.zekodnix.zaramoney.domain.enumeration.EntryType;
 import com.zekodnix.zaramoney.domain.enumeration.KycStatus;
+import com.zekodnix.zaramoney.service.dto.LedgerEntryDTO;
 import com.zekodnix.zaramoney.service.dto.LockedAccountsDTO;
 import com.zekodnix.zaramoney.service.dto.TransactionReceiptDTO;
 import com.zekodnix.zaramoney.service.dto.TransactionRecordDTO;
@@ -13,6 +15,8 @@ import com.zekodnix.zaramoney.web.rest.vm.TransactionRecordVM;
 import com.zekodnix.zaramoney.web.rest.vm.WithdrawalTransactionRecordVM;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.List;
+import java.util.Objects;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -51,6 +55,7 @@ public class TransactionRecordServicePlus {
     private final TransactionPinService transactionPinService;
     private final TransactionLimitServicePlus transactionLimitServicePlus;
     private final TransactionReceiptService transactionReceiptService;
+    private final SystemAccountService systemAccountService;
     private final TransactionTemplate transactionTemplate;
     private final TransactionTemplate readOnlyTemplate;
 
@@ -68,8 +73,10 @@ public class TransactionRecordServicePlus {
         TransactionPinService transactionPinService,
         TransactionLimitServicePlus transactionLimitServicePlus,
         TransactionReceiptService transactionReceiptService,
+        SystemAccountService systemAccountService,
         PlatformTransactionManager transactionManager
     ) {
+        this.systemAccountService = systemAccountService;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
         this.readOnlyTemplate = new TransactionTemplate(transactionManager);
         this.readOnlyTemplate.setReadOnly(true);
@@ -98,6 +105,7 @@ public class TransactionRecordServicePlus {
         String receiverNumber = vm.getReceiverAccountNumber().trim();
         String requestHash = IdempotencyRecordServicePlus.requestHash(
             SEND_ENDPOINT,
+            normalize(vm.getSenderAccountNumber()),
             receiverNumber,
             vm.getSendAmount(),
             vm.getCurrencySendAmount(),
@@ -122,12 +130,13 @@ public class TransactionRecordServicePlus {
             BankAccount receiver = bankAccountServicePlus
                 .findCustomerAccount(receiverNumber)
                 .orElseThrow(() -> ApiException.badRequest("Receiver account not found", "receivernotfound"));
-            String senderNumber = currentUserAccountNumber();
+            String senderNumber = resolveSenderAccountNumber(vm.getSenderAccountNumber());
             if (senderNumber.equals(receiver.getAccountNumber())) {
                 throw ApiException.badRequest("You cannot send money to your own account", "sendtomyself");
             }
 
             LockedAccountsDTO accounts = bankAccountServicePlus.lockAccounts(senderNumber, receiver.getAccountNumber());
+            requireOwnedBy(accounts.getSenderAccount(), currentUser);
             BigDecimal amount = vm.getSendAmount();
             BigDecimal fee = calculateTransactionFee(amount);
 
@@ -156,7 +165,12 @@ public class TransactionRecordServicePlus {
     public TransactionReceiptDTO withdrawalTransaction(WithdrawalTransactionRecordVM vm) {
         User currentUser = currentUser();
         String agentNumber = vm.getAgentAccountNumber().trim();
-        String requestHash = IdempotencyRecordServicePlus.requestHash(WITHDRAWAL_ENDPOINT, agentNumber, vm.getSendAmount());
+        String requestHash = IdempotencyRecordServicePlus.requestHash(
+            WITHDRAWAL_ENDPOINT,
+            normalize(vm.getSenderAccountNumber()),
+            agentNumber,
+            vm.getSendAmount()
+        );
 
         var replay = findReplay(vm.getIdempotencyKey(), currentUser, WITHDRAWAL_ENDPOINT, requestHash);
         if (replay != null) {
@@ -183,12 +197,13 @@ public class TransactionRecordServicePlus {
             if (!isAgent) {
                 throw ApiException.badRequest("The account is not an agent account", "notanagent");
             }
-            String senderNumber = currentUserAccountNumber();
+            String senderNumber = resolveSenderAccountNumber(vm.getSenderAccountNumber());
             if (senderNumber.equals(agentAccount.getAccountNumber())) {
                 throw ApiException.badRequest("Sender and agent accounts must be different", "sendtomyself");
             }
 
             LockedAccountsDTO accounts = bankAccountServicePlus.lockAccounts(senderNumber, agentAccount.getAccountNumber());
+            requireOwnedBy(accounts.getSenderAccount(), currentUser);
             BigDecimal amount = vm.getSendAmount();
             BigDecimal fee = calculateWithdrawalFee(amount);
 
@@ -237,17 +252,27 @@ public class TransactionRecordServicePlus {
         return transactionReceiptService.findOneForCurrentUser(id);
     }
 
+    /**
+     * Balanced ledger for a transfer / withdrawal (the balances of sender and receiver were already moved by the processor):
+     * <pre>
+     *   DEBIT  sender        amount + fee
+     *   CREDIT receiver      amount
+     *   CREDIT fee revenue   fee          (only when fee > 0; the SYSTEM fee account is locked and credited here, last)
+     * </pre>
+     */
     private void recordFeeAndLedger(TransactionRecordDTO result, LockedAccountsDTO accounts, BigDecimal amount, BigDecimal fee) {
         transactionFeeServicePlus.createTransactionFee(fee, result);
-        var debit = ledgerEntryServicePlus.buildEntry(result, bankAccountMapper.toDto(accounts.getSenderAccount()), amount, EntryType.DEBIT);
-        var credit = ledgerEntryServicePlus.buildEntry(
-            result,
-            bankAccountMapper.toDto(accounts.getReceiverAccount()),
-            amount,
-            EntryType.CREDIT
+        var entries = new java.util.ArrayList<LedgerEntryDTO>();
+        entries.add(
+            ledgerEntryServicePlus.buildEntry(result, bankAccountMapper.toDto(accounts.getSenderAccount()), amount.add(fee), EntryType.DEBIT)
         );
-        // TODO(Phase 4): the fee has no ledger entry yet (needs a fee-revenue system account)
-        ledgerEntryServicePlus.validateDoubleEntry(debit, credit);
+        entries.add(ledgerEntryServicePlus.buildEntry(result, bankAccountMapper.toDto(accounts.getReceiverAccount()), amount, EntryType.CREDIT));
+        if (fee.signum() > 0) {
+            BankAccount feeAccount = systemAccountService.lockFeeRevenueAccount();
+            feeAccount.setBalance(feeAccount.getBalance().add(fee).setScale(2, RoundingMode.HALF_UP));
+            entries.add(ledgerEntryServicePlus.buildEntry(result, bankAccountMapper.toDto(feeAccount), fee, EntryType.CREDIT));
+        }
+        ledgerEntryServicePlus.validateDoubleEntry(entries);
     }
 
     private User currentUser() {
@@ -256,13 +281,42 @@ public class TransactionRecordServicePlus {
             .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "Not authenticated", "unauthorized"));
     }
 
-    private String currentUserAccountNumber() {
-        return bankAccountService
+    /**
+     * The account to debit: the one the app asked for ({@code senderAccountNumber}), which must be one of the current
+     * user's CUSTOMER accounts; without it, the user's only account (400 if they have several, so we never pick one arbitrarily).
+     */
+    private String resolveSenderAccountNumber(String requested) {
+        List<String> own = bankAccountService
             .findByUserIsCurrentUser()
             .stream()
-            .findFirst()
-            .orElseThrow(() -> ApiException.badRequest("You don't have an account yet", "noaccount"))
-            .getAccountNumber();
+            .filter(a -> a.getAccountType() == null || a.getAccountType() == BankAccountType.CUSTOMER)
+            .map(a -> a.getAccountNumber())
+            .toList();
+        String wanted = normalize(requested);
+        if (!wanted.isEmpty()) {
+            if (!own.contains(wanted)) {
+                throw ApiException.badRequest("This sender account is not one of your accounts", "senderaccountnotfound");
+            }
+            return wanted;
+        }
+        if (own.isEmpty()) {
+            throw ApiException.badRequest("You don't have an account yet", "noaccount");
+        }
+        if (own.size() > 1) {
+            throw ApiException.badRequest("You have several accounts: choose the sender account", "senderaccountrequired");
+        }
+        return own.get(0);
+    }
+
+    /** Checked on the row that is actually locked and debited. */
+    private static void requireOwnedBy(BankAccount account, User user) {
+        if (account.getUser() == null || !Objects.equals(account.getUser().getId(), user.getId())) {
+            throw ApiException.forbidden("This account is not yours", "accountnotowned");
+        }
+    }
+
+    private static String normalize(String accountNumber) {
+        return accountNumber == null ? "" : accountNumber.trim();
     }
 
     private void requireKycVerified(User user) {

@@ -173,8 +173,8 @@ Decisions: device-key signature (ECDSA P-256) on every customer request; admins 
 - [ ] 🟡 Fix the withdrawal fee tier in `calculateWithdrawalFee`: 5–20 is charged **8%** but must be **0.8%** (confirmed 2026-11-12). Today 20 costs $1.60 and 21 costs $0.53
 - [x] 🟡 `calculateWithdrawalFee` throws `IllegalArgumentException` → 500; return a 400 instead (done in Phase 2)
 - [ ] 🟡 Move fee rates, the minimum balance and FX rates out of the code into `BigDecimal` config or DB values (no `double`)
-- [ ] 🟡 The sender is picked with `findByUserIsCurrentUser().stream().findFirst()`, which is arbitrary when a user has several accounts → choose explicitly
-- [ ] 🟡 The ownership check is useless (the account was already fetched for the current user); check it against the account that is actually locked
+- [x] 🟡 The sender is picked with `findByUserIsCurrentUser().stream().findFirst()`, which is arbitrary when a user has several accounts → optional `senderAccountNumber` on `/send` and `/withdrawal`; required (400 `senderaccountrequired`) when the user has several accounts; must be their own (400 `senderaccountnotfound`) (done 2026-11-12)
+- [x] 🟡 The ownership check is useless (the account was already fetched for the current user); check it against the account that is actually locked (`requireOwnedBy` on the locked sender row, 403 `accountnotowned`)
 - [ ] 🟡 Several duplicated blocks to factor out:
   - [ ] `process()` / `processWithdrawal()`
   - [ ] `createTransactionRecord()` / `withdrawalTransaction()`
@@ -202,12 +202,25 @@ Decisions: device-key signature (ECDSA P-256) on every customer request; admins 
 
 ## Phase 4 — Ledger / accounting integrity
 
-- [ ] 🔵 Create system accounts: fee revenue (promo `999900000001` and settlement `999900000002` already exist)
-- [ ] 🔵 Every transaction must produce balanced entries:
-  - [ ] Transfer: debit the sender (amount + fee), credit the receiver (amount), credit fee revenue (fee)
-  - [ ] Deposit: debit cash/settlement, credit the user
-  - [ ] Withdrawal: debit the user, credit the agent, credit fee revenue
-- [ ] 🔵 Make `validateDoubleEntry` check Σdebits == Σcredits across all entries (it currently compares a value with itself)
+### ✅ Fee revenue + revenue report — pulled forward, DONE 2026-11-12
+- [x] SYSTEM fee revenue account `999900000003` (auto-created at startup and by changeset `20261114000000_fee_revenue.xml`)
+- [x] Transfers and withdrawals: DEBIT sender `amount + fee`, CREDIT receiver `amount`, CREDIT fee revenue `fee` (fee account locked last, only when fee > 0)
+- [x] `validateDoubleEntry(List)` checks Σ debits == Σ credits over all entries of a transaction
+- [x] Backfill of past fees (changeset `20261114000000-2`): CREDIT fee revenue + sender DEBIT corrected to `amount + fee`; customer balances untouched. Only transactions whose sender DEBIT equals the amount are touched
+- [x] `GET /api/admin/backoffice/reports/revenue?from=YYYY-MM-DD&to=YYYY-MM-DD&groupBy=day|month|year` (Kinshasa time): transfer / withdrawal fees, fee count, volumes, bonus cost, deposits (info, not income), net = fees − bonuses, all-time fee account balance
+- [x] Tests: `FeeRevenueIT` (8): fee ledger for transfer/withdrawal, no-fee transfer, sender account selection, report deltas, grouping/validation, backfill SQL on old-style rows (idempotent)
+- [ ] **Manual (prod, after deploy):** check the backfill: `select count(*) from transaction_fee f join transaction_record t on t.id = f.transaction_id where f.amount > 0 and t.transaction_status = 'COMPLETED' and not exists (select 1 from ledger_entry l join bank_account a on a.id = l.account_id where l.transaction_id = t.id and a.account_number = '999900000003');` should be 0 (otherwise those transactions had no `amount`-sized sender DEBIT and need a manual look)
+- [ ] Every fee-bearing transfer now serializes on the fee account row (locked last, held until commit, ~ms). Fine at current volume; if it becomes a hotspot, split into N fee sub-accounts or post fees asynchronously
+- [ ] Export (CSV) / dashboard for the report if needed
+
+### Remaining
+
+- [x] 🔵 System accounts: promo `999900000001`, settlement `999900000002`, fee revenue `999900000003`
+- [x] 🔵 Every transaction must produce balanced entries:
+  - [x] Transfer: debit the sender (amount + fee), credit the receiver (amount), credit fee revenue (fee)
+  - [x] Deposit: debit cash/settlement, credit the user (Phase 3b)
+  - [x] Withdrawal: debit the user, credit the agent, credit fee revenue
+- [x] 🔵 Make `validateDoubleEntry` check Σdebits == Σcredits across all entries
 - [ ] 🔵 Use the account's currency in ledger entries (USD is hard-coded)
 - [ ] 🔵 Add `balance_after` to ledger entries and make the ledger append-only (no update or delete)
 - [ ] 🔵 Add a daily reconciliation job that checks Σ balances == Σ ledger

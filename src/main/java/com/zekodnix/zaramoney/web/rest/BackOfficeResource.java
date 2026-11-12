@@ -5,15 +5,19 @@ import com.zekodnix.zaramoney.security.AuthoritiesConstants;
 import com.zekodnix.zaramoney.security.SecurityUtils;
 import com.zekodnix.zaramoney.service.BackOfficeService;
 import com.zekodnix.zaramoney.service.KycReviewService;
+import com.zekodnix.zaramoney.service.RevenueReportService;
 import com.zekodnix.zaramoney.service.dto.DepositDto;
 import com.zekodnix.zaramoney.service.dto.KycReviewDTO;
+import com.zekodnix.zaramoney.service.dto.RevenueReportDTO;
 import com.zekodnix.zaramoney.service.dto.TransactionRecordDTO;
 import jakarta.validation.Valid;
+import java.time.LocalDate;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -36,10 +40,29 @@ public class BackOfficeResource {
 
     private final BackOfficeService backOfficeService;
     private final KycReviewService kycReviewService;
+    private final RevenueReportService revenueReportService;
 
-    public BackOfficeResource(BackOfficeService backOfficeService, KycReviewService kycReviewService) {
+    public BackOfficeResource(
+        BackOfficeService backOfficeService,
+        KycReviewService kycReviewService,
+        RevenueReportService revenueReportService
+    ) {
         this.backOfficeService = backOfficeService;
         this.kycReviewService = kycReviewService;
+        this.revenueReportService = revenueReportService;
+    }
+
+    /**
+     * {@code GET /reports/revenue?from=2026-01-01&to=2026-12-31&groupBy=month} : ZaraMoney income (fees, bonus cost,
+     * net) per day / month / year, Kinshasa time. {@code from}/{@code to} are inclusive days (ISO dates).
+     */
+    @GetMapping("/reports/revenue")
+    public ResponseEntity<RevenueReportDTO> revenueReport(
+        @RequestParam("from") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+        @RequestParam("to") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+        @RequestParam(name = "groupBy", defaultValue = "month") String groupBy
+    ) {
+        return ResponseEntity.ok(revenueReportService.report(from, to, RevenueReportService.GroupBy.parse(groupBy)));
     }
 
     @PostMapping("/user/deposit")
