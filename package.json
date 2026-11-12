@@ -46,7 +46,7 @@
     "packaging": "jar"
   },
   "devDependencies": {
-    "generator-jhipster": "8.11.0",
+    "generator-jhipster": "9.4.0",
     "husky": "9.1.7",
     "lint-staged": "15.5.2",
     "prettier": "3.5.3",
