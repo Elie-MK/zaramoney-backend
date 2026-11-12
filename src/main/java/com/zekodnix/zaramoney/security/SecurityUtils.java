@@ -23,6 +23,12 @@ public final class SecurityUtils {
 
     public static final String USER_ID_CLAIM = "userId";
 
+    /** Session id (user_session.sid) of the access token. Every access token has one. */
+    public static final String SESSION_ID_CLAIM = "sid";
+
+    /** Device id of a DEVICE session. */
+    public static final String DEVICE_ID_CLAIM = "did";
+
     private SecurityUtils() {}
 
     /**
@@ -53,6 +59,15 @@ public final class SecurityUtils {
      *
      * @return the JWT of the current user.
      */
+    /** The {@code sid} claim of the current access token, if the request is JWT-authenticated. */
+    public static Optional<String> getCurrentSessionId() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null && authentication.getPrincipal() instanceof Jwt jwt) {
+            return Optional.ofNullable(jwt.getClaimAsString(SESSION_ID_CLAIM));
+        }
+        return Optional.empty();
+    }
+
     public static Optional<String> getCurrentUserJWT() {
         SecurityContext securityContext = SecurityContextHolder.getContext();
         return Optional.ofNullable(securityContext.getAuthentication())

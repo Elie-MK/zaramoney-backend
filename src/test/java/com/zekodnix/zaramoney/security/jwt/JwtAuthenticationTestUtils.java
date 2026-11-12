@@ -56,6 +56,21 @@ public class JwtAuthenticationTestUtils {
         return encoder.encode(JwtEncoderParameters.from(jwsHeader, claims)).getTokenValue();
     }
 
+    /** A valid token bound to an existing session ({@code sid} claim), as issued by the login endpoint. */
+    public static String createValidTokenForSession(String jwtKey, String user, String sid) {
+        JwtEncoder encoder = jwtEncoder(jwtKey);
+        var now = Instant.now();
+        JwtClaimsSet claims = JwtClaimsSet.builder()
+            .issuedAt(now)
+            .expiresAt(now.plusSeconds(60))
+            .subject(user)
+            .claims(customClaim -> customClaim.put(AUTHORITIES_CLAIM, Collections.singletonList(ADMIN)))
+            .claim("sid", sid)
+            .build();
+        JwsHeader jwsHeader = JwsHeader.with(JWT_ALGORITHM).build();
+        return encoder.encode(JwtEncoderParameters.from(jwsHeader, claims)).getTokenValue();
+    }
+
     public static String createTokenWithDifferentSignature() {
         JwtEncoder encoder = jwtEncoder("Xfd54a45s65fds737b9aafcb3412e07ed99b267f33413274720ddbb7f6c5e64e9f14075f2d7ed041592f0b7657baf8");
 

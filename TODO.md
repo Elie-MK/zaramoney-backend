@@ -38,6 +38,7 @@ Legend: 🔴 Critical · 🟠 High · 🟡 Bug · 🔵 Improvement
 - [x] Purge the old values from git history (git-filter-repo / BFG; requires a force-push and every clone to re-clone), then add gitleaks to CI (add it after the purge, or it will flag history)
 
 ### 🟡 Test infrastructure (found while running Phase 1 tests)
+- [ ] `TechnicalStructureTest` (ArchUnit layering) reports 0 tests run, so the layer rules are never checked; existing code already breaks them (services use `web.rest.errors` and VMs). Decide: fix the engine setup and relax the rules, or delete the test
 - [ ] Testcontainers 1.20.6 (managed by Spring Boot 3.4.5) can't talk to Docker 29 ("client version 1.32 is too old"). Fix: pin `<testcontainers.version>1.21.4</testcontainers.version>` (or newer) in `pom.xml`. For now tests run with `./mvnw verify -Dtestcontainers.version=1.21.4`
 - [ ] 119 generated tests were already failing before the Phase 1 changes (verified on the original code). They fail on `JSON path "$.[*].createdAt"` (timestamp format/precision) in `BankAccountResourceIT`, `IdempotencyRecordResourceIT`, `LedgerEntryResourceIT` and `NotificationResourceIT`
 
@@ -100,7 +101,7 @@ Legend: 🔴 Critical · 🟠 High · 🟡 Bug · 🔵 Improvement
 ### 🟠 12. Exposure through config and endpoints — ✅ DONE
 - [x] `/management/prometheus` now requires ROLE_ADMIN (falls under `/management/**`). If Prometheus scrapes it, give the scraper an admin token or expose metrics on an internal port only
 - [x] `server.forward-headers-strategy: native` in prod so rate limits see the real client IP behind nginx
-- [ ] JWT validity is 24h, or 30 days with remember-me → replaced by the token design in item 13
+- [x] JWT validity is 24h, or 30 days with remember-me → replaced by the token design in item 13 (15-min tokens + refresh)
 
 ### 🚀 Deploying Phase 2 (checklist)
 - [ ] **Mobile app must ship together with the backend**, because the API changed:
@@ -112,121 +113,48 @@ Legend: 🔴 Critical · 🟠 High · 🟡 Bug · 🔵 Improvement
 - [ ] Liquibase runs automatically on startup (new columns `account_type`, `request_hash`, table `transaction_pin`, `NOT VALID` check constraint); the promo account is created at startup
 - [ ] After deploy: approve the KYC of users who should keep sending (existing users keep their current status)
 
-### 🟠 13. Refresh tokens, revocation and device binding (for mobile local authentication)
-Goal: the app uses local authentication (Face ID / fingerprint via `expo-local-authentication`) to unlock a refresh token kept in the device's secure storage. Any token can be revoked or blocked, and a copied token is useless on another device.
+### 🟠 13. Refresh tokens, revocation and device binding — ✅ DONE 2026-11-12 (backend), not yet deployed
+Decisions: device-key signature (ECDSA P-256) on every customer request; admins (Postman / web tool) are exempt but get a 15-min session without refresh token; rollout behind the `device-binding: optional|enforce` flag.
 
-**Token model**
-- [ ] Access token: JWT, short-lived (10–15 min). Add these claims:
-  - [ ] `sid`: session / refresh-token family ID
-  - [ ] `did`: device ID
-  - [ ] `jti`: unique token ID
-- [ ] Remove the 30-day `remember-me` validity (`token-validity-in-seconds-for-remember-me`)
-- [ ] Refresh token: opaque random value (≥ 256 bits, `SecureRandom`), **not** a JWT, returned only at login and on refresh
-- [ ] Store only the SHA-256 hash of the refresh token in the DB, never the raw value
-- [ ] New `refresh_token` / `user_session` table (Liquibase), with columns:
-  - [ ] `id`, `user_id`, `token_hash` (unique)
-  - [ ] `family_id` (= `sid`), `device_id`, `device_public_key`, `device_name`, `platform`
-  - [ ] `created_at`, `expires_at` (e.g. 30 days, sliding), `last_used_at`, `ip`, `user_agent`
-  - [ ] `revoked_at`, `revoke_reason`, `replaced_by_id`
+**What was built**
+- [x] Tables `user_session` (one per login = refresh-token family), `refresh_token` (SHA-256 hashes only, rotation chain) and `access_block` (blocked users / devices) — changeset `20261113000000_device_sessions.xml`
+- [x] Three session types: `DEVICE` (keys, signed requests, refresh tokens), `ADMIN` (no keys, 15 min, no refresh), `LEGACY` (old app, 24h token, no refresh; only in `optional` mode)
+- [x] Access token: 15 min, claims `sid`, `did`, `jti`. **Every access token must reference an active session**, checked on every request (`DeviceBindingFilter`) → revoking a session kills its access token immediately. Remember-me ignored
+- [x] Refresh token: 256-bit random, rotated on every refresh, 30 days (capped by the 90-day absolute session lifetime)
+- [x] Reuse detection: a rotated refresh token presented again after a 30 s grace → whole session revoked (409 `refresh_in_progress` inside the grace window for parallel refreshes). The refresh must be device-signed, so a stolen refresh token alone can neither refresh nor trigger the revocation
+- [x] Device binding: login proves possession of the device key (challenge signed); every request is signed (headers below); money operations also need the biometric transaction-key signature (`X-Tx-Signature`): `POST /send`, `POST /withdrawal`, `PUT /api/plus/security/pin`
+- [x] Replay protection: ±60 s timestamp window + nonce stored per session; the nonce is recorded only after a valid signature
+- [x] One session per device (re-login on the same device replaces it); max 5 devices per user (oldest revoked)
+- [x] Endpoints: `GET /api/auth/challenge`, `POST /api/auth/refresh`, `POST /api/auth/logout`, `POST /api/auth/transaction-key` (password + PIN, re-register the biometric key), `GET /api/account/sessions`, `DELETE /api/account/sessions/{sid}`, `POST /api/account/sessions/revoke-all[?keepCurrent=true]`
+- [x] Admin (`/api/admin/security`): `GET users/{login}/sessions`, `POST users/{login}/revoke-sessions`, `DELETE sessions/{sid}`, `POST|DELETE users/{login}/block`, `POST|DELETE devices/{deviceId}/block`
+- [x] Automatic revocation: password change (other devices), password reset (all), PIN change (other devices), PIN locked after 5 wrong PINs (all), refresh-token reuse (that session), user/device blocked (all)
+- [x] Daily purge of old refresh tokens (sessions are kept as audit trail)
+- [x] Rate limits: challenge and refresh 30/min/IP
+- [x] Tests: `DeviceSignatureTest` (7 unit), `DeviceSessionIT` (12 end-to-end with real keys and JWTs), `TokenAuthenticationIT` (token without/with unknown session refused)
 
-**Login: `POST /api/authenticate`**
-- [ ] The request also carries `deviceId` (a UUID generated once on first install and kept in SecureStore), `deviceName`, `platform` and `devicePublicKey` (see binding below)
-- [ ] The response returns `{ id_token / access_token, refresh_token, expires_in }`
-- [ ] Create a new session row for each login; on the same device, revoke that device's previous session
-- [ ] Optional: limit active devices per user (e.g. 3), and notify the user by push or email when a new device logs in
+**Mobile contract** (share with the app team)
+- Keys: two EC P-256 keys in Secure Enclave / Android Keystore, non-exportable. Device key: no user presence. Transaction key: biometric user presence. Public keys sent as base64 X.509 SubjectPublicKeyInfo (DER). Signatures: base64 DER (raw 64-byte r||s also accepted). Needs an Expo dev build with a native module (not Expo Go)
+- Login: `GET /api/auth/challenge` → `{nonce}`; `POST /api/authenticate {username, password, deviceId, deviceName, platform, devicePublicKey, transactionPublicKey, nonce, signature}` where `signature = sign_device("login\n" + nonce + "\n" + deviceId + "\n" + username)` → `{access_token, id_token, expires_in, refresh_token, refresh_expires_in, session_id, session_type}`
+- Every authenticated request and `/api/auth/refresh`: headers `X-Device-Id`, `X-Timestamp` (epoch ms), `X-Nonce` (UUID), `X-Signature = sign_device(canonical)`, where
+  `canonical = METHOD + "\n" + PATH[?QUERY] + "\n" + X-Timestamp + "\n" + X-Nonce + "\n" + X-Device-Id + "\n" + base64(SHA-256(raw body bytes))` (empty body → hash of empty bytes; multipart → the literal `MULTIPART`)
+- Money operations add `X-Tx-Signature = sign_transaction(canonical)` (biometric prompt)
+- Refresh: `POST /api/auth/refresh {"refresh_token": "..."}` (signed, no Authorization header). Store the refresh token in `expo-secure-store` with `requireAuthentication: true`
+- Error codes (401 unless noted): `device_signature_missing`, `device_signature_invalid`, `device_signature_expired` (+ `serverTime` to fix clock skew), `device_nonce_reused`, `device_mismatch`, `transaction_signature_invalid`, `session_invalid`, `session_revoked`, `challenge_invalid`, `refresh_token_invalid|expired|reused`, 409 `refresh_in_progress`, 403 `account_blocked` / `device_blocked`, 400 `device_binding_required` (enforce mode, old app)
+- After a new fingerprint is enrolled (transaction key invalidated): `POST /api/auth/transaction-key {transactionPublicKey, password, pin}` (device-signed)
 
-**Refresh: `POST /api/auth/refresh`** (public endpoint, rate-limited)
-- [ ] Body: `refresh_token`. Headers: `X-Device-Id`, plus the device signature (see binding)
-- [ ] Check that the token hash exists, is not expired or revoked, belongs to the same `device_id` and that the user is still active / not locked
-- [ ] **Rotation:** each refresh issues a new refresh token and marks the old one used (`replaced_by_id`)
-- [ ] **Reuse detection:** if a token that was already rotated is presented again, it has been stolen → revoke the **whole family** (all tokens with that `sid`), and log and alert
-- [ ] Handle races: two parallel refreshes from the same app must not trigger a false reuse alarm (short grace window, or row lock on the token)
+**Deploying item 13**
+- [ ] Deploy with `DEVICE_BINDING_MODE=optional` (default). **All existing tokens become invalid** (they have no `sid`): everyone logs in once more
+- [ ] Ship the app version that implements the contract above
+- [ ] When (almost) all users run it, set `DEVICE_BINDING_MODE=enforce` and restart
+- [ ] Admins: log in without device fields (15-min session, log in again when it expires)
+- [ ] Single instance only: challenges, nonces and rate-limit counters are in memory. With several instances, move them to Redis
 
-**Device binding: device-key signature (DECIDED 2026-11-11)**
-Proof of possession: every authenticated request and every refresh must be signed by a private key that never leaves the phone. A stolen access or refresh token is useless without that key. This replaces the simpler "device-ID header only" check.
-
-*Keys (generated on the phone, non-exportable)*
-- [ ] Algorithm: **ECDSA P-256 / SHA-256** (`SHA256withECDSA`), the only curve the iOS Secure Enclave supports; Android Keystore supports it too (StrongBox when available)
-- [ ] **Device key**: no user-presence requirement; signs every API request and refresh
-- [ ] **Transaction key**: created with biometric user presence required (Face ID / fingerprint); signs only money operations (`/send`, `/withdrawal`, PIN change, adding a device), so each money operation shows a biometric prompt while normal calls don't
-- [ ] The public keys are sent as base64 **X.509 SubjectPublicKeyInfo (DER)**. The server parses them with `KeyFactory.getInstance("EC")` + `X509EncodedKeySpec`, rejects any curve other than P-256, and stores them on the session (`device_public_key`, `transaction_public_key`)
-- [ ] Mobile note: Expo Go can't do this; it needs a dev build with a native module that uses the Secure Enclave / Keystore (e.g. `react-native-biometrics` or a custom Expo module). `expo-secure-store` only holds the refresh token and `deviceId`
-
-*Registering the keys at login (proves the key exists, not just a pasted string)*
-- [ ] `GET /api/auth/challenge` (public, rate-limited) → `{ nonce, expiresAt }`, single use, stored in the cache with a 2-minute TTL
-- [ ] `POST /api/authenticate` body: `username`, `password`, `deviceId`, `deviceName`, `platform`, `devicePublicKey`, `transactionPublicKey`, `nonce`, `signature`. The signature is made with the device key over `"login\n" + nonce + "\n" + deviceId + "\n" + username`
-- [ ] The server checks the password, consumes the nonce, verifies the signature with `devicePublicKey`, then creates the session holding both public keys and returns the access and refresh tokens
-- [ ] On the same `deviceId`, a new login replaces the old keys and session (old session revoked)
-
-*Request signing (every authenticated call + `/api/auth/refresh` + `/api/auth/logout`)*
-- [ ] Headers:
-  - [ ] `X-Device-Id`
-  - [ ] `X-Timestamp` (epoch millis)
-  - [ ] `X-Nonce` (UUID v4)
-  - [ ] `X-Signature` (base64 DER ECDSA signature)
-  - [ ] Money operations add `X-Tx-Signature` (signed by the transaction key)
-- [ ] Canonical string to sign (UTF-8, `\n`-separated, defined once and shared with the mobile team):
-  ```
-  METHOD
-  PATH?QUERY            (exact path + raw query string, e.g. /api/plus/transaction-records/send)
-  X-Timestamp
-  X-Nonce
-  X-Device-Id
-  base64(SHA-256(raw request body))   (hash of an empty string when there is no body)
-  ```
-- [ ] New `DeviceSignatureFilter`, placed after JWT authentication in `SecurityConfiguration`:
-  - [ ] Load the session via the JWT `sid` claim (for refresh: via the refresh-token hash)
-  - [ ] Check that the session is active and that `X-Device-Id` == `did` claim == `session.device_id`
-  - [ ] Reject the timestamp if it is outside ±60 s of server time; return the server time in the error so the app can correct clock skew
-  - [ ] Reject a reused nonce: store `(sid, nonce)` in the cache with TTL = 2 × the time window
-  - [ ] Verify `X-Signature` with the session's device public key over the canonical string
-  - [ ] Read the body through a caching request wrapper (`ContentCachingRequestWrapper` is not enough before the controller; use a custom wrapper that buffers the body) so the hash matches the bytes the controller receives
-  - [ ] For `/send`, `/withdrawal` and PIN or device changes, also verify `X-Tx-Signature` with the transaction public key
-  - [ ] Any failure → 401 with a specific error code (`device_signature_invalid`, `device_signature_expired`, `device_nonce_reused`, `device_mismatch`); count failures in metrics and log them for fraud review
-- [ ] Endpoints exempt from signing: `/api/auth/challenge`, `/api/authenticate`, `/api/register`, `/api/activate`, `/api/account/reset-password/*`, public `/management/health`
-- [ ] Multipart upload (`/api/user-account/create`): hash the raw multipart body the same way, or sign the SHA-256 of each file plus the fields; decide and document the choice
-
-*Lifecycle*
-- [ ] Lost or stolen phone: revoking the session from another device or by an admin also invalidates its keys
-- [ ] Reinstalling the app or a keystore reset produces new keys, so the user must log in again (expected behaviour)
-- [ ] Changing biometrics (new fingerprint added) invalidates the biometric-bound transaction key on iOS/Android → the app must detect it and re-register the key after password + PIN check (`POST /api/auth/transaction-key`, signed with the device key)
-- [ ] Optional, later: Play Integrity / App Attest at login to prove requests come from the genuine app
-
-**Revocation / blocking**
-- [ ] Revoking a session (`revoked_at`) must also kill its access tokens right away:
-  - [ ] Keep a revoked-`sid` deny-list in the cache (Ehcache / Redis) with TTL = access-token lifetime, checked in the JWT filter
-  - [ ] Alternative: a `token_version` on the user, embedded in the JWT and compared on each request
-- [ ] User endpoints:
-  - [ ] `POST /api/auth/logout` → revoke the current session
-  - [ ] `GET /api/account/sessions` → list devices (name, platform, last used, current one)
-  - [ ] `DELETE /api/account/sessions/{id}` → log out a specific device
-  - [ ] `POST /api/account/sessions/revoke-all` → log out everywhere
-- [ ] Admin endpoints (`/api/admin/**`):
-  - [ ] Revoke one session or all sessions of a user
-  - [ ] Block or unblock a user (block = revoke everything and refuse login and refresh)
-  - [ ] Block a device ID
-- [ ] Automatically revoke all sessions on:
-  - [ ] Password change / reset
-  - [ ] PIN change
-  - [ ] Account lock after too many failed attempts
-  - [ ] Account frozen / closed
-  - [ ] Detected token reuse
-- [ ] Scheduled job to purge expired and revoked tokens (keep an audit trail)
-
-**Local authentication flow (mobile side, for reference)**
-- [ ] Store the refresh token in `expo-secure-store` with `requireAuthentication: true`, so biometrics are needed to read it
-- [ ] App start → biometric prompt → read the refresh token → `/api/auth/refresh` → new access token
-- [ ] Biometrics only unlock the device; the server never sees them. For money operations still require the transaction PIN, or a device-key signature with user presence (item 10)
-- [ ] Fall back to email + password login when biometrics fail or the refresh token is revoked or expired
-
-**Tests**
-- [ ] Login returns both tokens
-- [ ] Refresh rotates the refresh token
-- [ ] Reusing an old refresh token revokes the whole family
-- [ ] A token used with a different device ID (or a bad signature) is rejected
-- [ ] A revoked session's access token is rejected before it expires
-- [ ] A blocked user can't log in or refresh
-- [ ] A password change kills all sessions
+**Left for later**
+- [ ] Notify the user (push / email) when a new device logs in, and on blocks / KYC decisions
+- [ ] Count signature failures in Prometheus metrics (currently WARN logs only)
+- [ ] Revoke sessions when an account is frozen/closed (no status-change flow exists yet; Phase 3)
+- [ ] Play Integrity / App Attest at login
+- [ ] Use a monotonic clock in `RateLimiter` (WSL/NTP wall-clock jumps reset the windows)
 
 ---
 

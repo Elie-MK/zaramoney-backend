@@ -1,33 +1,17 @@
 package com.zekodnix.zaramoney.security.jwt;
 
-import com.zekodnix.zaramoney.config.SecurityConfiguration;
-import com.zekodnix.zaramoney.config.SecurityJwtConfiguration;
-import com.zekodnix.zaramoney.config.WebConfigurer;
-import com.zekodnix.zaramoney.management.SecurityMetersService;
-import com.zekodnix.zaramoney.web.rest.AuthenticateController;
+import com.zekodnix.zaramoney.IntegrationTest;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
-import org.springframework.boot.test.context.SpringBootTest;
-import tech.jhipster.config.JHipsterProperties;
 
+/*
+ * Full application context: since TODO.md item 13 every access token is checked against its session in the database
+ * (DeviceBindingFilter), so the security chain cannot run in a slim context without JPA anymore.
+ */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
-@SpringBootTest(
-    properties = {
-        "jhipster.security.authentication.jwt.base64-secret=fd54a45s65fds737b9aafcb3412e07ed99b267f33413274720ddbb7f6c5e64e9f14075f2d7ed041592f0b7657baf8",
-        "jhipster.security.authentication.jwt.token-validity-in-seconds=60000",
-    },
-    classes = {
-        JHipsterProperties.class,
-        WebConfigurer.class,
-        SecurityConfiguration.class,
-        SecurityJwtConfiguration.class,
-        SecurityMetersService.class,
-        AuthenticateController.class,
-        JwtAuthenticationTestUtils.class,
-    }
-)
+@IntegrationTest
 public @interface AuthenticationIntegrationTest {
 }

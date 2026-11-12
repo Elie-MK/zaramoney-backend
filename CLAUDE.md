@@ -51,6 +51,14 @@ Entities: `User` (login = email), `UserDetailsAccount` (KYC, phone, isAgent, exp
 ## Security config
 `config/SecurityConfiguration.java`: `/api/admin/**` → ROLE_ADMIN. The 8 JHipster-generated CRUD paths (`/api/bank-accounts/**`, `/api/transaction-records/**`, `/api/ledger-entries/**`, `/api/transaction-fees/**`, `/api/transaction-limits/**`, `/api/idempotency-records/**`, `/api/notifications/**`, `/api/user-details-accounts/**`) → ROLE_ADMIN, both by URL rule and by class-level `@PreAuthorize`; `AdminOnlyCrudResourcesIT` guards this. The nested customer paths `/api/bank-accounts/plus/**` and `/api/ledger-entries/plus/**` are matched first and stay authenticated-only. Everything else under `/api/**` → just authenticated. Put new customer endpoints under `/api/plus/...` and check ownership in the service; when adding a matcher, keep the specific `/plus` rules before the admin-only CRUD rules. `GET /api/users` and `/management/prometheus` are admin-only. `RateLimitFilter` runs right after JWT authentication.
 
+## Authentication & sessions (TODO.md item 13)
+- Login `POST /api/authenticate` → `SessionService.login` creates a `UserSession` (`DEVICE` with keys / `ADMIN` / `LEGACY`) and returns `AuthTokensDTO`. Access tokens come from `AccessTokenService` (claims `sid`, `did`, `jti`); never mint JWTs elsewhere
+- `web/filter/DeviceBindingFilter` (after JWT auth + rate limit): every JWT must have an active `sid`; DEVICE sessions must sign each request (`security/device/DeviceSignatureVerifier`, `CanonicalRequest`); `TRANSACTION_SIGNED` lists the endpoints needing the biometric `X-Tx-Signature` — add new money endpoints there
+- Refresh `POST /api/auth/refresh` (public; body buffered by the filter, verified in `SessionService.refresh`): rotation + reuse detection
+- Revoke sessions by publishing `RevokeUserSessionsEvent` (keeps services decoupled from `SessionService`)
+- Rollout flag `application.security.sessions.device-binding` (`DEVICE_BINDING_MODE` env, `optional`|`enforce`)
+- Tests: `MockMvc` with `user(...)`/`@WithMockUser` skips the device filter (not a JWT). To test the real chain, use real JWTs + `TestDeviceKey` like `DeviceSessionIT`
+
 ## Deployment
 `.github/workflows/deploy.yml`: push to `develop` → build `-Pprod -DskipTests` → scp the jar to `/opt/zaramoney/` → `systemctl restart zaramoney`. `develop` is the main branch.
 
@@ -62,3 +70,5 @@ See **`TODO.md`** — the prioritized list of security issues and bugs from the 
 - Any change to money movement needs: row locking, idempotency, a balanced ledger, and tests (including concurrency).
 - Schema changes go through new Liquibase changesets — never edit an already-applied changelog.
 - Never commit changes unless i ask you to do so.
+- Everytime you add new entity, you should add it also in jdl file
+- Create file called mobile guide integration if doesn't exist and you going to add all information about the mobile integration needed after any changes you going to add, this file must to be well documented

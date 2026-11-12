@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!-- TODO.md item 13: sessions, rotating refresh tokens, device-key binding, blocks. -->
+
+    <!-- One row per login (= refresh-token family). Every access token carries its sid. -->
+    <changeSet id="20261113000000-1" author="zaramoney">
+        <createTable tableName="user_session">
+            <column name="id" type="bigint">
+                <constraints primaryKey="true" nullable="false" />
+            </column>
+            <column name="sid" type="varchar(36)">
+                <constraints nullable="false" unique="true" uniqueConstraintName="ux_user_session__sid" />
+            </column>
+            <column name="user_id" type="bigint">
+                <constraints nullable="false" />
+            </column>
+            <!-- DEVICE (signed requests + refresh tokens), ADMIN (no device key, short token), LEGACY (old app, optional mode only) -->
+            <column name="session_type" type="varchar(20)">
+                <constraints nullable="false" />
+            </column>
+            <column name="device_id" type="varchar(64)" />
+            <column name="device_name" type="varchar(100)" />
+            <column name="platform" type="varchar(20)" />
+            <column name="device_public_key" type="varchar(512)" />
+            <column name="transaction_public_key" type="varchar(512)" />
+            <column name="ip" type="varchar(64)" />
+            <column name="user_agent" type="varchar(255)" />
+            <column name="created_at" type="${datetimeType}">
+                <constraints nullable="false" />
+            </column>
+            <column name="last_used_at" type="${datetimeType}" />
+            <!-- absolute end of the session: a password login is required after it -->
+            <column name="expires_at" type="${datetimeType}">
+                <constraints nullable="false" />
+            </column>
+            <column name="revoked_at" type="${datetimeType}" />
+            <column name="revoke_reason" type="varchar(50)" />
+        </createTable>
+        <addForeignKeyConstraint baseColumnNames="user_id" baseTableName="user_session" constraintName="fk_user_session__user_id"
+            referencedColumnNames="id" referencedTableName="jhi_user" />
+        <createIndex tableName="user_session" indexName="ix_user_session__user_id">
+            <column name="user_id" />
+        </createIndex>
+        <createIndex tableName="user_session" indexName="ix_user_session__device_id">
+            <column name="device_id" />
+        </createIndex>
+    </changeSet>
+
+    <!-- Rotating refresh tokens: only the SHA-256 of the token is stored. -->
+    <changeSet id="20261113000000-2" author="zaramoney">
+        <createTable tableName="refresh_token">
+            <column name="id" type="bigint">
+                <constraints primaryKey="true" nullable="false" />
+            </column>
+            <column name="session_id" type="bigint">
+                <constraints nullable="false" />
+            </column>
+            <column name="token_hash" type="varchar(64)">
+                <constraints nullable="false" unique="true" uniqueConstraintName="ux_refresh_token__token_hash" />
+            </column>
+            <column name="created_at" type="${datetimeType}">
+                <constraints nullable="false" />
+            </column>
+            <column name="expires_at" type="${datetimeType}">
+                <constraints nullable="false" />
+            </column>
+            <column name="used_at" type="${datetimeType}" />
+            <column name="replaced_by_id" type="bigint" />
+        </createTable>
+        <addForeignKeyConstraint baseColumnNames="session_id" baseTableName="refresh_token" constraintName="fk_refresh_token__session_id"
+            referencedColumnNames="id" referencedTableName="user_session" />
+        <createIndex tableName="refresh_token" indexName="ix_refresh_token__session_id">
+            <column name="session_id" />
+        </createIndex>
+    </changeSet>
+
+    <!-- Blocked users (by login) and blocked devices (by device id). -->
+    <changeSet id="20261113000000-3" author="zaramoney">
+        <createTable tableName="access_block">
+            <column name="id" type="bigint">
+                <constraints primaryKey="true" nullable="false" />
+            </column>
+            <column name="block_type" type="varchar(20)">
+                <constraints nullable="false" />
+            </column>
+            <column name="block_value" type="varchar(100)">
+                <constraints nullable="false" />
+            </column>
+            <column name="reason" type="varchar(255)" />
+            <column name="created_by" type="varchar(100)" />
+            <column name="created_at" type="${datetimeType}">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+        <addUniqueConstraint tableName="access_block" columnNames="block_type, block_value" constraintName="ux_access_block__type_value" />
+    </changeSet>
+</databaseChangeLog>

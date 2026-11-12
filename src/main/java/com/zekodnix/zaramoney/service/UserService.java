@@ -7,6 +7,7 @@ import com.zekodnix.zaramoney.repository.AuthorityRepository;
 import com.zekodnix.zaramoney.repository.UserRepository;
 import com.zekodnix.zaramoney.security.AuthoritiesConstants;
 import com.zekodnix.zaramoney.security.SecurityUtils;
+import com.zekodnix.zaramoney.security.device.RevokeUserSessionsEvent;
 import com.zekodnix.zaramoney.service.dto.AdminUserDTO;
 import com.zekodnix.zaramoney.service.dto.UserDTO;
 import com.zekodnix.zaramoney.web.rest.vm.TransactionRecordVM;
@@ -17,6 +18,7 @@ import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cache.CacheManager;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -42,16 +44,20 @@ public class UserService {
 
     private final CacheManager cacheManager;
 
+    private final ApplicationEventPublisher eventPublisher;
+
     public UserService(
         UserRepository userRepository,
         PasswordEncoder passwordEncoder,
         AuthorityRepository authorityRepository,
-        CacheManager cacheManager
+        CacheManager cacheManager,
+        ApplicationEventPublisher eventPublisher
     ) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.authorityRepository = authorityRepository;
         this.cacheManager = cacheManager;
+        this.eventPublisher = eventPublisher;
     }
 
     public Optional<User> activateRegistration(String key) {
@@ -78,6 +84,8 @@ public class UserService {
                 user.setResetKey(null);
                 user.setResetDate(null);
                 this.clearUserCaches(user);
+                // Password reset: log out every device (TODO.md item 13)
+                eventPublisher.publishEvent(new RevokeUserSessionsEvent(user.getId(), null, "password_reset"));
                 return user;
             });
     }
@@ -267,6 +275,10 @@ public class UserService {
                 String encryptedPassword = passwordEncoder.encode(newPassword);
                 user.setPassword(encryptedPassword);
                 this.clearUserCaches(user);
+                // Password change: log out every other device, keep the one that made the change
+                eventPublisher.publishEvent(
+                    new RevokeUserSessionsEvent(user.getId(), SecurityUtils.getCurrentSessionId().orElse(null), "password_changed")
+                );
                 LOG.debug("Changed password for User: {}", user);
             });
     }

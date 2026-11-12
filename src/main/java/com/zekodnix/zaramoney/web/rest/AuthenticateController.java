@@ -1,21 +1,14 @@
 package com.zekodnix.zaramoney.web.rest;
 
-import static com.zekodnix.zaramoney.security.SecurityUtils.AUTHORITIES_CLAIM;
-import static com.zekodnix.zaramoney.security.SecurityUtils.JWT_ALGORITHM;
-import static com.zekodnix.zaramoney.security.SecurityUtils.USER_ID_CLAIM;
-
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.zekodnix.zaramoney.security.DomainUserDetailsService.UserWithId;
 import com.zekodnix.zaramoney.security.ratelimit.LoginAttemptService;
+import com.zekodnix.zaramoney.service.SessionService;
+import com.zekodnix.zaramoney.service.dto.AuthTokensDTO;
 import com.zekodnix.zaramoney.web.rest.vm.LoginVM;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.security.Principal;
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -23,16 +16,15 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
-import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.oauth2.jwt.JwsHeader;
-import org.springframework.security.oauth2.jwt.JwtClaimsSet;
-import org.springframework.security.oauth2.jwt.JwtEncoder;
-import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
 import org.springframework.web.bind.annotation.*;
 
 /**
- * Controller to authenticate users.
+ * Login. Creates a session (TODO.md item 13):
+ * <ul>
+ *   <li>with device fields (deviceId, keys, challenge nonce and signature) → DEVICE session: access + refresh token;</li>
+ *   <li>admin without device fields → ADMIN session: short access token only;</li>
+ *   <li>customer without device fields → LEGACY session (only while device binding is OPTIONAL).</li>
+ * </ul>
  */
 @RestController
 @RequestMapping("/api")
@@ -40,30 +32,22 @@ public class AuthenticateController {
 
     private static final Logger LOG = LoggerFactory.getLogger(AuthenticateController.class);
 
-    private final JwtEncoder jwtEncoder;
-
-    @Value("${jhipster.security.authentication.jwt.token-validity-in-seconds:0}")
-    private long tokenValidityInSeconds;
-
-    @Value("${jhipster.security.authentication.jwt.token-validity-in-seconds-for-remember-me:0}")
-    private long tokenValidityInSecondsForRememberMe;
-
     private final AuthenticationManagerBuilder authenticationManagerBuilder;
-
     private final LoginAttemptService loginAttemptService;
+    private final SessionService sessionService;
 
     public AuthenticateController(
-        JwtEncoder jwtEncoder,
         AuthenticationManagerBuilder authenticationManagerBuilder,
-        LoginAttemptService loginAttemptService
+        LoginAttemptService loginAttemptService,
+        SessionService sessionService
     ) {
-        this.jwtEncoder = jwtEncoder;
         this.authenticationManagerBuilder = authenticationManagerBuilder;
         this.loginAttemptService = loginAttemptService;
+        this.sessionService = sessionService;
     }
 
     @PostMapping("/authenticate")
-    public ResponseEntity<JWTToken> authorize(@Valid @RequestBody LoginVM loginVM) {
+    public ResponseEntity<AuthTokensDTO> authorize(@Valid @RequestBody LoginVM loginVM, HttpServletRequest request) {
         UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(
             loginVM.getUsername(),
             loginVM.getPassword()
@@ -78,11 +62,11 @@ public class AuthenticateController {
             throw e;
         }
         loginAttemptService.loginSucceeded(loginVM.getUsername());
-        SecurityContextHolder.getContext().setAuthentication(authentication);
-        String jwt = this.createToken(authentication, loginVM.isRememberMe());
+
+        AuthTokensDTO tokens = sessionService.login(authentication.getName(), loginVM, request);
         HttpHeaders httpHeaders = new HttpHeaders();
-        httpHeaders.setBearerAuth(jwt);
-        return new ResponseEntity<>(new JWTToken(jwt), httpHeaders, HttpStatus.OK);
+        httpHeaders.setBearerAuth(tokens.accessToken());
+        return new ResponseEntity<>(tokens, httpHeaders, HttpStatus.OK);
     }
 
     /**
@@ -95,51 +79,5 @@ public class AuthenticateController {
     public ResponseEntity<Void> isAuthenticated(Principal principal) {
         LOG.debug("REST request to check if the current user is authenticated");
         return ResponseEntity.status(principal == null ? HttpStatus.UNAUTHORIZED : HttpStatus.NO_CONTENT).build();
-    }
-
-    public String createToken(Authentication authentication, boolean rememberMe) {
-        String authorities = authentication.getAuthorities().stream().map(GrantedAuthority::getAuthority).collect(Collectors.joining(" "));
-
-        Instant now = Instant.now();
-        Instant validity;
-        if (rememberMe) {
-            validity = now.plus(this.tokenValidityInSecondsForRememberMe, ChronoUnit.SECONDS);
-        } else {
-            validity = now.plus(this.tokenValidityInSeconds, ChronoUnit.SECONDS);
-        }
-
-        // @formatter:off
-        JwtClaimsSet.Builder builder = JwtClaimsSet.builder()
-            .issuedAt(now)
-            .expiresAt(validity)
-            .subject(authentication.getName())
-            .claim(AUTHORITIES_CLAIM, authorities);
-        if (authentication.getPrincipal() instanceof UserWithId user) {
-            builder.claim(USER_ID_CLAIM, user.getId());
-        }
-
-        JwsHeader jwsHeader = JwsHeader.with(JWT_ALGORITHM).build();
-        return this.jwtEncoder.encode(JwtEncoderParameters.from(jwsHeader, builder.build())).getTokenValue();
-    }
-
-    /**
-     * Object to return as body in JWT Authentication.
-     */
-    static class JWTToken {
-
-        private String idToken;
-
-        JWTToken(String idToken) {
-            this.idToken = idToken;
-        }
-
-        @JsonProperty("id_token")
-        String getIdToken() {
-            return idToken;
-        }
-
-        void setIdToken(String idToken) {
-            this.idToken = idToken;
-        }
     }
 }

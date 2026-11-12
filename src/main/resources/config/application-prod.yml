@@ -127,6 +127,14 @@ jhipster:
 
 # application:
 application:
+  security:
+    sessions:
+      # optional: old app versions (no device key) can still log in (LEGACY session, 24h token, no refresh token).
+      # enforce: every customer session must be device-bound. Switch once all users run the new app version.
+      device-binding: ${DEVICE_BINDING_MODE:optional}
+      access-token-validity-seconds: 900 # DEVICE and ADMIN sessions
+      refresh-token-validity-days: 30
+      session-max-lifetime-days: 90
   cloudinary:
     cloud_name: ${CLOUDINARY_CLOUD_NAME}
     api_key: ${CLOUDINARY_API_KEY}

@@ -5,6 +5,10 @@ import static org.springframework.security.config.Customizer.withDefaults;
 import com.zekodnix.zaramoney.security.*;
 import com.zekodnix.zaramoney.security.ratelimit.RateLimitFilter;
 import com.zekodnix.zaramoney.security.ratelimit.RateLimiter;
+import com.zekodnix.zaramoney.security.device.DeviceSignatureVerifier;
+import com.zekodnix.zaramoney.service.SessionService;
+import com.zekodnix.zaramoney.web.filter.DeviceBindingFilter;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -28,15 +32,21 @@ public class SecurityConfiguration {
     private final JHipsterProperties jHipsterProperties;
     private final ApplicationProperties applicationProperties;
     private final RateLimiter rateLimiter;
+    private final SessionService sessionService;
+    private final DeviceSignatureVerifier deviceSignatureVerifier;
 
     public SecurityConfiguration(
         JHipsterProperties jHipsterProperties,
         ApplicationProperties applicationProperties,
-        RateLimiter rateLimiter
+        RateLimiter rateLimiter,
+        @Lazy SessionService sessionService,
+        DeviceSignatureVerifier deviceSignatureVerifier
     ) {
         this.jHipsterProperties = jHipsterProperties;
         this.applicationProperties = applicationProperties;
         this.rateLimiter = rateLimiter;
+        this.sessionService = sessionService;
+        this.deviceSignatureVerifier = deviceSignatureVerifier;
     }
 
     @Bean
@@ -54,6 +64,9 @@ public class SecurityConfiguration {
                 authz
                     .requestMatchers(mvc.pattern(HttpMethod.POST, "/api/authenticate")).permitAll()
                     .requestMatchers(mvc.pattern(HttpMethod.GET, "/api/authenticate")).permitAll()
+                    // Login challenge, and refresh (authenticated by the refresh token + device signature, not by a JWT)
+                    .requestMatchers(mvc.pattern(HttpMethod.GET, "/api/auth/challenge")).permitAll()
+                    .requestMatchers(mvc.pattern(HttpMethod.POST, "/api/auth/refresh")).permitAll()
                     .requestMatchers(mvc.pattern("/api/register")).permitAll()
                     .requestMatchers(mvc.pattern("/api/activate")).permitAll()
                     .requestMatchers(mvc.pattern("/api/account/reset-password/init")).permitAll()
@@ -93,7 +106,9 @@ public class SecurityConfiguration {
             .addFilterAfter(
                 new RateLimitFilter(rateLimiter, applicationProperties.getSecurity().isRateLimitEnabled()),
                 BearerTokenAuthenticationFilter.class
-            );
+            )
+            // Session must be active; DEVICE sessions must sign every request (TODO.md item 13)
+            .addFilterAfter(new DeviceBindingFilter(sessionService, deviceSignatureVerifier, applicationProperties), RateLimitFilter.class);
         return http.build();
     }
 

@@ -4,12 +4,15 @@ import com.zekodnix.zaramoney.domain.TransactionPin;
 import com.zekodnix.zaramoney.domain.User;
 import com.zekodnix.zaramoney.repository.TransactionPinRepository;
 import com.zekodnix.zaramoney.repository.UserRepository;
+import com.zekodnix.zaramoney.security.SecurityUtils;
+import com.zekodnix.zaramoney.security.device.RevokeUserSessionsEvent;
 import com.zekodnix.zaramoney.web.rest.errors.ApiException;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.regex.Pattern;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -32,6 +35,7 @@ public class TransactionPinService {
     private final TransactionPinRepository transactionPinRepository;
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final ApplicationEventPublisher eventPublisher;
     /** Runs the PIN check in its own transaction: the failed-attempt counter must be saved even if the transfer rolls back. */
     private final TransactionTemplate requiresNew;
     private Clock clock = Clock.systemUTC();
@@ -40,11 +44,13 @@ public class TransactionPinService {
         TransactionPinRepository transactionPinRepository,
         UserRepository userRepository,
         PasswordEncoder passwordEncoder,
-        PlatformTransactionManager transactionManager
+        PlatformTransactionManager transactionManager,
+        ApplicationEventPublisher eventPublisher
     ) {
         this.transactionPinRepository = transactionPinRepository;
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
+        this.eventPublisher = eventPublisher;
         this.requiresNew = new TransactionTemplate(transactionManager);
         this.requiresNew.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
     }
@@ -80,6 +86,8 @@ public class TransactionPinService {
         pin.setLockedUntil(null);
         pin.setUpdatedAt(Instant.now(clock));
         transactionPinRepository.save(pin);
+        // PIN changed: log out the other devices (keep the one that changed it)
+        eventPublisher.publishEvent(new RevokeUserSessionsEvent(user.getId(), SecurityUtils.getCurrentSessionId().orElse(null), "pin_changed"));
     }
 
     /**
@@ -132,6 +140,8 @@ public class TransactionPinService {
         if (failed >= MAX_FAILED_ATTEMPTS) {
             lockedUntil = now.plus(LOCK_DURATION);
             failed = 0;
+            // Someone may be guessing the PIN with a stolen session: log out every device (committed with the counter)
+            eventPublisher.publishEvent(new RevokeUserSessionsEvent(userId, null, "pin_locked"));
         }
         pin.setFailedAttempts(failed);
         pin.setLockedUntil(lockedUntil);

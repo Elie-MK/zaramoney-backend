@@ -97,6 +97,17 @@ public class ExceptionTranslator extends ResponseEntityExceptionHandler {
             ex instanceof com.zekodnix.zaramoney.service.InvalidPasswordException
         ) return (ProblemDetailWithCause) new InvalidPasswordException().getBody();
 
+        if (ex instanceof com.zekodnix.zaramoney.security.device.DeviceAuthException d) {
+            ProblemDetailWithCause pd = ProblemDetailWithCauseBuilder.instance()
+                .withStatus(d.getStatus().value())
+                .withTitle(d.getMessage())
+                .withDetail(d.getMessage())
+                .withProperty(MESSAGE_KEY, "error." + d.getCode())
+                .build();
+            if (d.getServerTime() != null) pd.setProperty("serverTime", d.getServerTime().toEpochMilli());
+            return pd;
+        }
+
         if (
             ex instanceof ErrorResponseException exp && exp.getBody() instanceof ProblemDetailWithCause problemDetailWithCause
         ) return problemDetailWithCause;
@@ -168,6 +179,7 @@ public class ExceptionTranslator extends ResponseEntityExceptionHandler {
     }
 
     private HttpStatus toStatus(final Throwable throwable) {
+        if (throwable instanceof com.zekodnix.zaramoney.security.device.DeviceAuthException d) return d.getStatus();
         // Let the ErrorResponse take this responsibility
         if (throwable instanceof ErrorResponse err) return HttpStatus.valueOf(err.getBody().getStatus());
 
