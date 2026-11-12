@@ -140,116 +140,6 @@ class LedgerEntryResourceIT {
 
     @Test
     @Transactional
-    void createLedgerEntry() throws Exception {
-        long databaseSizeBeforeCreate = getRepositoryCount();
-        // Create the LedgerEntry
-        LedgerEntryDTO ledgerEntryDTO = ledgerEntryMapper.toDto(ledgerEntry);
-        var returnedLedgerEntryDTO = om.readValue(
-            restLedgerEntryMockMvc
-                .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(ledgerEntryDTO)))
-                .andExpect(status().isCreated())
-                .andReturn()
-                .getResponse()
-                .getContentAsString(),
-            LedgerEntryDTO.class
-        );
-
-        // Validate the LedgerEntry in the database
-        assertIncrementedRepositoryCount(databaseSizeBeforeCreate);
-        var returnedLedgerEntry = ledgerEntryMapper.toEntity(returnedLedgerEntryDTO);
-        assertLedgerEntryUpdatableFieldsEquals(returnedLedgerEntry, getPersistedLedgerEntry(returnedLedgerEntry));
-
-        insertedLedgerEntry = returnedLedgerEntry;
-    }
-
-    @Test
-    @Transactional
-    void createLedgerEntryWithExistingId() throws Exception {
-        // Create the LedgerEntry with an existing ID
-        ledgerEntry.setId(1L);
-        LedgerEntryDTO ledgerEntryDTO = ledgerEntryMapper.toDto(ledgerEntry);
-
-        long databaseSizeBeforeCreate = getRepositoryCount();
-
-        // An entity with an existing ID cannot be created, so this API call must fail
-        restLedgerEntryMockMvc
-            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(ledgerEntryDTO)))
-            .andExpect(status().isBadRequest());
-
-        // Validate the LedgerEntry in the database
-        assertSameRepositoryCount(databaseSizeBeforeCreate);
-    }
-
-    @Test
-    @Transactional
-    void checkAmountIsRequired() throws Exception {
-        long databaseSizeBeforeTest = getRepositoryCount();
-        // set the field null
-        ledgerEntry.setAmount(null);
-
-        // Create the LedgerEntry, which fails.
-        LedgerEntryDTO ledgerEntryDTO = ledgerEntryMapper.toDto(ledgerEntry);
-
-        restLedgerEntryMockMvc
-            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(ledgerEntryDTO)))
-            .andExpect(status().isBadRequest());
-
-        assertSameRepositoryCount(databaseSizeBeforeTest);
-    }
-
-    @Test
-    @Transactional
-    void checkCurrencyIsRequired() throws Exception {
-        long databaseSizeBeforeTest = getRepositoryCount();
-        // set the field null
-        ledgerEntry.setCurrency(null);
-
-        // Create the LedgerEntry, which fails.
-        LedgerEntryDTO ledgerEntryDTO = ledgerEntryMapper.toDto(ledgerEntry);
-
-        restLedgerEntryMockMvc
-            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(ledgerEntryDTO)))
-            .andExpect(status().isBadRequest());
-
-        assertSameRepositoryCount(databaseSizeBeforeTest);
-    }
-
-    @Test
-    @Transactional
-    void checkEntryTypeIsRequired() throws Exception {
-        long databaseSizeBeforeTest = getRepositoryCount();
-        // set the field null
-        ledgerEntry.setEntryType(null);
-
-        // Create the LedgerEntry, which fails.
-        LedgerEntryDTO ledgerEntryDTO = ledgerEntryMapper.toDto(ledgerEntry);
-
-        restLedgerEntryMockMvc
-            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(ledgerEntryDTO)))
-            .andExpect(status().isBadRequest());
-
-        assertSameRepositoryCount(databaseSizeBeforeTest);
-    }
-
-    @Test
-    @Transactional
-    void checkCreatedAtIsRequired() throws Exception {
-        long databaseSizeBeforeTest = getRepositoryCount();
-        // set the field null
-        ledgerEntry.setCreatedAt(null);
-
-        // Create the LedgerEntry, which fails.
-        LedgerEntryDTO ledgerEntryDTO = ledgerEntryMapper.toDto(ledgerEntry);
-
-        restLedgerEntryMockMvc
-            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(ledgerEntryDTO)))
-            .andExpect(status().isBadRequest());
-
-        assertSameRepositoryCount(databaseSizeBeforeTest);
-    }
-
-    @Test
-    @Transactional
     void getAllLedgerEntries() throws Exception {
         // Initialize the database
         insertedLedgerEntry = ledgerEntryRepository.saveAndFlush(ledgerEntry);
@@ -481,7 +371,7 @@ class LedgerEntryResourceIT {
     void getAllLedgerEntriesByAccountIsEqualToSomething() throws Exception {
         BankAccount account;
         if (TestUtil.findAll(em, BankAccount.class).isEmpty()) {
-            ledgerEntryRepository.saveAndFlush(ledgerEntry);
+            // (generated code inserted the entry here and UPDATEd it below; the ledger is append-only, so insert once)
             account = BankAccountResourceIT.createEntity();
         } else {
             account = TestUtil.findAll(em, BankAccount.class).get(0);
@@ -503,7 +393,7 @@ class LedgerEntryResourceIT {
     void getAllLedgerEntriesByTransactionIsEqualToSomething() throws Exception {
         TransactionRecord transaction;
         if (TestUtil.findAll(em, TransactionRecord.class).isEmpty()) {
-            ledgerEntryRepository.saveAndFlush(ledgerEntry);
+            // (generated code inserted the entry here and UPDATEd it below; the ledger is append-only, so insert once)
             transaction = TransactionRecordResourceIT.createEntity();
         } else {
             transaction = TestUtil.findAll(em, TransactionRecord.class).get(0);
@@ -575,234 +465,25 @@ class LedgerEntryResourceIT {
 
     @Test
     @Transactional
-    void putExistingLedgerEntry() throws Exception {
-        // Initialize the database
+    void ledgerIsAppendOnlySoThereAreNoWriteEndpoints() throws Exception {
+        // POST/PUT/PATCH/DELETE were removed on purpose: entries are written only by the money flows and never changed
+        // (a DB trigger also rejects UPDATE/DELETE). The generated create/update/delete tests were replaced by this one.
         insertedLedgerEntry = ledgerEntryRepository.saveAndFlush(ledgerEntry);
-
-        long databaseSizeBeforeUpdate = getRepositoryCount();
-
-        // Update the ledgerEntry
-        LedgerEntry updatedLedgerEntry = ledgerEntryRepository.findById(ledgerEntry.getId()).orElseThrow();
-        // Disconnect from session so that the updates on updatedLedgerEntry are not directly saved in db
-        em.detach(updatedLedgerEntry);
-        updatedLedgerEntry.amount(UPDATED_AMOUNT).currency(UPDATED_CURRENCY).entryType(UPDATED_ENTRY_TYPE).createdAt(UPDATED_CREATED_AT);
-        LedgerEntryDTO ledgerEntryDTO = ledgerEntryMapper.toDto(updatedLedgerEntry);
+        long databaseSizeBefore = getRepositoryCount();
+        byte[] body = om.writeValueAsBytes(ledgerEntryMapper.toDto(ledgerEntry));
 
         restLedgerEntryMockMvc
-            .perform(
-                put(ENTITY_API_URL_ID, ledgerEntryDTO.getId())
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(om.writeValueAsBytes(ledgerEntryDTO))
-            )
-            .andExpect(status().isOk());
-
-        // Validate the LedgerEntry in the database
-        assertSameRepositoryCount(databaseSizeBeforeUpdate);
-        assertPersistedLedgerEntryToMatchAllProperties(updatedLedgerEntry);
-    }
-
-    @Test
-    @Transactional
-    void putNonExistingLedgerEntry() throws Exception {
-        long databaseSizeBeforeUpdate = getRepositoryCount();
-        ledgerEntry.setId(longCount.incrementAndGet());
-
-        // Create the LedgerEntry
-        LedgerEntryDTO ledgerEntryDTO = ledgerEntryMapper.toDto(ledgerEntry);
-
-        // If the entity doesn't have an ID, it will throw BadRequestAlertException
-        restLedgerEntryMockMvc
-            .perform(
-                put(ENTITY_API_URL_ID, ledgerEntryDTO.getId())
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(om.writeValueAsBytes(ledgerEntryDTO))
-            )
-            .andExpect(status().isBadRequest());
-
-        // Validate the LedgerEntry in the database
-        assertSameRepositoryCount(databaseSizeBeforeUpdate);
-    }
-
-    @Test
-    @Transactional
-    void putWithIdMismatchLedgerEntry() throws Exception {
-        long databaseSizeBeforeUpdate = getRepositoryCount();
-        ledgerEntry.setId(longCount.incrementAndGet());
-
-        // Create the LedgerEntry
-        LedgerEntryDTO ledgerEntryDTO = ledgerEntryMapper.toDto(ledgerEntry);
-
-        // If url ID doesn't match entity ID, it will throw BadRequestAlertException
-        restLedgerEntryMockMvc
-            .perform(
-                put(ENTITY_API_URL_ID, longCount.incrementAndGet())
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(om.writeValueAsBytes(ledgerEntryDTO))
-            )
-            .andExpect(status().isBadRequest());
-
-        // Validate the LedgerEntry in the database
-        assertSameRepositoryCount(databaseSizeBeforeUpdate);
-    }
-
-    @Test
-    @Transactional
-    void putWithMissingIdPathParamLedgerEntry() throws Exception {
-        long databaseSizeBeforeUpdate = getRepositoryCount();
-        ledgerEntry.setId(longCount.incrementAndGet());
-
-        // Create the LedgerEntry
-        LedgerEntryDTO ledgerEntryDTO = ledgerEntryMapper.toDto(ledgerEntry);
-
-        // If url ID doesn't match entity ID, it will throw BadRequestAlertException
-        restLedgerEntryMockMvc
-            .perform(put(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(ledgerEntryDTO)))
+            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(body))
             .andExpect(status().isMethodNotAllowed());
-
-        // Validate the LedgerEntry in the database
-        assertSameRepositoryCount(databaseSizeBeforeUpdate);
-    }
-
-    @Test
-    @Transactional
-    void partialUpdateLedgerEntryWithPatch() throws Exception {
-        // Initialize the database
-        insertedLedgerEntry = ledgerEntryRepository.saveAndFlush(ledgerEntry);
-
-        long databaseSizeBeforeUpdate = getRepositoryCount();
-
-        // Update the ledgerEntry using partial update
-        LedgerEntry partialUpdatedLedgerEntry = new LedgerEntry();
-        partialUpdatedLedgerEntry.setId(ledgerEntry.getId());
-
-        partialUpdatedLedgerEntry.amount(UPDATED_AMOUNT).currency(UPDATED_CURRENCY).entryType(UPDATED_ENTRY_TYPE);
-
         restLedgerEntryMockMvc
-            .perform(
-                patch(ENTITY_API_URL_ID, partialUpdatedLedgerEntry.getId())
-                    .contentType("application/merge-patch+json")
-                    .content(om.writeValueAsBytes(partialUpdatedLedgerEntry))
-            )
-            .andExpect(status().isOk());
-
-        // Validate the LedgerEntry in the database
-
-        assertSameRepositoryCount(databaseSizeBeforeUpdate);
-        assertLedgerEntryUpdatableFieldsEquals(
-            createUpdateProxyForBean(partialUpdatedLedgerEntry, ledgerEntry),
-            getPersistedLedgerEntry(ledgerEntry)
-        );
-    }
-
-    @Test
-    @Transactional
-    void fullUpdateLedgerEntryWithPatch() throws Exception {
-        // Initialize the database
-        insertedLedgerEntry = ledgerEntryRepository.saveAndFlush(ledgerEntry);
-
-        long databaseSizeBeforeUpdate = getRepositoryCount();
-
-        // Update the ledgerEntry using partial update
-        LedgerEntry partialUpdatedLedgerEntry = new LedgerEntry();
-        partialUpdatedLedgerEntry.setId(ledgerEntry.getId());
-
-        partialUpdatedLedgerEntry
-            .amount(UPDATED_AMOUNT)
-            .currency(UPDATED_CURRENCY)
-            .entryType(UPDATED_ENTRY_TYPE)
-            .createdAt(UPDATED_CREATED_AT);
-
-        restLedgerEntryMockMvc
-            .perform(
-                patch(ENTITY_API_URL_ID, partialUpdatedLedgerEntry.getId())
-                    .contentType("application/merge-patch+json")
-                    .content(om.writeValueAsBytes(partialUpdatedLedgerEntry))
-            )
-            .andExpect(status().isOk());
-
-        // Validate the LedgerEntry in the database
-
-        assertSameRepositoryCount(databaseSizeBeforeUpdate);
-        assertLedgerEntryUpdatableFieldsEquals(partialUpdatedLedgerEntry, getPersistedLedgerEntry(partialUpdatedLedgerEntry));
-    }
-
-    @Test
-    @Transactional
-    void patchNonExistingLedgerEntry() throws Exception {
-        long databaseSizeBeforeUpdate = getRepositoryCount();
-        ledgerEntry.setId(longCount.incrementAndGet());
-
-        // Create the LedgerEntry
-        LedgerEntryDTO ledgerEntryDTO = ledgerEntryMapper.toDto(ledgerEntry);
-
-        // If the entity doesn't have an ID, it will throw BadRequestAlertException
-        restLedgerEntryMockMvc
-            .perform(
-                patch(ENTITY_API_URL_ID, ledgerEntryDTO.getId())
-                    .contentType("application/merge-patch+json")
-                    .content(om.writeValueAsBytes(ledgerEntryDTO))
-            )
-            .andExpect(status().isBadRequest());
-
-        // Validate the LedgerEntry in the database
-        assertSameRepositoryCount(databaseSizeBeforeUpdate);
-    }
-
-    @Test
-    @Transactional
-    void patchWithIdMismatchLedgerEntry() throws Exception {
-        long databaseSizeBeforeUpdate = getRepositoryCount();
-        ledgerEntry.setId(longCount.incrementAndGet());
-
-        // Create the LedgerEntry
-        LedgerEntryDTO ledgerEntryDTO = ledgerEntryMapper.toDto(ledgerEntry);
-
-        // If url ID doesn't match entity ID, it will throw BadRequestAlertException
-        restLedgerEntryMockMvc
-            .perform(
-                patch(ENTITY_API_URL_ID, longCount.incrementAndGet())
-                    .contentType("application/merge-patch+json")
-                    .content(om.writeValueAsBytes(ledgerEntryDTO))
-            )
-            .andExpect(status().isBadRequest());
-
-        // Validate the LedgerEntry in the database
-        assertSameRepositoryCount(databaseSizeBeforeUpdate);
-    }
-
-    @Test
-    @Transactional
-    void patchWithMissingIdPathParamLedgerEntry() throws Exception {
-        long databaseSizeBeforeUpdate = getRepositoryCount();
-        ledgerEntry.setId(longCount.incrementAndGet());
-
-        // Create the LedgerEntry
-        LedgerEntryDTO ledgerEntryDTO = ledgerEntryMapper.toDto(ledgerEntry);
-
-        // If url ID doesn't match entity ID, it will throw BadRequestAlertException
-        restLedgerEntryMockMvc
-            .perform(patch(ENTITY_API_URL).contentType("application/merge-patch+json").content(om.writeValueAsBytes(ledgerEntryDTO)))
+            .perform(put(ENTITY_API_URL_ID, ledgerEntry.getId()).contentType(MediaType.APPLICATION_JSON).content(body))
             .andExpect(status().isMethodNotAllowed());
-
-        // Validate the LedgerEntry in the database
-        assertSameRepositoryCount(databaseSizeBeforeUpdate);
-    }
-
-    @Test
-    @Transactional
-    void deleteLedgerEntry() throws Exception {
-        // Initialize the database
-        insertedLedgerEntry = ledgerEntryRepository.saveAndFlush(ledgerEntry);
-
-        long databaseSizeBeforeDelete = getRepositoryCount();
-
-        // Delete the ledgerEntry
         restLedgerEntryMockMvc
-            .perform(delete(ENTITY_API_URL_ID, ledgerEntry.getId()).accept(MediaType.APPLICATION_JSON))
-            .andExpect(status().isNoContent());
+            .perform(patch(ENTITY_API_URL_ID, ledgerEntry.getId()).contentType("application/merge-patch+json").content(body))
+            .andExpect(status().isMethodNotAllowed());
+        restLedgerEntryMockMvc.perform(delete(ENTITY_API_URL_ID, ledgerEntry.getId())).andExpect(status().isMethodNotAllowed());
 
-        // Validate the database contains one less item
-        assertDecrementedRepositoryCount(databaseSizeBeforeDelete);
+        assertSameRepositoryCount(databaseSizeBefore);
     }
 
     protected long getRepositoryCount() {

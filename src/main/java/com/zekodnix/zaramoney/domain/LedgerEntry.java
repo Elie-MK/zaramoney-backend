@@ -46,6 +46,10 @@ public class LedgerEntry implements Serializable {
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
+    /** Balance of {@link #account} right after this entry (null for entries written before 2026-11-16). */
+    @Column(name = "balance_after", precision = 21, scale = 2)
+    private BigDecimal balanceAfter;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JsonIgnoreProperties(value = { "user", "transactionLimit" }, allowSetters = true)
     private BankAccount account;
@@ -126,6 +130,19 @@ public class LedgerEntry implements Serializable {
         this.createdAt = createdAt;
     }
 
+    public BigDecimal getBalanceAfter() {
+        return this.balanceAfter;
+    }
+
+    public LedgerEntry balanceAfter(BigDecimal balanceAfter) {
+        this.setBalanceAfter(balanceAfter);
+        return this;
+    }
+
+    public void setBalanceAfter(BigDecimal balanceAfter) {
+        this.balanceAfter = balanceAfter;
+    }
+
     public BankAccount getAccount() {
         return this.account;
     }
@@ -180,6 +197,7 @@ public class LedgerEntry implements Serializable {
             ", currency='" + getCurrency() + "'" +
             ", entryType='" + getEntryType() + "'" +
             ", createdAt='" + getCreatedAt() + "'" +
+            ", balanceAfter=" + getBalanceAfter() +
             "}";
     }
 }

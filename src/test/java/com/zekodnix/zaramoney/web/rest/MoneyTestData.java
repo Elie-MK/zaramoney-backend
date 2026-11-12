@@ -31,6 +31,12 @@ class MoneyTestData {
     static final String PASSWORD = "Str0ng-Passw0rd";
     static final String PIN = "4826";
 
+    /**
+     * ledger_entry is append-only (DB trigger). Test clean-up runs this first, inside the same transaction, to be
+     * allowed to delete its own entries ({@code SET LOCAL}: ends with the transaction).
+     */
+    static final String LEDGER_MAINTENANCE = "set local zaramoney.ledger_maintenance = 'on'";
+
     record Customer(User user, BankAccount account) {
         String login() {
             return user.getLogin();
@@ -184,6 +190,7 @@ class MoneyTestData {
         String accounts = "(select id from bank_account where user_id = " + userId + ")";
         String txs = "(select id from transaction_record where sender_id in " + accounts + " or receiver_id in " + accounts + ")";
         jdbcTemplate.update("delete from notification where user_id = ? or transaction_id in " + txs, userId);
+        jdbcTemplate.execute(MoneyTestData.LEDGER_MAINTENANCE);
         jdbcTemplate.update("delete from ledger_entry where transaction_id in " + txs);
         jdbcTemplate.update("delete from transaction_fee where transaction_id in " + txs);
         jdbcTemplate.update("delete from transaction_record where id in " + txs);

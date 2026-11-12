@@ -66,6 +66,20 @@ class RateLimiterTest {
         assertThat(rateLimiter.count("login-failures:alice@example.com")).isZero();
     }
 
+    @Test
+    void defaultClockIsMonotonicElapsedTimeNotTheWallClock() throws Exception {
+        // a wall-clock jump (NTP, VM/WSL resume) must not end or stretch a window: the default measures elapsed time
+        RateLimiter real = new RateLimiter();
+        assertThat(real.tryAcquire("k", 1, Duration.ofMinutes(15))).isZero();
+        assertThat(real.tryAcquire("k", 1, Duration.ofMinutes(15))).isPositive().isLessThanOrEqualTo(Duration.ofMinutes(15));
+
+        long a = RateLimiter.MONOTONIC.millis();
+        Thread.sleep(5);
+        long b = RateLimiter.MONOTONIC.millis();
+        assertThat(b).isGreaterThanOrEqualTo(a + 4);
+        assertThat(Math.abs(RateLimiter.MONOTONIC.millis() - System.currentTimeMillis())).isGreaterThan(1_000_000L); // not epoch time
+    }
+
     static final class MutableClock extends Clock {
 
         private Instant now;

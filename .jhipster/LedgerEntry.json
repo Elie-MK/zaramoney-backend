@@ -26,6 +26,11 @@
       "fieldName": "createdAt",
       "fieldType": "Instant",
       "fieldValidateRules": ["required"]
+    },
+    {
+      "documentation": "Balance of the account right after this entry (null for entries before 2026-11-16). Ledger is append-only.",
+      "fieldName": "balanceAfter",
+      "fieldType": "BigDecimal"
     }
   ],
   "jpaMetamodelFiltering": true,

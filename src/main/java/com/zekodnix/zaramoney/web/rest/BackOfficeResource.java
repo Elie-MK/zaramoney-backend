@@ -5,9 +5,11 @@ import com.zekodnix.zaramoney.security.AuthoritiesConstants;
 import com.zekodnix.zaramoney.security.SecurityUtils;
 import com.zekodnix.zaramoney.service.BackOfficeService;
 import com.zekodnix.zaramoney.service.KycReviewService;
+import com.zekodnix.zaramoney.service.LedgerReconciliationService;
 import com.zekodnix.zaramoney.service.RevenueReportService;
 import com.zekodnix.zaramoney.service.dto.DepositDto;
 import com.zekodnix.zaramoney.service.dto.KycReviewDTO;
+import com.zekodnix.zaramoney.service.dto.ReconciliationReportDTO;
 import com.zekodnix.zaramoney.service.dto.RevenueReportDTO;
 import com.zekodnix.zaramoney.service.dto.TransactionRecordDTO;
 import jakarta.validation.Valid;
@@ -41,15 +43,27 @@ public class BackOfficeResource {
     private final BackOfficeService backOfficeService;
     private final KycReviewService kycReviewService;
     private final RevenueReportService revenueReportService;
+    private final LedgerReconciliationService ledgerReconciliationService;
 
     public BackOfficeResource(
         BackOfficeService backOfficeService,
         KycReviewService kycReviewService,
-        RevenueReportService revenueReportService
+        RevenueReportService revenueReportService,
+        LedgerReconciliationService ledgerReconciliationService
     ) {
         this.backOfficeService = backOfficeService;
         this.kycReviewService = kycReviewService;
         this.revenueReportService = revenueReportService;
+        this.ledgerReconciliationService = ledgerReconciliationService;
+    }
+
+    /**
+     * {@code GET /reports/reconciliation} : runs the ledger reconciliation now (same checks as the daily job).
+     * {@code ok=false} means the books need a look (see {@code LedgerReconciliationService}).
+     */
+    @GetMapping("/reports/reconciliation")
+    public ResponseEntity<ReconciliationReportDTO> reconciliationReport() {
+        return ResponseEntity.ok(ledgerReconciliationService.reconcile());
     }
 
     /**

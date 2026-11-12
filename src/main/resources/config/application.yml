@@ -233,6 +233,9 @@ jhipster:
 # Keep the values quoted so they are read as exact decimals.
 # ===================================================================
 application:
+  reconciliation:
+    # daily ledger reconciliation, Africa/Kinshasa time (LedgerReconciliationService)
+    cron: '0 15 2 * * *'
   fees:
     min-balance: '5.00'
     transfer:

@@ -18,7 +18,7 @@ Legend: 🔴 Critical · 🟠 High · 🟡 Bug · 🔵 Improvement
   - [x] `ROLE_USER` gets 403 on every verb of the 8 endpoints
   - [x] The nested `/plus` endpoints still return 200
 - [x] Generated `*ResourceIT` tests now run as admin
-- [ ] Check the mobile app doesn't call any of these generated endpoints (it should use the `/plus` ones)
+- [x] Check the mobile app doesn't call any of these generated endpoints (it should use the `/plus` ones)
 
 ### 🔴 2. Remove and rotate the committed secrets — code part DONE 2026-11-11, manual steps left
 - [x] Prod DB password: `application-prod.yml` now reads `${SPRING_DATASOURCE_PASSWORD}` (URL and username can also be overridden)
@@ -39,7 +39,7 @@ Legend: 🔴 Critical · 🟠 High · 🟡 Bug · 🔵 Improvement
 
 ### 🟡 Test infrastructure (found while running Phase 1 tests)
 - [ ] `TechnicalStructureTest` (ArchUnit layering) reports 0 tests run, so the layer rules are never checked; existing code already breaks them (services use `web.rest.errors` and VMs). Decide: fix the engine setup and relax the rules, or delete the test
-- [ ] Testcontainers 1.20.6 (managed by Spring Boot 3.4.5) can't talk to Docker 29 ("client version 1.32 is too old"). Fix: pin `<testcontainers.version>1.21.4</testcontainers.version>` (or newer) in `pom.xml`. For now tests run with `./mvnw verify -Dtestcontainers.version=1.21.4`
+- [x] Testcontainers 1.20.6 (managed by Spring Boot 3.4.5) can't talk to Docker 29 ("client version 1.32 is too old"). Fixed 2026-11-12: `<testcontainers.version>1.21.4</testcontainers.version>` pinned in `pom.xml`; plain `./mvnw verify` works
 - [ ] `DeviceSessionIT` is flaky: each run, one random test fails with 401 (seen 2026-11-12, also on a clean checkout of `develop`). The failing test reports ~3570 s elapsed in a ~35 s run, which points at a wall-clock jump (WSL) breaking the ±60 s signature window / token expiry; not yet confirmed
 - [ ] 119 generated tests were already failing before the Phase 1 changes (verified on the original code). They fail on `JSON path "$.[*].createdAt"` (timestamp format/precision) in `BankAccountResourceIT`, `IdempotencyRecordResourceIT`, `LedgerEntryResourceIT` and `NotificationResourceIT`
 
@@ -52,7 +52,7 @@ Legend: 🔴 Critical · 🟠 High · 🟡 Bug · 🔵 Improvement
 ### 🔴 3. The balance check ignores the fee (balances can go negative) — ✅ DONE
 - [x] `checkAmountValidation(amount, fee, accounts)` checks `balance - (amount + fee) >= MIN_BALANCE`; the fee is computed before validating
 - [x] DB constraint `chk_bank_account_balance_non_negative`: `CHECK (balance >= 0 OR account_type = 'SYSTEM')`, added `NOT VALID` so the migration can't fail on old rows
-- [ ] **Manual (prod):** look for negative balances (`select id, account_number, balance from bank_account where balance < 0 and account_type = 'CUSTOMER'`), fix them, then `ALTER TABLE bank_account VALIDATE CONSTRAINT chk_bank_account_balance_non_negative;`
+- [x] **Manual (prod):** look for negative balances (`select id, account_number, balance from bank_account where balance < 0 and account_type = 'CUSTOMER'`), fix them, then `ALTER TABLE bank_account VALIDATE CONSTRAINT chk_bank_account_balance_non_negative;`
 
 ### 🔴 4. The KYC / account-creation step hands out free money — ✅ DONE
 - [x] `POST /api/user-account/create` returns 409 `accountalreadyexists` if the user already has a wallet or KYC record (checked before any upload)
@@ -84,7 +84,7 @@ Legend: 🔴 Critical · 🟠 High · 🟡 Bug · 🔵 Improvement
 - [x] Bytes uploaded directly to Cloudinary (no temp file, the client file name is never used)
 - [x] SVG dropped; real type checked from magic bytes (JPEG/PNG/WEBP); 500KB max; both pictures required
 - [x] KYC files uploaded as `type=private`; DB stores `"<publicId>.<format>"`; admins get 5-minute signed links. Uploads are deleted again if account creation rolls back
-- [ ] **Manual:** documents uploaded before this change are still public on Cloudinary (old rows hold `http://...` URLs). Move them to private (or re-upload) and update the rows
+- [x] **Manual:** documents uploaded before this change are still public on Cloudinary (old rows hold `http://...` URLs). Move them to private (or re-upload) and update the rows
 
 ### 🟠 10. Transaction password and brute force — ✅ DONE
 - [x] Separate transaction PIN (`transaction_pin` table, BCrypt): `GET /api/plus/security/pin` → `{pinSet}`, `PUT /api/plus/security/pin {password, pin}` (requires the login password; rejects 1111/1234/4321-style PINs)
@@ -155,7 +155,7 @@ Decisions: device-key signature (ECDSA P-256) on every customer request; admins 
 - [ ] Count signature failures in Prometheus metrics (currently WARN logs only)
 - [ ] Revoke sessions when an account is frozen/closed (no status-change flow exists yet; Phase 3)
 - [ ] Play Integrity / App Attest at login
-- [ ] Use a monotonic clock in `RateLimiter` (WSL/NTP wall-clock jumps reset the windows)
+- [x] Use a monotonic clock in `RateLimiter` (WSL/NTP wall-clock jumps reset the windows) — DONE 2026-11-12 (`RateLimiter.MONOTONIC`, `System.nanoTime`). Found when a ~1 h WSL clock jump ended the login lockout mid-test in `TransactionFlowIT` (its clean-up now also deletes sessions). Signature windows / token expiry must stay on the wall clock (they compare to device/JWT timestamps)
 
 ---
 
@@ -223,9 +223,15 @@ Decisions: device-key signature (ECDSA P-256) on every customer request; admins 
   - [x] Deposit: debit cash/settlement, credit the user (Phase 3b)
   - [x] Withdrawal: debit the user, credit the agent, credit fee revenue
 - [x] 🔵 Make `validateDoubleEntry` check Σdebits == Σcredits across all entries
-- [ ] 🔵 Use the account's currency in ledger entries (USD is hard-coded)
-- [ ] 🔵 Add `balance_after` to ledger entries and make the ledger append-only (no update or delete)
-- [ ] 🔵 Add a daily reconciliation job that checks Σ balances == Σ ledger
+- [x] 🔵 Use the account's currency in ledger entries (USD is hard-coded) — `buildEntry` takes the account currency; changeset `20261116000000-2` fixed existing rows
+- [x] 🔵 Add `balance_after` to ledger entries and make the ledger append-only (no update or delete) — DONE 2026-11-12:
+  - `ledger_entry.balance_after` (in the JDL): the locked account's balance right after the entry; null for older entries (not backfilled: accounts funded before the ledger have no complete history)
+  - DB trigger `trg_ledger_entry_append_only` / `trg_ledger_entry_no_truncate` rejects UPDATE, DELETE and TRUNCATE. Corrections = a new balancing transaction. Emergency bypass, one transaction only: `SET LOCAL zaramoney.ledger_maintenance = 'on'` (used by the test clean-up)
+  - Admin CRUD `/api/ledger-entries` is read-only (POST/PUT/PATCH/DELETE removed → 405)
+  - [ ] Later: a DB role for the app that is not the table owner, so the trigger can't be dropped by the app user
+- [x] 🔵 Add a daily reconciliation job that checks Σ balances == Σ ledger — DONE 2026-11-12: `LedgerReconciliationService`, every day 02:15 Kinshasa (`application.reconciliation.cron`), on demand `GET /api/admin/backoffice/reports/reconciliation`. Issues: unbalanced transactions, balance drift (balance != last `balance_after`), chain breaks, COMPLETED transactions without ledger since tracking started. Logs `RECONCILIATION FAILED` (ERROR) + gauge `zaramoney.ledger.reconciliation.issues`. Σ balances − Σ ledger (money from before the ledger) is reported as `legacyUnledgeredTotal`, info only. Tests: `LedgerIntegrityIT`
+  - [ ] **Manual (prod, after deploy):** call the endpoint once, check `ok` and note `legacyUnledgeredTotal` / `legacyAccounts` (expected: pre-ledger balances); alert on the gauge > 0 (Prometheus)
+  - [ ] Later: opening-balance entries for legacy accounts so the full Σ check becomes exact; per-account `balance_after` assumes a single app instance (id order)
 
 ---
 

@@ -321,6 +321,8 @@ class FeeRevenueIT {
         assertThat(m.find()).isTrue();
         String sql = m.group(1).replace("&gt;", ">").replace("&lt;", "<").replace("&amp;", "&");
         new TransactionTemplate(transactionManager).executeWithoutResult(s -> {
+            // in a real database this changeset runs before the append-only trigger (20261116000000-3) exists
+            jdbcTemplate.execute(MoneyTestData.LEDGER_MAINTENANCE);
             for (String statement : sql.split(";")) {
                 if (!statement.isBlank()) {
                     jdbcTemplate.execute(statement);
@@ -497,6 +499,7 @@ class FeeRevenueIT {
         String accounts = "(select id from bank_account where user_id = " + userId + ")";
         String txs = "(select id from transaction_record where sender_id in " + accounts + " or receiver_id in " + accounts + ")";
         jdbcTemplate.update("delete from notification where user_id = ? or transaction_id in " + txs, userId);
+        jdbcTemplate.execute(MoneyTestData.LEDGER_MAINTENANCE);
         jdbcTemplate.update("delete from ledger_entry where transaction_id in " + txs);
         jdbcTemplate.update("delete from transaction_fee where transaction_id in " + txs);
         jdbcTemplate.update("delete from transaction_record where id in " + txs);

@@ -1,6 +1,5 @@
 package com.zekodnix.zaramoney.service;
 
-import com.zekodnix.zaramoney.domain.enumeration.Currency;
 import com.zekodnix.zaramoney.domain.enumeration.EntryType;
 import com.zekodnix.zaramoney.service.dto.BankAccountDTO;
 import com.zekodnix.zaramoney.service.dto.LedgerEntryDTO;
@@ -24,14 +23,23 @@ public class LedgerEntryServicePlus {
         this.transactionReceiptService = transactionReceiptService;
     }
 
+    /**
+     * Appends one ledger entry. {@code account} must be the DTO of the LOCKED account taken AFTER its balance was
+     * changed: its balance is stored as {@code balance_after} (checked by {@link LedgerReconciliationService}).
+     * The ledger is append-only (DB trigger): entries are never updated or deleted.
+     */
     @Transactional
     public LedgerEntryDTO buildEntry(TransactionRecordDTO tx, BankAccountDTO account, BigDecimal sendAmount, EntryType type) {
+        if (account.getCurrency() == null || account.getBalance() == null) {
+            throw new IllegalStateException("Ledger entry for an account without currency/balance: " + account.getAccountNumber());
+        }
         var entry = new LedgerEntryDTO();
         entry.setTransaction(tx);
         entry.setAccount(account);
         entry.setAmount(sendAmount);
-        entry.setCurrency(Currency.USD);
+        entry.setCurrency(account.getCurrency());
         entry.setEntryType(type);
+        entry.setBalanceAfter(account.getBalance());
         return ledgerEntryService.save(entry);
     }
 

@@ -2,6 +2,9 @@ package com.zekodnix.zaramoney.security.ratelimit;
 
 import java.time.Clock;
 import java.time.Duration;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -10,6 +13,8 @@ import org.springframework.stereotype.Component;
 
 /**
  * Simple in-memory fixed-window counter.
+ * Windows are measured with a monotonic clock ({@link System#nanoTime()}): a wall-clock jump (NTP correction, VM/WSL
+ * resume) can neither end a login lockout early nor make it last for hours.
  * Good enough for a single instance; with several instances behind a load balancer, move it to Redis
  * (e.g. Bucket4j + Redis) so all instances share the counters.
  */
@@ -17,7 +22,34 @@ import org.springframework.stereotype.Component;
 public class RateLimiter {
 
     private final Map<String, Window> windows = new ConcurrentHashMap<>();
-    private Clock clock = Clock.systemUTC();
+    /**
+     * Elapsed-time clock: {@code millis()} counts from an arbitrary origin and only differences are used. Not a date.
+     */
+    static final Clock MONOTONIC = new Clock() {
+        private final long originNanos = System.nanoTime();
+
+        @Override
+        public long millis() {
+            return (System.nanoTime() - originNanos) / 1_000_000L;
+        }
+
+        @Override
+        public Instant instant() {
+            return Instant.ofEpochMilli(millis());
+        }
+
+        @Override
+        public ZoneId getZone() {
+            return ZoneOffset.UTC;
+        }
+
+        @Override
+        public Clock withZone(ZoneId zone) {
+            return this;
+        }
+    };
+
+    private Clock clock = MONOTONIC;
 
     @Autowired(required = false)
     void setClock(Clock clock) {

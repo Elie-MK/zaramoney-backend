@@ -158,6 +158,8 @@ entity LedgerEntry {
   currency Currency required
   entryType EntryType required
   createdAt Instant required
+  /** Balance of the account right after this entry (null for entries before 2026-11-16). Ledger is append-only. */
+  balanceAfter BigDecimal
 }
 
 entity TransactionFee {

@@ -18,6 +18,8 @@
     </parent>
 
     <properties>
+        <!-- Docker 29 needs Testcontainers >= 1.21 (Spring Boot 3.4.5 manages 1.20.6: "client version 1.32 is too old") -->
+        <testcontainers.version>1.21.4</testcontainers.version>
         <!--
             Build properties
             The spring-boot version should match the one managed by https://mvnrepository.com/artifact/tech.jhipster/jhipster-dependencies/${jhipster-dependencies.version}

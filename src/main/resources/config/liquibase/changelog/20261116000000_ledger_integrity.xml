@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Phase 4: ledger integrity.
+        1. balance_after: the account balance right after each entry (null for older entries; the reconciliation
+           job checks the chain from the first entry that has it).
+        2. Ledger entries carry their account's currency (USD was hard-coded).
+        3. ledger_entry is append-only: a trigger rejects UPDATE, DELETE and TRUNCATE. Corrections are new,
+           balancing transactions. Emergency maintenance only: inside one transaction run
+           `SET LOCAL zaramoney.ledger_maintenance = 'on'` (also used by the test clean-up).
+        Order matters: the currency fix (2) runs before the trigger (3) exists.
+    -->
+
+    <changeSet id="20261116000000-1" author="zaramoney">
+        <addColumn tableName="ledger_entry">
+            <column name="balance_after" type="decimal(21,2)" />
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="20261116000000-2" author="zaramoney" dbms="postgresql">
+        <comment>Ledger entries take the currency of their account</comment>
+        <sql>
+            update ledger_entry l
+               set currency = a.currency
+              from bank_account a
+             where a.id = l.account_id
+               and l.currency &lt;&gt; a.currency;
+        </sql>
+    </changeSet>
+
+    <changeSet id="20261116000000-3" author="zaramoney" dbms="postgresql">
+        <comment>ledger_entry is append-only (UPDATE / DELETE / TRUNCATE rejected unless zaramoney.ledger_maintenance = on)</comment>
+        <sql splitStatements="false">
+            create or replace function ledger_entry_append_only() returns trigger as $$
+            begin
+                if coalesce(current_setting('zaramoney.ledger_maintenance', true), '') = 'on' then
+                    if tg_level = 'STATEMENT' then
+                        return null;
+                    elsif tg_op = 'DELETE' then
+                        return old;
+                    end if;
+                    return new;
+                end if;
+                raise exception 'ledger_entry is append-only: % is not allowed', tg_op
+                    using errcode = 'P0001', hint = 'Post a correcting transaction instead';
+            end;
+            $$ language plpgsql;
+        </sql>
+        <sql>
+            create trigger trg_ledger_entry_append_only
+                before update or delete on ledger_entry
+                for each row execute procedure ledger_entry_append_only();
+        </sql>
+        <sql>
+            create trigger trg_ledger_entry_no_truncate
+                before truncate on ledger_entry
+                for each statement execute procedure ledger_entry_append_only();
+        </sql>
+        <rollback>
+            <sql>
+                drop trigger if exists trg_ledger_entry_no_truncate on ledger_entry;
+                drop trigger if exists trg_ledger_entry_append_only on ledger_entry;
+                drop function if exists ledger_entry_append_only();
+            </sql>
+        </rollback>
+    </changeSet>
+</databaseChangeLog>

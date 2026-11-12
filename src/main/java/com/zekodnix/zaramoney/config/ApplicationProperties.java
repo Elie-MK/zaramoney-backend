@@ -18,6 +18,12 @@ public class ApplicationProperties {
 
     private final Fees fees = new Fees();
 
+    private final Reconciliation reconciliation = new Reconciliation();
+
+    public Reconciliation getReconciliation() {
+        return reconciliation;
+    }
+
     // jhipster-needle-application-properties-property
 
     public Fees getFees() {
@@ -218,6 +224,21 @@ public class ApplicationProperties {
      * {@code up-to: 100.99} means "below 101"). The last tier has no {@code up-to}. Fee = amount x rate, HALF_UP to cents.
      * Quote the values in YAML ("0.0095") so they are read as exact decimals.
      */
+    /** Daily ledger reconciliation ({@code LedgerReconciliationService}); the cron is read via its placeholder. */
+    public static class Reconciliation {
+
+        /** Spring cron, Africa/Kinshasa time. */
+        private String cron = "0 15 2 * * *";
+
+        public String getCron() {
+            return cron;
+        }
+
+        public void setCron(String cron) {
+            this.cron = cron;
+        }
+    }
+
     public static class Fees {
 
         /** A customer balance must stay >= this after amount + fee. */

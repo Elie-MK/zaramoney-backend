@@ -28,6 +28,8 @@ public class LedgerEntryDTO implements Serializable {
     @NotNull
     private Instant createdAt;
 
+    private BigDecimal balanceAfter;
+
     private BankAccountDTO account;
 
     private TransactionRecordDTO transaction;
@@ -70,6 +72,14 @@ public class LedgerEntryDTO implements Serializable {
 
     public void setCreatedAt(Instant createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public BigDecimal getBalanceAfter() {
+        return balanceAfter;
+    }
+
+    public void setBalanceAfter(BigDecimal balanceAfter) {
+        this.balanceAfter = balanceAfter;
     }
 
     public BankAccountDTO getAccount() {
@@ -118,6 +128,7 @@ public class LedgerEntryDTO implements Serializable {
             ", currency='" + getCurrency() + "'" +
             ", entryType='" + getEntryType() + "'" +
             ", createdAt='" + getCreatedAt() + "'" +
+            ", balanceAfter=" + getBalanceAfter() +
             ", account=" + getAccount() +
             ", transaction=" + getTransaction() +
             "}";
