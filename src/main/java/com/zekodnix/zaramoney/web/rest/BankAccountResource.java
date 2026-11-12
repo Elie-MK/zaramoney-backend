@@ -208,7 +208,7 @@ public class BankAccountResource {
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteBankAccount(@PathVariable("id") Long id) {
         LOG.debug("REST request to delete BankAccount : {}", id);
-        bankAccountService.delete(id);
+        bankAccountServicePlus.adminDelete(id); // 409 accountinuse if it has a balance or transactions
         return ResponseEntity.noContent()
             .headers(HeaderUtil.createEntityDeletionAlert(applicationName, false, ENTITY_NAME, id.toString()))
             .build();

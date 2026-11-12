@@ -639,6 +639,7 @@ class BankAccountResourceIT {
     @Transactional
     void putExistingBankAccount() throws Exception {
         // Initialize the database
+        bankAccount.setBalance(BigDecimal.ZERO); // only an unused account (no balance, no transactions) may change currency/number or be deleted
         insertedBankAccount = bankAccountRepository.saveAndFlush(bankAccount);
 
         long databaseSizeBeforeUpdate = getRepositoryCount();
@@ -666,7 +667,7 @@ class BankAccountResourceIT {
         // Validate the BankAccount in the database
         assertSameRepositoryCount(databaseSizeBeforeUpdate);
         // balance is read-only in the admin CRUD (only ledger-backed flows change it): the original balance is kept
-        updatedBankAccount.setBalance(DEFAULT_BALANCE);
+        updatedBankAccount.setBalance(BigDecimal.ZERO);
         assertPersistedBankAccountToMatchAllProperties(updatedBankAccount);
     }
 
@@ -736,6 +737,7 @@ class BankAccountResourceIT {
     @Transactional
     void partialUpdateBankAccountWithPatch() throws Exception {
         // Initialize the database
+        bankAccount.setBalance(BigDecimal.ZERO); // only an unused account (no balance, no transactions) may change currency/number or be deleted
         insertedBankAccount = bankAccountRepository.saveAndFlush(bankAccount);
 
         long databaseSizeBeforeUpdate = getRepositoryCount();
@@ -758,7 +760,7 @@ class BankAccountResourceIT {
 
         assertSameRepositoryCount(databaseSizeBeforeUpdate);
         // balance is read-only in the admin CRUD (only ledger-backed flows change it): the original balance is kept
-        partialUpdatedBankAccount.setBalance(DEFAULT_BALANCE);
+        partialUpdatedBankAccount.setBalance(BigDecimal.ZERO);
         assertBankAccountUpdatableFieldsEquals(
             createUpdateProxyForBean(partialUpdatedBankAccount, bankAccount),
             getPersistedBankAccount(bankAccount)
@@ -769,6 +771,7 @@ class BankAccountResourceIT {
     @Transactional
     void fullUpdateBankAccountWithPatch() throws Exception {
         // Initialize the database
+        bankAccount.setBalance(BigDecimal.ZERO); // only an unused account (no balance, no transactions) may change currency/number or be deleted
         insertedBankAccount = bankAccountRepository.saveAndFlush(bankAccount);
 
         long databaseSizeBeforeUpdate = getRepositoryCount();
@@ -796,7 +799,7 @@ class BankAccountResourceIT {
 
         assertSameRepositoryCount(databaseSizeBeforeUpdate);
         // balance is read-only in the admin CRUD (only ledger-backed flows change it): the original balance is kept
-        partialUpdatedBankAccount.setBalance(DEFAULT_BALANCE);
+        partialUpdatedBankAccount.setBalance(BigDecimal.ZERO);
         assertBankAccountUpdatableFieldsEquals(partialUpdatedBankAccount, getPersistedBankAccount(partialUpdatedBankAccount));
     }
 
@@ -866,6 +869,7 @@ class BankAccountResourceIT {
     @Transactional
     void deleteBankAccount() throws Exception {
         // Initialize the database
+        bankAccount.setBalance(BigDecimal.ZERO); // only an unused account (no balance, no transactions) may change currency/number or be deleted
         insertedBankAccount = bankAccountRepository.saveAndFlush(bankAccount);
 
         long databaseSizeBeforeDelete = getRepositoryCount();

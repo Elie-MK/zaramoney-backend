@@ -61,4 +61,6 @@ public interface LedgerEntryRepository extends JpaRepository<LedgerEntry, Long>,
             where t.id = :id AND a.user.login = :login
             """)
     Optional<LedgerEntry> findOneByTransactionId(Long id, @Param("login") String login );
+
+    boolean existsByAccount_Id(Long accountId);
 }

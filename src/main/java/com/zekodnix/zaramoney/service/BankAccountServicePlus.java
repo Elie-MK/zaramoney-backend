@@ -1,10 +1,15 @@
 package com.zekodnix.zaramoney.service;
 
 import com.zekodnix.zaramoney.domain.BankAccount;
+import com.zekodnix.zaramoney.domain.User;
 import com.zekodnix.zaramoney.domain.enumeration.AccountStatus;
 import com.zekodnix.zaramoney.domain.enumeration.BankAccountType;
 import com.zekodnix.zaramoney.domain.enumeration.Currency;
 import com.zekodnix.zaramoney.repository.BankAccountRepository;
+import com.zekodnix.zaramoney.repository.LedgerEntryRepository;
+import com.zekodnix.zaramoney.repository.TransactionLimitRepository;
+import com.zekodnix.zaramoney.repository.TransactionRecordRepository;
+import com.zekodnix.zaramoney.repository.UserRepository;
 import com.zekodnix.zaramoney.service.dto.BankAccountDTO;
 import com.zekodnix.zaramoney.service.dto.LockedAccountsDTO;
 import com.zekodnix.zaramoney.service.dto.UserDTO;
@@ -12,6 +17,7 @@ import com.zekodnix.zaramoney.web.rest.errors.ApiException;
 import java.math.BigDecimal;
 import java.security.SecureRandom;
 import java.time.Instant;
+import java.util.Objects;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,17 +39,29 @@ public class BankAccountServicePlus {
     private final BankAccountRepository bankAccountRepository;
     private final TransactionLimitServicePlus transactionLimitServicePlus;
     private final SignupBonusService signupBonusService;
+    private final TransactionRecordRepository transactionRecordRepository;
+    private final LedgerEntryRepository ledgerEntryRepository;
+    private final TransactionLimitRepository transactionLimitRepository;
+    private final UserRepository userRepository;
 
     public BankAccountServicePlus(
         BankAccountService bankAccountService,
         BankAccountRepository bankAccountRepository,
         TransactionLimitServicePlus transactionLimitServicePlus,
-        SignupBonusService signupBonusService
+        SignupBonusService signupBonusService,
+        TransactionRecordRepository transactionRecordRepository,
+        LedgerEntryRepository ledgerEntryRepository,
+        TransactionLimitRepository transactionLimitRepository,
+        UserRepository userRepository
     ) {
         this.bankAccountService = bankAccountService;
         this.bankAccountRepository = bankAccountRepository;
         this.transactionLimitServicePlus = transactionLimitServicePlus;
         this.signupBonusService = signupBonusService;
+        this.transactionRecordRepository = transactionRecordRepository;
+        this.ledgerEntryRepository = ledgerEntryRepository;
+        this.transactionLimitRepository = transactionLimitRepository;
+        this.userRepository = userRepository;
     }
 
     public LockedAccountsDTO lockAccounts(String senderAcc, String receiverAcc) {
@@ -102,9 +120,11 @@ public class BankAccountServicePlus {
     }
 
     // ---------------------------------------------------------------------------------------------- admin CRUD
-    // The balance is read-only in /api/bank-accounts: it only changes through ledger-backed flows (deposit,
-    // transfer, withdrawal, bonus). A balance in the request is ignored; the row is locked like a transfer does,
-    // so an update based on a stale read can never write an old balance back.
+    // /api/bank-accounts must never move or reassign money outside the ledger:
+    //  - balance is read-only: create starts at 0.00, PUT keeps it, PATCH drops it (a supplied value is logged);
+    //  - an account "in use" (non-zero balance, or any transaction / ledger entry) keeps its accountNumber, currency,
+    //    owner and accountType (409 accountinuse), and cannot be deleted (409 accountinuse);
+    //  - the row is locked first (like a transfer), so a stale read can never write an old balance back.
 
     /** Admin create: always starts at 0.00 (fund it with an admin deposit). */
     @Transactional
@@ -120,16 +140,87 @@ public class BankAccountServicePlus {
         BankAccount locked = lockById(dto.getId());
         warnIfBalanceSupplied(dto, locked.getBalance());
         dto.setBalance(locked.getBalance());
+        if (dto.getAccountType() == null) {
+            dto.setAccountType(locked.getAccountType()); // optional in the DTO: absent = unchanged (the column is NOT NULL)
+        }
+        Long newOwnerId = dto.getUser() == null ? null : dto.getUser().getId();
+        requireIdentityUnchangedIfInUse(locked, dto.getAccountNumber(), dto.getCurrency(), dto.getAccountType(), true, newOwnerId);
+        if (newOwnerId != null) {
+            requireUser(newOwnerId); // 400 instead of a foreign-key 500
+        }
         return bankAccountService.update(dto);
     }
 
-    /** Admin partial update (PATCH): a balance in the request is dropped. */
+    /** Admin partial update (PATCH): a balance in the request is dropped; absent fields are unchanged. */
     @Transactional
     public Optional<BankAccountDTO> adminPartialUpdate(BankAccountDTO dto) {
         BankAccount locked = lockById(dto.getId());
         warnIfBalanceSupplied(dto, locked.getBalance());
         dto.setBalance(null); // partialUpdate ignores null fields
+        boolean ownerSupplied = dto.getUser() != null;
+        requireIdentityUnchangedIfInUse(
+            locked,
+            dto.getAccountNumber(),
+            dto.getCurrency(),
+            dto.getAccountType(),
+            ownerSupplied,
+            ownerSupplied ? dto.getUser().getId() : null
+        );
+        if (ownerSupplied) {
+            // Never let the mapper touch the owner: MapStruct's partialUpdate copies the DTO's id/login INTO the
+            // current owner's managed User (renaming that user) instead of switching the reference.
+            locked.setUser(requireUser(dto.getUser().getId()));
+            dto.setUser(null);
+        }
         return bankAccountService.partialUpdate(dto);
+    }
+
+    /** Admin delete: only an unused account (zero balance, no transaction, no ledger entry); its limits go with it. */
+    @Transactional
+    public void adminDelete(Long id) {
+        BankAccount locked = lockById(id);
+        if (isInUse(locked)) {
+            throw ApiException.conflict("An account with a balance or a transaction history cannot be deleted", "accountinuse");
+        }
+        transactionLimitRepository.findOneByAccountId(id).ifPresent(transactionLimitRepository::delete);
+        bankAccountRepository.delete(locked);
+    }
+
+    /** null = "not supplied" for PATCH (except the owner, see {@code ownerSupplied}). */
+    private void requireIdentityUnchangedIfInUse(
+        BankAccount locked,
+        String accountNumber,
+        Currency currency,
+        BankAccountType accountType,
+        boolean ownerSupplied,
+        Long newOwnerId
+    ) {
+        Long currentOwnerId = locked.getUser() == null ? null : locked.getUser().getId();
+        boolean changes =
+            (accountNumber != null && !accountNumber.equals(locked.getAccountNumber())) ||
+            (currency != null && currency != locked.getCurrency()) ||
+            (accountType != null && accountType != locked.getAccountType()) ||
+            (ownerSupplied && !Objects.equals(newOwnerId, currentOwnerId));
+        if (changes && isInUse(locked)) {
+            throw ApiException.conflict(
+                "accountNumber, currency, owner and accountType cannot change once the account has a balance or transactions",
+                "accountinuse"
+            );
+        }
+    }
+
+    private User requireUser(Long userId) {
+        return Optional.ofNullable(userId)
+            .flatMap(userRepository::findById)
+            .orElseThrow(() -> ApiException.badRequest("Owner not found", "usernotfound"));
+    }
+
+    private boolean isInUse(BankAccount account) {
+        return (
+            account.getBalance().signum() != 0 ||
+            transactionRecordRepository.existsBySender_IdOrReceiver_Id(account.getId(), account.getId()) ||
+            ledgerEntryRepository.existsByAccount_Id(account.getId())
+        );
     }
 
     private BankAccount lockById(Long id) {

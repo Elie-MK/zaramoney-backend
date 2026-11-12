@@ -66,4 +66,6 @@ public interface TransactionRecordRepository extends JpaRepository<TransactionRe
     Page<TransactionRecord> findAllForUserLogin(@Param("login") String login, Pageable pageable);
 
     Optional<TransactionRecord> findOneByTransactionReference(String transactionReference);
+
+    boolean existsBySender_IdOrReceiver_Id(Long senderId, Long receiverId);
 }
