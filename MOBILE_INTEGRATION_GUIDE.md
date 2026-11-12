@@ -49,7 +49,7 @@ Everything the Expo / React Native app needs to talk to the ZaraMoney backend.
 | Money | `POST /api/plus/transaction-records/send`, `POST /api/plus/transaction-records/withdrawal` |
 | History | `GET /api/plus/transaction-records`, `GET /api/plus/transaction-records/{id}`, `GET /api/ledger-entries/plus/me`, `GET /api/ledger-entries/plus/transaction/{id}` |
 | Lookup | `GET /api/bank-accounts/plus/accounts/{accountNumber}/verify` |
-| Notifications | `GET /api/plus/notifications` |
+| Notifications | `GET /api/plus/notifications`, `GET /api/plus/notifications/unread-count`, `PUT /api/plus/notifications/{id}/read`, `PUT /api/plus/notifications/read-all`, `PUT /api/plus/push-token` |
 
 ⚠️ **Never call** `/api/bank-accounts`, `/api/transaction-records`, `/api/ledger-entries`, `/api/transaction-fees`, `/api/transaction-limits`, `/api/idempotency-records`, `/api/notifications`, `/api/user-details-accounts` or `/api/users`: they are admin-only (403).
 
@@ -282,7 +282,14 @@ Errors: `409 accountalreadyexists` (a wallet already exists → just load it), `
 | `VERIFIED` | normal home | Yes |
 | `REJECTED` | "Verification failed, contact support" | No |
 
-An admin approves/rejects. 🔜 A push notification will be sent on approval/rejection; until then, refresh `GET /api/user-account` on app start / pull-to-refresh.
+An admin approves/rejects. The user then gets a **push** and a stored notification (`GET /api/plus/notifications`, `type: "SYSTEM"`, `deepLink: "account"`):
+
+| Decision | Title | Message |
+|---|---|---|
+| `VERIFIED` | Compte vérifié | Votre identité a été vérifiée. Vous pouvez maintenant envoyer et retirer de l'argent. |
+| `REJECTED` | Vérification refusée | Votre vérification d'identité a été refusée. Veuillez contacter le support ZaraMoney. |
+
+On receiving it (`data.type === "KYC_STATUS"`), refresh `GET /api/user-account` and show the matching state. Only a real change is notified (approving twice sends one push). Still refresh `GET /api/user-account` on app start / pull-to-refresh: a push can be missed (no token, notifications disabled).
 
 ---
 
@@ -414,7 +421,11 @@ Fees are rounded half-up to the cent (e.g. 5.00 at 1.30 % = 0.065 → **0.07**).
 - `GET /api/plus/transaction-records/{id}` → one receipt (`404 transactionnotfound` if not the user's)
 - `GET /api/ledger-entries/plus/me?page=0&size=20` → `Page` of `{ "entryType": "DEBIT" | "CREDIT", "transactionRecord": TransactionReceiptDTO }`
 - `GET /api/ledger-entries/plus/transaction/{id}` → one entry (`404` if not the user's)
-- `GET /api/plus/notifications` → array (not paginated) of the user's notifications: `id`, `title`, `message`, `type`, `channel`, `status`, `isRead`, `deepLink`, `createdAt`, `sentAt`, `data` (JSON string), `transaction: { id, transactionReference }`. There is no "mark as read" endpoint yet 🔜
+- `GET /api/plus/notifications` → array (not paginated) of the user's notifications: `id`, `title`, `message`, `type`, `channel`, `status`, `isRead`, `deepLink`, `createdAt`, `sentAt`, `data` (JSON string), `transaction: { id, transactionReference }`. 
+- Push delivery state on each notification: `status` = `PENDING` (push queued) → `SENT` (accepted by Expo; `sentAt` set) or `FAILED` (no push token, token no longer valid, or Expo kept failing). The notification is listed in all three cases: the in-app list does not depend on the push. Don't show `status` to users
+- `GET /api/plus/notifications/unread-count` → `{ "count": 3 }` (badge)
+- `PUT /api/plus/notifications/{id}/read` → `204` (idempotent). `404 notificationnotfound` if the id is not the user's. Call it when the user opens a notification
+- `PUT /api/plus/notifications/read-all` → `200 { "updated": 2 }` (number that were unread)
 
 **Push notifications** (Expo): sent to the `expoPushToken` given at onboarding. Transaction push payload:
 ```json
@@ -422,7 +433,22 @@ Fees are rounded half-up to the cent (e.g. 5.00 at 1.30 % = 0.065 → **0.07**).
 ```
 Open `GET /api/plus/transaction-records/{transactionId}` on tap.
 
-⚠️ Known gap: there is no endpoint yet to **update** the push token after onboarding (reinstall / token rotation). 🔜 Planned.
+KYC decision push payload (see §7.3):
+```json
+{ "type": "KYC_STATUS", "kycStatus": "VERIFIED", "deepLink": "account" }
+```
+`kycStatus` is `VERIFIED` or `REJECTED`. On tap (or on receipt), refresh `GET /api/user-account`. The stored notification has `transaction: null` and `data` = `{"type":"KYC_STATUS","kycStatus":"VERIFIED"}`.
+
+Route on `data.type`: `TRANSACTION_ALERT` → transaction screen, `KYC_STATUS` → account screen; ignore unknown types (more will be added).
+
+**Push token** — `PUT /api/plus/push-token`
+```json
+{ "expoPushToken": "ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]" }
+```
+- `204`. Call it after login and every time `getExpoPushTokenAsync()` returns a different value (reinstall, token rotation, permission granted later)
+- `{ "expoPushToken": null }` clears it: call it on **logout** (before discarding the tokens) or when the user turns notifications off
+- Must look like `ExponentPushToken[…]` / `ExpoPushToken[…]`, otherwise `400`. Before onboarding: `404 noaccount`
+- One device token belongs to one user: when another account registers the same token (account switch on the same phone), it is removed from the previous account, so its pushes stop reaching this phone
 
 ---
 
@@ -492,7 +518,7 @@ Plus the login lockout: 5 wrong passwords in 15 min → `429 loginlocked`.
 `kycnotverified` 403 · `accountnotactive` 403 · `receivernotactive` 400 · `currencymismatch` 400 · `senderaccountrequired` 400 · `senderaccountnotfound` 400 · `accountnotowned` 403 · `insufficientbalance` 400 · `minimumbalance` 400 · `dailylimitexceeded` 400 · `monthlylimitexceeded` 400 · `invalidamount` 400 · `receivernotfound` 400 · `agentnotfound` 400 · `notanagent` 400 · `sendtomyself` 400 · `noaccount` 400 · `idempotencykeyreused` 409 · `requestinprogress` 409
 
 ### Other
-`transactionnotfound` 404 · `sessionnotfound` 404 · `ratelimited` 429 · `validation` 400 · `unauthorized` 401
+`transactionnotfound` 404 · `notificationnotfound` 404 · `sessionnotfound` 404 · `ratelimited` 429 · `validation` 400 · `unauthorized` 401
 
 ---
 
@@ -508,3 +534,6 @@ Plus the login lockout: 5 wrong passwords in 15 min → `429 loginlocked`.
 | 2026-11-12 | **Phase 3** (🚧): withdrawal fee 5.01–20 is **0.8 %** (was 8 % by mistake); `transactionType` and currencies optional on `/send` (type set by the server); amounts limited to 2 decimals; account status and currency checks; `GET /api/user-account` returns `404 noaccount` before onboarding (was 500); pushes are sent only after the transaction is committed | Update the fee preview; handle `accountnotactive`, `receivernotactive`, `currencymismatch`, `404 noaccount`. The app can stop sending `transactionType` / currencies (optional) |
 | 2026-11-12 | Admin CRUD `/api/bank-accounts`: `balance` is read-only (create starts at 0, PUT/PATCH keep the current balance); an account with a balance or history keeps its number, currency, owner and type and cannot be deleted (`409 accountinuse`); balances change only through deposits, transfers, withdrawals and bonuses | None: admin-only endpoint, never used by the app |
 | 2026-11-12 | Ledger integrity (Phase 4): entries record the balance after each movement and the account currency; the ledger can no longer be edited or deleted; daily reconciliation | None: `/api/ledger-entries/plus/*` responses are unchanged |
+| 2026-11-12 | KYC approval / rejection now sends a push + stored notification (`type: "KYC_STATUS"` in the push data, `deepLink: "account"`) | Handle the `KYC_STATUS` push: refresh `GET /api/user-account`. Notifications list may now contain items with `transaction: null` |
+| 2026-11-12 | New: `PUT /api/plus/push-token`, `GET /api/plus/notifications/unread-count`, `PUT /api/plus/notifications/{id}/read`, `PUT /api/plus/notifications/read-all` | Send the push token after login / when it changes, `null` on logout; mark notifications read when opened; badge from `unread-count` |
+| 2026-11-12 | Push delivery: retried on network/5xx/429 errors; notification `status` is now `PENDING` → `SENT` / `FAILED` and `sentAt` is set only when Expo accepted the push (was always `SENT`); a token Expo reports as `DeviceNotRegistered` is removed | None required. After a reinstall the old token is dropped automatically: send the new one with `PUT /api/plus/push-token` |

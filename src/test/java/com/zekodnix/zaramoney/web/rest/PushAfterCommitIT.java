@@ -1,6 +1,7 @@
 package com.zekodnix.zaramoney.web.rest;
 
 import static com.zekodnix.zaramoney.web.rest.MoneyTestData.spec;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -9,6 +10,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -27,6 +29,8 @@ import com.zekodnix.zaramoney.web.rest.MoneyTestData.Customer;
 import java.math.BigDecimal;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import reactor.core.publisher.Mono;
+import com.zekodnix.zaramoney.service.push.PushResult;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -87,6 +91,7 @@ class PushAfterCommitIT {
     @BeforeEach
     void setUp() {
         reset(expoPushService);
+        when(expoPushService.sendPush(any(), any(), any(), any())).thenReturn(Mono.just(PushResult.sent("ticket")));
         data = new MoneyTestData(
             userRepository,
             bankAccountRepository,
@@ -146,6 +151,76 @@ class PushAfterCommitIT {
             notificationServicePlus.createTransactionNotification(transfer, bob.user(), new BigDecimal("10"), false)
         );
         verify(expoPushService, never()).sendPush(any(), any(), any(), any());
+    }
+
+    // ------------------------------------------------------------------------------------------ delivery outcome
+
+    @Test
+    void anAcceptedPushMarksTheNotificationSent() throws Exception {
+        Customer alice = data.customer(spec());
+        Customer bob = data.customer(spec().pushToken("ExponentPushToken[bob]"));
+        TransactionRecordDTO transfer = send(alice, bob);
+
+        awaitStatus(bob, transfer, "SENT");
+        assertThat(
+            jdbcTemplate.queryForObject(
+                "select sent_at is not null from notification where user_id = ? and transaction_id = ?",
+                Boolean.class,
+                bob.user().getId(),
+                transfer.getId()
+            )
+        ).isTrue();
+        // alice has no token: nothing was pushed, the notification is FAILED (still listed in the app)
+        assertThat(notificationStatus(alice, transfer)).isEqualTo("FAILED");
+    }
+
+    @Test
+    void anUnregisteredDeviceTokenIsRemovedAndTheNotificationFailed() throws Exception {
+        when(expoPushService.sendPush(eq("ExponentPushToken[gone]"), any(), any(), any())).thenReturn(
+            Mono.just(PushResult.invalidToken("DeviceNotRegistered"))
+        );
+        Customer alice = data.customer(spec());
+        Customer bob = data.customer(spec().pushToken("ExponentPushToken[gone]"));
+        TransactionRecordDTO transfer = send(alice, bob);
+
+        awaitStatus(bob, transfer, "FAILED");
+        assertThat(
+            jdbcTemplate.queryForObject("select expo_push_token from user_details_account where user_id = ?", String.class, bob.user().getId())
+        ).isNull();
+    }
+
+    @Test
+    void aPushThatKeepsFailingIsRecordedAsFailed() throws Exception {
+        when(expoPushService.sendPush(eq("ExponentPushToken[flaky]"), any(), any(), any())).thenReturn(Mono.just(PushResult.failed("HTTP 503")));
+        Customer alice = data.customer(spec());
+        Customer bob = data.customer(spec().pushToken("ExponentPushToken[flaky]"));
+        TransactionRecordDTO transfer = send(alice, bob);
+
+        awaitStatus(bob, transfer, "FAILED");
+        // a transient failure keeps the token
+        assertThat(
+            jdbcTemplate.queryForObject("select expo_push_token from user_details_account where user_id = ?", String.class, bob.user().getId())
+        ).isEqualTo("ExponentPushToken[flaky]");
+    }
+
+    private String notificationStatus(Customer c, TransactionRecordDTO transfer) {
+        return jdbcTemplate.queryForObject(
+            "select status from notification where user_id = ? and transaction_id = ?",
+            String.class,
+            c.user().getId(),
+            transfer.getId()
+        );
+    }
+
+    /** The outcome is recorded asynchronously (after the Expo call): poll for up to 5 s. */
+    private void awaitStatus(Customer c, TransactionRecordDTO transfer, String expected) throws InterruptedException {
+        long deadline = System.nanoTime() + 5_000_000_000L;
+        String current = notificationStatus(c, transfer);
+        while (!expected.equals(current) && System.nanoTime() < deadline) {
+            Thread.sleep(50);
+            current = notificationStatus(c, transfer);
+        }
+        assertThat(current).isEqualTo(expected);
     }
 
     private TransactionRecordDTO send(Customer from, Customer to) throws Exception {

@@ -21,10 +21,16 @@ public class KycReviewService {
 
     private final UserDetailsAccountRepository userDetailsAccountRepository;
     private final UploadFileService uploadFileService;
+    private final NotificationServicePlus notificationServicePlus;
 
-    public KycReviewService(UserDetailsAccountRepository userDetailsAccountRepository, UploadFileService uploadFileService) {
+    public KycReviewService(
+        UserDetailsAccountRepository userDetailsAccountRepository,
+        UploadFileService uploadFileService,
+        NotificationServicePlus notificationServicePlus
+    ) {
         this.userDetailsAccountRepository = userDetailsAccountRepository;
         this.uploadFileService = uploadFileService;
+        this.notificationServicePlus = notificationServicePlus;
     }
 
     @Transactional(readOnly = true)
@@ -52,6 +58,10 @@ public class KycReviewService {
         userDetailsAccountRepository.save(details);
         // TODO(Phase 5): write to a persistent audit log instead of the application log
         LOG.info("KYC {} -> {} for userDetails {} by admin {}", previous, status, userDetailsId, adminLogin);
+        if (previous != status) {
+            // stored now, pushed after commit; a repeated approve/reject does not notify again
+            notificationServicePlus.createKycStatusNotification(details, status);
+        }
         return toDto(details);
     }
 

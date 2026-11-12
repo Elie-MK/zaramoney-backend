@@ -20,6 +20,12 @@ public class ApplicationProperties {
 
     private final Reconciliation reconciliation = new Reconciliation();
 
+    private final Push push = new Push();
+
+    public Push getPush() {
+        return push;
+    }
+
     public Reconciliation getReconciliation() {
         return reconciliation;
     }
@@ -224,6 +230,50 @@ public class ApplicationProperties {
      * {@code up-to: 100.99} means "below 101"). The last tier has no {@code up-to}. Fee = amount x rate, HALF_UP to cents.
      * Quote the values in YAML ("0.0095") so they are read as exact decimals.
      */
+    /** Expo push client ({@code ExpoPushService}). */
+    public static class Push {
+
+        private String expoBaseUrl = "https://exp.host/--/api/v2";
+        /** Retries after the first attempt, only for network errors, timeouts, 5xx and 429. */
+        private int maxRetries = 3;
+        /** First retry delay; doubles each time (with jitter). */
+        private java.time.Duration initialBackoff = java.time.Duration.ofSeconds(1);
+        /** Per attempt. */
+        private java.time.Duration timeout = java.time.Duration.ofSeconds(10);
+
+        public String getExpoBaseUrl() {
+            return expoBaseUrl;
+        }
+
+        public void setExpoBaseUrl(String expoBaseUrl) {
+            this.expoBaseUrl = expoBaseUrl;
+        }
+
+        public int getMaxRetries() {
+            return maxRetries;
+        }
+
+        public void setMaxRetries(int maxRetries) {
+            this.maxRetries = maxRetries;
+        }
+
+        public java.time.Duration getInitialBackoff() {
+            return initialBackoff;
+        }
+
+        public void setInitialBackoff(java.time.Duration initialBackoff) {
+            this.initialBackoff = initialBackoff;
+        }
+
+        public java.time.Duration getTimeout() {
+            return timeout;
+        }
+
+        public void setTimeout(java.time.Duration timeout) {
+            this.timeout = timeout;
+        }
+    }
+
     /** Daily ledger reconciliation ({@code LedgerReconciliationService}); the cron is read via its placeholder. */
     public static class Reconciliation {
 

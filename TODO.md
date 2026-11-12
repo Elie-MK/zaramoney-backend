@@ -59,7 +59,7 @@ Legend: 🔴 Critical · 🟠 High · 🟡 Bug · 🔵 Improvement
 - [x] The $5 bonus is kept but funded by a SYSTEM promo account (`999900000001`, auto-created at startup): BONUS transaction + DEBIT promo / CREDIT customer ledger entries. Accounts open at 0.00
 - [x] KYC starts `PENDING`; `/send` and `/withdrawal` return 403 `kycnotverified` until approved
 - [x] Admin review: `GET /api/admin/backoffice/kyc?status=PENDING`, `GET /kyc/{id}` (with 5-minute signed document links), `POST /kyc/{id}/approve`, `POST /kyc/{id}/reject`
-- [ ] Notify the user (push) when KYC is approved or rejected
+- [x] Notify the user (push) when KYC is approved or rejected — DONE 2026-11-12: `NotificationServicePlus.createKycStatusNotification` (stored `SYSTEM` notification + push after commit, data `{"type":"KYC_STATUS","kycStatus":…}`); only on a real status change. Tests: `KycDecisionNotificationIT`
 - [ ] Persist KYC decisions in an audit log (currently application log only; Phase 5)
 
 ### 🔴 5. Enforce the transaction limits — ✅ DONE
@@ -151,7 +151,7 @@ Decisions: device-key signature (ECDSA P-256) on every customer request; admins 
 - [ ] Single instance only: challenges, nonces and rate-limit counters are in memory. With several instances, move them to Redis
 
 **Left for later**
-- [ ] Notify the user (push / email) when a new device logs in, and on blocks / KYC decisions
+- [ ] Notify the user (push / email) when a new device logs in, and on blocks (KYC decisions: done)
 - [ ] Count signature failures in Prometheus metrics (currently WARN logs only)
 - [ ] Revoke sessions when an account is frozen/closed (no status-change flow exists yet; Phase 3)
 - [ ] Play Integrity / App Attest at login
@@ -251,10 +251,16 @@ Decisions: device-key signature (ECDSA P-256) on every customer request; admins 
   - [ ] Stop deploying with `-DskipTests`; add a test job before deploying
   - [ ] Add gitleaks and a dependency scan (OWASP / Dependabot)
   - [ ] Add a health check after restart, plus a rollback (keep the previous jar)
-- [ ] 🔵 App gaps found while writing `MOBILE_INTEGRATION_GUIDE.md`:
-  - [ ] No endpoint to update the Expo push token after onboarding (reinstall / token rotation): add `PUT /api/plus/push-token`
-  - [ ] No "mark notification as read" endpoint (`/api/plus/notifications`)
-- [ ] 🔵 `ExpoPushService`: use an SLF4J logger instead of `System.out`/`System.err`, and add retries / dead-letter handling
+- [x] 🔵 App gaps found while writing `MOBILE_INTEGRATION_GUIDE.md`:
+  - [x] No endpoint to update the Expo push token after onboarding (reinstall / token rotation): add `PUT /api/plus/push-token` — DONE 2026-11-12 (`null` clears; format validated; the token is removed from any other user who had it)
+  - [x] No "mark notification as read" endpoint (`/api/plus/notifications`) — DONE 2026-11-12: `PUT /{id}/read` (404 if not the user's), `PUT /read-all`, `GET /unread-count`. Tests: `NotificationAppEndpointsIT`
+  - [ ] Later: paginate `GET /api/plus/notifications` (still the full list) and order it newest first
+- [x] 🔵 `ExpoPushService`: use an SLF4J logger instead of `System.out`/`System.err`, and add retries / dead-letter handling — DONE 2026-11-12:
+  - SLF4J, tokens masked; timeout 10 s; 3 retries with backoff only for network errors / timeouts / 5xx / 429 (`application.push`)
+  - Expo tickets parsed: `DeviceNotRegistered` → token removed from the user; other errors final
+  - Dead letter = the notification row: `PENDING` → `SENT` (with `sentAt`) / `FAILED` (`PushNotificationListener` → `NotificationServicePlus.recordPushOutcome`); counter `zaramoney.push{result}`
+  - Tests: `ExpoPushServiceTest` (local HTTP server), `PushAfterCommitIT`
+  - [ ] Later: poll Expo push receipts (second step of Expo's protocol) for delivery errors reported after the ticket; re-send FAILED pushes from an admin action if needed; pushes in flight are lost on restart (in-memory)
 - [ ] 🔵 Cleanup:
   - [ ] Remove commented-out code (`TransactionRecordServicePlus`)
   - [ ] Remove unused injected beans

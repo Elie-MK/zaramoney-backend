@@ -42,4 +42,24 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
         "select notification from Notification notification left join fetch notification.user left join fetch notification.transaction where notification.id =:id"
     )
     Optional<Notification> findOneWithToOneRelationships(@Param("id") Long id);
+
+    boolean existsByIdAndUser_Id(Long id, Long userId);
+
+    long countByUser_IdAndIsReadFalse(Long userId);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("update Notification n set n.isRead = true where n.id = :id and n.user.id = :userId and n.isRead = false")
+    int markRead(@Param("id") Long id, @Param("userId") Long userId);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("update Notification n set n.isRead = true where n.user.id = :userId and n.isRead = false")
+    int markAllRead(@Param("userId") Long userId);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("update Notification n set n.status = :status, n.sentAt = :sentAt where n.id = :id")
+    int updateDeliveryStatus(
+        @Param("id") Long id,
+        @Param("status") com.zekodnix.zaramoney.domain.enumeration.NotificationStatus status,
+        @Param("sentAt") java.time.Instant sentAt
+    );
 }

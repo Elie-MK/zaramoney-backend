@@ -233,6 +233,12 @@ jhipster:
 # Keep the values quoted so they are read as exact decimals.
 # ===================================================================
 application:
+  push:
+    # Expo push API (ExpoPushService): retries only for network errors, timeouts, 5xx and 429
+    expo-base-url: https://exp.host/--/api/v2
+    max-retries: 3
+    initial-backoff: 1s
+    timeout: 10s
   reconciliation:
     # daily ledger reconciliation, Africa/Kinshasa time (LedgerReconciliationService)
     cron: '0 15 2 * * *'

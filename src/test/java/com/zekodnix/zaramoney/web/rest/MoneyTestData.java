@@ -56,6 +56,12 @@ class MoneyTestData {
         boolean agent;
         boolean pin = true;
         String pushToken;
+        KycStatus kyc = KycStatus.VERIFIED;
+
+        Spec kyc(KycStatus v) {
+            kyc = v;
+            return this;
+        }
 
         Spec balance(String v) {
             balance = v;
@@ -144,7 +150,7 @@ class MoneyTestData {
                     .country("CD")
                     .address("Kinshasa")
                     .isAgent(spec.agent)
-                    .kycStatus(KycStatus.VERIFIED)
+                    .kycStatus(spec.kyc)
                     .expoPushToken(spec.pushToken)
                     .user(user)
             );

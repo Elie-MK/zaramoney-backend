@@ -50,4 +50,15 @@ public interface UserDetailsAccountRepository
         countQuery = "select count(d) from UserDetailsAccount d where d.kycStatus = :status"
     )
     Page<UserDetailsAccount> findAllByKycStatus(@Param("status") KycStatus status, Pageable pageable);
+
+    Optional<UserDetailsAccount> findOneByUser_Id(Long userId);
+
+    /** One device token belongs to one user: clears it on any other user (phone switched accounts). */
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("update UserDetailsAccount d set d.expoPushToken = null where d.expoPushToken = :token and d.user.id <> :userId")
+    int releasePushTokenFromOtherUsers(@Param("token") String token, @Param("userId") Long userId);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("update UserDetailsAccount d set d.expoPushToken = null where d.expoPushToken = :token")
+    int clearPushToken(@Param("token") String token);
 }
