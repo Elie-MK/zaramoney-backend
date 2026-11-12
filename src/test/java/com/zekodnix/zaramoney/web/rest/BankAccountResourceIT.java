@@ -601,12 +601,22 @@ class BankAccountResourceIT {
             .andExpect(jsonPath("$.[*].status").value(hasItem(DEFAULT_STATUS.toString())))
             .andExpect(jsonPath("$.[*].createdAt").value(hasItem(DEFAULT_CREATED_AT.toString())));
 
-        // Check, that the count call also returns 1
+        // Check, that the count call also returns 1 (scoped to this entity: the SYSTEM accounts created at startup
+        // are always in the table and match broad filters such as "currency.equals=USD")
         restBankAccountMockMvc
-            .perform(get(ENTITY_API_URL + "/count?sort=id,desc&" + filter))
+            .perform(get(ENTITY_API_URL + "/count?sort=id,desc&" + filter + onlyThisAccount(filter)))
             .andExpect(status().isOk())
             .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
             .andExpect(content().string("1"));
+    }
+
+    /**
+     * Scopes a filter check to the test's own account: the SYSTEM accounts created at startup are always in the table
+     * and legitimately match broad filters. For id filters, scope by the (unique) account number instead
+     * (JHipster: id.equals would override the id filter under test).
+     */
+    private String onlyThisAccount(String filter) {
+        return filter.startsWith("id.") ? "&accountNumber.equals=" + bankAccount.getAccountNumber() : "&id.equals=" + bankAccount.getId();
     }
 
     /**
@@ -614,7 +624,7 @@ class BankAccountResourceIT {
      */
     private void defaultBankAccountShouldNotBeFound(String filter) throws Exception {
         restBankAccountMockMvc
-            .perform(get(ENTITY_API_URL + "?sort=id,desc&" + filter))
+            .perform(get(ENTITY_API_URL + "?sort=id,desc&" + filter + onlyThisAccount(filter))) // scoped: SYSTEM accounts may match
             .andExpect(status().isOk())
             .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
             .andExpect(jsonPath("$").isArray())
@@ -622,7 +632,7 @@ class BankAccountResourceIT {
 
         // Check, that the count call also returns 0
         restBankAccountMockMvc
-            .perform(get(ENTITY_API_URL + "/count?sort=id,desc&" + filter))
+            .perform(get(ENTITY_API_URL + "/count?sort=id,desc&" + filter + onlyThisAccount(filter)))
             .andExpect(status().isOk())
             .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
             .andExpect(content().string("0"));
@@ -668,6 +678,7 @@ class BankAccountResourceIT {
         assertSameRepositoryCount(databaseSizeBeforeUpdate);
         // balance is read-only in the admin CRUD (only ledger-backed flows change it): the original balance is kept
         updatedBankAccount.setBalance(BigDecimal.ZERO);
+        updatedBankAccount.setCreatedAt(DEFAULT_CREATED_AT); // createdAt is server-owned too
         assertPersistedBankAccountToMatchAllProperties(updatedBankAccount);
     }
 
@@ -800,6 +811,7 @@ class BankAccountResourceIT {
         assertSameRepositoryCount(databaseSizeBeforeUpdate);
         // balance is read-only in the admin CRUD (only ledger-backed flows change it): the original balance is kept
         partialUpdatedBankAccount.setBalance(BigDecimal.ZERO);
+        partialUpdatedBankAccount.setCreatedAt(DEFAULT_CREATED_AT); // createdAt is server-owned too
         assertBankAccountUpdatableFieldsEquals(partialUpdatedBankAccount, getPersistedBankAccount(partialUpdatedBankAccount));
     }
 

@@ -58,10 +58,12 @@ public class IdempotencyRecord implements Serializable {
     @Column(name = "transaction_reference", length = 64)
     private String transactionReference;
 
+    /** Server timestamp when not set by the caller (application code never takes it from client input). */
     @PrePersist
     public void prePersist() {
-        Instant now = Instant.now();
-        this.createdAt = now;
+        if (this.createdAt == null) {
+            this.createdAt = Instant.now();
+        }
     }
 
     // jhipster-needle-entity-add-field - JHipster will add fields here

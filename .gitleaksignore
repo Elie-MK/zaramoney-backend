@@ -1,0 +1,5 @@
+# gitleaks: findings reviewed and accepted (format: commit:file:rule:line). Never add a real secret here: rotate it.
+# MOBILE_INTEGRATION_GUIDE.md example idempotencyKey (a UUID, not a secret)
+c5b553e3360edc3515b2c2fdd0090ccb1a6921f6:MOBILE_INTEGRATION_GUIDE.md:generic-api-key:326
+# JWT secret of a test (never used outside tests)
+01b825c72224bf7db8562e3871dba804d1ae2ae7:src/test/java/com/zekodnix/zaramoney/security/jwt/AuthenticationIntegrationTest.java:generic-api-key:19

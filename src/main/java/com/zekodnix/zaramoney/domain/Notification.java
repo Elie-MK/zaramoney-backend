@@ -79,9 +79,12 @@ public class Notification implements Serializable {
     @JsonIgnoreProperties(value = { "sender", "receiver" }, allowSetters = true)
     private TransactionRecord transaction;
 
+    /** Server timestamp when not set by the caller (application code never takes it from client input). */
     @PrePersist
     public void prePersist() {
-        this.createdAt = Instant.now();
+        if (this.createdAt == null) {
+            this.createdAt = Instant.now();
+        }
     }
 
     // jhipster-needle-entity-add-field - JHipster will add fields here

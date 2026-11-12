@@ -138,6 +138,7 @@ public class BankAccountServicePlus {
     public BankAccountDTO adminCreate(BankAccountDTO dto) {
         warnIfBalanceSupplied(dto, BigDecimal.ZERO);
         dto.setBalance(BigDecimal.ZERO.setScale(2));
+        dto.setCreatedAt(Instant.now()); // server-owned (the fraud NEW_ACCOUNT rule relies on it)
         BankAccountDTO saved = bankAccountService.save(dto);
         auditService.record(
             AuditAction.BANK_ACCOUNT_CREATED,
@@ -154,6 +155,7 @@ public class BankAccountServicePlus {
         BankAccount locked = lockById(dto.getId());
         warnIfBalanceSupplied(dto, locked.getBalance());
         dto.setBalance(locked.getBalance());
+        dto.setCreatedAt(locked.getCreatedAt()); // server-owned, like the balance
         if (dto.getAccountType() == null) {
             dto.setAccountType(locked.getAccountType()); // optional in the DTO: absent = unchanged (the column is NOT NULL)
         }
@@ -174,6 +176,7 @@ public class BankAccountServicePlus {
         BankAccount locked = lockById(dto.getId());
         warnIfBalanceSupplied(dto, locked.getBalance());
         dto.setBalance(null); // partialUpdate ignores null fields
+        dto.setCreatedAt(null); // server-owned
         boolean ownerSupplied = dto.getUser() != null;
         requireIdentityUnchangedIfInUse(
             locked,
