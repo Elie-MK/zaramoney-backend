@@ -398,6 +398,7 @@ Same `+5` minimum balance rule. The receiver must be an agent (`400 notanagent`)
 ## 10. History, receipts, notifications ✅
 
 - `GET /api/plus/transaction-records?page=0&size=20` → `Page<TransactionReceiptDTO>` (only the user's own; items in `content`)
+- Transaction types the user can see: `TRANSFER` (sent or received), `WITHDRAWAL`, `BONUS` (welcome bonus) and `DEPOSIT` (cash credited by ZaraMoney staff). For `BONUS` and `DEPOSIT` the counterparty is `"ZaraMoney"` and `counterpartyAccountNumber` is `null`
 - `GET /api/plus/transaction-records/{id}` → one receipt (`404 transactionnotfound` if not the user's)
 - `GET /api/ledger-entries/plus/me?page=0&size=20` → `Page` of `{ "entryType": "DEBIT" | "CREDIT", "transactionRecord": TransactionReceiptDTO }`
 - `GET /api/ledger-entries/plus/transaction/{id}` → one entry (`404` if not the user's)
@@ -490,5 +491,6 @@ Plus the login lockout: 5 wrong passwords in 15 min → `429 loginlocked`.
 | 2026-11-12 | Guide created (consolidates Phase 2 + item 13 contracts) | — |
 | 2026-11-12 | **Device-bound sessions** (🚧): challenge login, signed requests, 15-min access tokens + rotating refresh tokens, sessions screen, transaction key | **Breaking**: all old tokens invalid after deploy (everyone logs in once). New login flow + signing required (old app works only while server is `optional`) |
 | 2026-11-12 | **Phase 2 security** (🚧): `pin` replaces `password` on send/withdrawal; transaction PIN endpoints; `TransactionReceiptDTO` responses; KYC `PENDING` + admin review; both KYC photos required (≤ 500 KB, JPEG/PNG/WEBP); $5 bonus via ledger; limits enforced; per-user idempotency keys (8–128 chars); rate limits | **Breaking**: ship the app together with the backend. Existing users must create a PIN before sending |
+| 2026-11-12 | Admin deposits (🚧) now go through the ledger (from the ZaraMoney settlement account) and are idempotent | None for the app: deposits still appear as `DEPOSIT` / `RECEIVED` from `"ZaraMoney"`; the description is now `Dépôt de <amount> USD` |
 | upcoming | Withdrawal fee 5.01–20 → **0.8 %** (currently 8 % by mistake) | Update fee preview |
 | upcoming | `transactionType` on `/send` set by the server; account status checks (`SUSPENDED`/`CLOSED`) | New error codes will be listed here |

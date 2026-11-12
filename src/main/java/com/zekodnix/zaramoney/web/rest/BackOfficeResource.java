@@ -1,6 +1,7 @@
 package com.zekodnix.zaramoney.web.rest;
 
 import com.zekodnix.zaramoney.domain.enumeration.KycStatus;
+import com.zekodnix.zaramoney.security.AuthoritiesConstants;
 import com.zekodnix.zaramoney.security.SecurityUtils;
 import com.zekodnix.zaramoney.service.BackOfficeService;
 import com.zekodnix.zaramoney.service.KycReviewService;
@@ -14,6 +15,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -24,8 +26,9 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import tech.jhipster.web.util.PaginationUtil;
 
-/** Back office. Everything under /api/admin/** requires ROLE_ADMIN (SecurityConfiguration). */
+/** Back office. Everything under /api/admin/** requires ROLE_ADMIN (SecurityConfiguration), and the class is admin-only too. */
 @RestController
+@PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
 @RequestMapping("/api/admin/backoffice")
 public class BackOfficeResource {
 
@@ -41,7 +44,7 @@ public class BackOfficeResource {
 
     @PostMapping("/user/deposit")
     public ResponseEntity<TransactionRecordDTO> moneyDeposit(@RequestBody @Valid DepositDto depositDto) {
-        LOG.debug("Make deposit to an user amount {}", depositDto.getAmount());
+        LOG.debug("REST request to deposit {} on account {}", depositDto.getAmount(), depositDto.getUserAccountNumber());
 
         var res = backOfficeService.addMoneyToUserAccount(depositDto);
         return ResponseEntity.ok(res);

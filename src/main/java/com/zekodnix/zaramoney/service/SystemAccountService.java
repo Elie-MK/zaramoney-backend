@@ -27,6 +27,12 @@ public class SystemAccountService {
     /** Funds the signup bonus. Its (negative) balance is the total bonus issued. Prefix 9999 never collides with customer accounts (2512). */
     public static final String PROMO_ACCOUNT_NUMBER = "999900000001";
 
+    /**
+     * Cash / settlement account: the counterpart of admin deposits (cash received outside the app and credited to a
+     * wallet). Its (negative) balance is the total cash deposited that ZaraMoney owes to customers.
+     */
+    public static final String SETTLEMENT_ACCOUNT_NUMBER = "999900000002";
+
     private final BankAccountRepository bankAccountRepository;
     private final TransactionTemplate transactionTemplate;
 
@@ -38,18 +44,23 @@ public class SystemAccountService {
     @EventListener(ApplicationReadyEvent.class)
     public void ensureSystemAccounts() {
         transactionTemplate.executeWithoutResult(status -> {
-            if (bankAccountRepository.findByAccountNumber(PROMO_ACCOUNT_NUMBER).isEmpty()) {
-                BankAccount promo = new BankAccount()
-                    .accountNumber(PROMO_ACCOUNT_NUMBER)
-                    .balance(BigDecimal.ZERO.setScale(2))
-                    .currency(Currency.USD)
-                    .status(AccountStatus.ACTIVE)
-                    .accountType(BankAccountType.SYSTEM)
-                    .createdAt(Instant.now());
-                bankAccountRepository.save(promo);
-                LOG.info("Created system promo account {}", PROMO_ACCOUNT_NUMBER);
-            }
+            ensureSystemAccount(PROMO_ACCOUNT_NUMBER, "promo");
+            ensureSystemAccount(SETTLEMENT_ACCOUNT_NUMBER, "settlement");
         });
+    }
+
+    private void ensureSystemAccount(String accountNumber, String label) {
+        if (bankAccountRepository.findByAccountNumber(accountNumber).isEmpty()) {
+            BankAccount account = new BankAccount()
+                .accountNumber(accountNumber)
+                .balance(BigDecimal.ZERO.setScale(2))
+                .currency(Currency.USD)
+                .status(AccountStatus.ACTIVE)
+                .accountType(BankAccountType.SYSTEM)
+                .createdAt(Instant.now());
+            bankAccountRepository.save(account);
+            LOG.info("Created system {} account {}", label, accountNumber);
+        }
     }
 
     /** Must be called inside a transaction. Locks the promo account row (bonus grants are serialized). */
@@ -57,5 +68,12 @@ public class SystemAccountService {
         return bankAccountRepository
             .findByAccountNumberForUpdate(PROMO_ACCOUNT_NUMBER)
             .orElseThrow(() -> new IllegalStateException("System promo account is missing"));
+    }
+
+    /** Must be called inside a transaction, after the customer row is locked (lock order: 2512... before 9999...). */
+    public BankAccount lockSettlementAccount() {
+        return bankAccountRepository
+            .findByAccountNumberForUpdate(SETTLEMENT_ACCOUNT_NUMBER)
+            .orElseThrow(() -> new IllegalStateException("System settlement account is missing"));
     }
 }

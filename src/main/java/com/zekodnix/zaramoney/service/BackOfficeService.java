@@ -1,95 +1,182 @@
 package com.zekodnix.zaramoney.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.zekodnix.zaramoney.domain.Authority;
-import com.zekodnix.zaramoney.domain.enumeration.*;
+import com.zekodnix.zaramoney.domain.BankAccount;
+import com.zekodnix.zaramoney.domain.User;
+import com.zekodnix.zaramoney.domain.enumeration.AccountStatus;
+import com.zekodnix.zaramoney.domain.enumeration.BankAccountType;
+import com.zekodnix.zaramoney.domain.enumeration.Currency;
+import com.zekodnix.zaramoney.domain.enumeration.EntryType;
+import com.zekodnix.zaramoney.domain.enumeration.FraudStatus;
+import com.zekodnix.zaramoney.domain.enumeration.TransactionStatus;
+import com.zekodnix.zaramoney.domain.enumeration.TransactionType;
+import com.zekodnix.zaramoney.repository.BankAccountRepository;
+import com.zekodnix.zaramoney.repository.TransactionRecordRepository;
+import com.zekodnix.zaramoney.repository.UserRepository;
 import com.zekodnix.zaramoney.security.AuthoritiesConstants;
+import com.zekodnix.zaramoney.security.SecurityUtils;
 import com.zekodnix.zaramoney.service.dto.DepositDto;
 import com.zekodnix.zaramoney.service.dto.TransactionRecordDTO;
 import com.zekodnix.zaramoney.service.mapper.BankAccountMapper;
-import com.zekodnix.zaramoney.web.rest.vm.TransactionRecordVM;
-import jakarta.transaction.Transactional;
+import com.zekodnix.zaramoney.service.mapper.TransactionRecordMapper;
+import com.zekodnix.zaramoney.web.rest.errors.ApiException;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.Instant;
+import java.util.Locale;
+import java.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.data.crossstore.ChangeSetPersister;
-import org.springframework.security.authorization.AuthorizationDeniedException;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
-import java.nio.file.AccessDeniedException;
-import java.time.Instant;
-import java.util.Set;
-
+/**
+ * Back-office money operations (admin only).
+ *
+ * <p>Admin deposit = cash received by ZaraMoney outside the app, credited to a customer wallet. In ONE transaction:
+ * <ol>
+ *   <li>idempotent replay (key scoped to the admin + request hash) → return the original deposit</li>
+ *   <li>reserve the idempotency key (flushed: a parallel double click blocks on the unique index and gets 409)</li>
+ *   <li>lock the customer account row, check it is an ACTIVE CUSTOMER account owned by {@code userEmail}</li>
+ *   <li>lock the SYSTEM settlement account (always after the customer row: 2512... before 9999...)</li>
+ *   <li>DEBIT settlement / CREDIT customer, DEPOSIT transaction, balanced ledger entries, complete idempotency, notify</li>
+ * </ol>
+ * The admin who made the deposit is recorded on the idempotency record (user id + transaction reference) and logged.
+ */
 @Service
 public class BackOfficeService {
 
+    static final String DEPOSIT_ENDPOINT = "/api/admin/backoffice/user/deposit";
+
     private static final Logger LOG = LoggerFactory.getLogger(BackOfficeService.class);
 
-    private final BankAccountService bankAccountService;
-    private final UserServicePlus userServicePlus;
     private final UserService userService;
-    private final TransactionRecordService transactionRecordService;
-    private final TransactionRecordServicePlus  transactionRecordServicePlus;
-    private final TransactionValidatorService transactionValidatorService;
+    private final UserRepository userRepository;
+    private final BankAccountRepository bankAccountRepository;
     private final BankAccountMapper bankAccountMapper;
+    private final SystemAccountService systemAccountService;
+    private final IdempotencyRecordServicePlus idempotencyRecordServicePlus;
+    private final TransactionRecordService transactionRecordService;
+    private final TransactionRecordRepository transactionRecordRepository;
+    private final TransactionRecordMapper transactionRecordMapper;
+    private final TransactionValidatorService transactionValidatorService;
     private final LedgerEntryServicePlus ledgerEntryServicePlus;
     private final NotificationServicePlus notificationServicePlus;
 
-    public BackOfficeService(BankAccountService bankAccountService, UserService userService, UserAccountService userAccountService, UserServicePlus userServicePlus, UserService userService1, TransactionRecordService transactionRecordService, TransactionRecordServicePlus transactionRecordServicePlus, TransactionValidatorService transactionValidatorService, BankAccountMapper bankAccountMapper, LedgerEntryServicePlus ledgerEntryServicePlus, NotificationServicePlus notificationServicePlus) {
-        this.bankAccountService = bankAccountService;
-        this.userServicePlus = userServicePlus;
-        this.userService = userService1;
-        this.transactionRecordService = transactionRecordService;
-        this.transactionRecordServicePlus = transactionRecordServicePlus;
-        this.transactionValidatorService = transactionValidatorService;
+    public BackOfficeService(
+        UserService userService,
+        UserRepository userRepository,
+        BankAccountRepository bankAccountRepository,
+        BankAccountMapper bankAccountMapper,
+        SystemAccountService systemAccountService,
+        IdempotencyRecordServicePlus idempotencyRecordServicePlus,
+        TransactionRecordService transactionRecordService,
+        TransactionRecordRepository transactionRecordRepository,
+        TransactionRecordMapper transactionRecordMapper,
+        TransactionValidatorService transactionValidatorService,
+        LedgerEntryServicePlus ledgerEntryServicePlus,
+        NotificationServicePlus notificationServicePlus
+    ) {
+        this.userService = userService;
+        this.userRepository = userRepository;
+        this.bankAccountRepository = bankAccountRepository;
         this.bankAccountMapper = bankAccountMapper;
+        this.systemAccountService = systemAccountService;
+        this.idempotencyRecordServicePlus = idempotencyRecordServicePlus;
+        this.transactionRecordService = transactionRecordService;
+        this.transactionRecordRepository = transactionRecordRepository;
+        this.transactionRecordMapper = transactionRecordMapper;
+        this.transactionValidatorService = transactionValidatorService;
         this.ledgerEntryServicePlus = ledgerEntryServicePlus;
         this.notificationServicePlus = notificationServicePlus;
     }
 
     @Transactional
     public TransactionRecordDTO addMoneyToUserAccount(DepositDto depositDto) {
-        var userAccount = bankAccountService.findByAccountNumber(depositDto.getUserAccountNumber()).orElseThrow();
-        var user = userServicePlus.findOneByLogin(depositDto.getUserEmail());
-        var currentUser = userService.getUserWithAuthorities().orElseThrow();
-
-
-        if (currentUser.getAuthorities().stream()
-            .noneMatch(auth -> auth.getName().equals(AuthoritiesConstants.ADMIN))) {
-            throw new AuthorizationDeniedException("You are not authorized to perform this operation");
+        // Defense in depth: /api/admin/** is already ROLE_ADMIN (URL rule + @PreAuthorize on the resource)
+        if (!SecurityUtils.hasCurrentUserThisAuthority(AuthoritiesConstants.ADMIN)) {
+            throw ApiException.forbidden("Only admins can make deposits", "forbidden");
         }
+        User admin = userService
+            .getUserWithAuthorities()
+            .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "Not authenticated", "unauthorized"));
 
-       if (!userAccount.getUser().getLogin().equals(user.getLogin())) {
-           throw new AuthorizationDeniedException("The account number and the user account number do not match");
-       }
+        BigDecimal amount = depositDto.getAmount().setScale(2, RoundingMode.UNNECESSARY); // @Digits guarantees <= 2 decimals
+        String accountNumber = depositDto.getUserAccountNumber().trim();
+        String email = depositDto.getUserEmail().trim().toLowerCase(Locale.ROOT);
+        String requestHash = IdempotencyRecordServicePlus.requestHash(DEPOSIT_ENDPOINT, accountNumber, email, amount);
 
-       userAccount.setBalance(userAccount.getBalance().add(depositDto.getAmount()));
+        var replay = idempotencyRecordServicePlus.findCompleted(depositDto.getIdempotencyKey(), admin, DEPOSIT_ENDPOINT, requestHash);
+        if (replay.isPresent()) {
+            return transactionRecordRepository
+                .findOneByTransactionReference(replay.orElseThrow())
+                .map(transactionRecordMapper::toDto)
+                .orElseThrow(() -> new IllegalStateException("Completed deposit without transaction: " + replay.orElseThrow()));
+        }
+        var reservation = idempotencyRecordServicePlus.reserve(depositDto.getIdempotencyKey(), admin, DEPOSIT_ENDPOINT, requestHash);
 
-       bankAccountService.save(userAccount);
+        User owner = userRepository
+            .findOneByLogin(email)
+            .orElseThrow(() -> ApiException.notFound("No user with this e-mail", "usernotfound"));
 
-        TransactionRecordDTO transaction = new TransactionRecordDTO();
-        transaction.setTransactionReference(transactionValidatorService.generateTransactionReference());
-        transaction.setTransactionType(TransactionType.DEPOSIT);
-        transaction.setSendAmount(depositDto.getAmount());
-        transaction.setReceiveAmount(depositDto.getAmount());
-        transaction.setCurrencySendAmount(Currency.USD);
-        transaction.setCurrencyReceiveAmount(Currency.USD);
-        transaction.setDescription("Depot de " + depositDto.getAmount() + " USD sur mon compte");
-        transaction.setSender(null);
-        transaction.setReceiver(userAccount);
-        transaction.setExchangeRate(BigDecimal.valueOf(2.81));
-        transaction.setCreatedAt(Instant.now());
+        BankAccount customer = bankAccountRepository
+            .findByAccountNumberForUpdate(accountNumber)
+            .filter(a -> a.getAccountType() == BankAccountType.CUSTOMER && a.getUser() != null)
+            .orElseThrow(() -> ApiException.notFound("Customer account not found", "accountnotfound"));
+        if (!Objects.equals(customer.getUser().getId(), owner.getId())) {
+            throw ApiException.badRequest("The account does not belong to this user", "accountusermismatch");
+        }
+        if (customer.getStatus() != AccountStatus.ACTIVE) {
+            throw ApiException.badRequest("The account is not active", "accountnotactive");
+        }
+        if (customer.getCurrency() != Currency.USD) {
+            // the settlement account is USD; other currencies need their own settlement account (Phase 4)
+            throw ApiException.badRequest("Deposits are only supported in USD", "unsupportedcurrency");
+        }
+        BankAccount settlement = systemAccountService.lockSettlementAccount();
 
-        // default risk score
-        transaction.setTransactionStatus(TransactionStatus.COMPLETED);
-        transaction.setTransactionDate(Instant.now());
-        transaction.setFraudStatus(FraudStatus.CLEAN);
-        transaction.setRiskScore(0);
+        settlement.setBalance(settlement.getBalance().subtract(amount).setScale(2, RoundingMode.HALF_UP));
+        customer.setBalance(customer.getBalance().add(amount).setScale(2, RoundingMode.HALF_UP));
 
-        var savedTransactionRecord = transactionRecordService.save(transaction);
-        ledgerEntryServicePlus.buildEntry(savedTransactionRecord, userAccount, depositDto.getAmount(), EntryType.CREDIT);
-        notificationServicePlus.createTransactionNotification(savedTransactionRecord, user, depositDto.getAmount(), false);
+        var settlementDto = bankAccountMapper.toDto(settlement);
+        var customerDto = bankAccountMapper.toDto(customer);
+        Instant now = Instant.now();
 
-        return savedTransactionRecord;
+        TransactionRecordDTO tx = new TransactionRecordDTO();
+        tx.setTransactionReference(transactionValidatorService.generateTransactionReference());
+        tx.setTransactionType(TransactionType.DEPOSIT);
+        tx.setSendAmount(amount);
+        tx.setReceiveAmount(amount);
+        tx.setCurrencySendAmount(customer.getCurrency());
+        tx.setCurrencyReceiveAmount(customer.getCurrency());
+        tx.setDescription("Dépôt de " + amount + " " + customer.getCurrency());
+        tx.setSender(settlementDto);
+        tx.setReceiver(customerDto);
+        tx.setExchangeRate(BigDecimal.ONE);
+        tx.setCreatedAt(now);
+        tx.setTransactionDate(now);
+        tx.setTransactionStatus(TransactionStatus.COMPLETED);
+        tx.setFraudStatus(FraudStatus.CLEAN);
+        tx.setRiskScore(0);
+        TransactionRecordDTO saved = transactionRecordService.save(tx);
+
+        var debit = ledgerEntryServicePlus.buildEntry(saved, settlementDto, amount, EntryType.DEBIT);
+        var credit = ledgerEntryServicePlus.buildEntry(saved, customerDto, amount, EntryType.CREDIT);
+        ledgerEntryServicePlus.validateDoubleEntry(debit, credit);
+
+        idempotencyRecordServicePlus.complete(reservation, saved.getTransactionReference(), saved.getId());
+        // TODO(Phase 3): send the push after commit (@TransactionalEventListener)
+        notificationServicePlus.createTransactionNotification(saved, owner, amount, false);
+
+        LOG.info(
+            "AUDIT deposit ref={} amount={} {} account={} by admin id={} login={}",
+            saved.getTransactionReference(),
+            amount,
+            customer.getCurrency(),
+            accountNumber,
+            admin.getId(),
+            admin.getLogin()
+        );
+        return saved;
     }
 }

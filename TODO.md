@@ -40,6 +40,7 @@ Legend: 🔴 Critical · 🟠 High · 🟡 Bug · 🔵 Improvement
 ### 🟡 Test infrastructure (found while running Phase 1 tests)
 - [ ] `TechnicalStructureTest` (ArchUnit layering) reports 0 tests run, so the layer rules are never checked; existing code already breaks them (services use `web.rest.errors` and VMs). Decide: fix the engine setup and relax the rules, or delete the test
 - [ ] Testcontainers 1.20.6 (managed by Spring Boot 3.4.5) can't talk to Docker 29 ("client version 1.32 is too old"). Fix: pin `<testcontainers.version>1.21.4</testcontainers.version>` (or newer) in `pom.xml`. For now tests run with `./mvnw verify -Dtestcontainers.version=1.21.4`
+- [ ] `DeviceSessionIT` is flaky: each run, one random test fails with 401 (seen 2026-11-12, also on a clean checkout of `develop`). The failing test reports ~3570 s elapsed in a ~35 s run, which points at a wall-clock jump (WSL) breaking the ±60 s signature window / token expiry; not yet confirmed
 - [ ] 119 generated tests were already failing before the Phase 1 changes (verified on the original code). They fail on `JSON path "$.[*].createdAt"` (timestamp format/precision) in `BankAccountResourceIT`, `IdempotencyRecordResourceIT`, `LedgerEntryResourceIT` and `NotificationResourceIT`
 
 ---
@@ -182,20 +183,26 @@ Decisions: device-key signature (ECDSA P-256) on every customer request; admins 
 - [x] 🟡 `LedgerEntryServicePlus.getCurrentUserEntryById` throws an NPE when the ledger entry is null (404 since Phase 2)
 - [ ] 🟡 Add `@Version` (optimistic locking) to `BankAccount` to cover the write paths that are not pessimistically locked
 
-## Phase 3b — Back office deposit (`BackOfficeService.addMoneyToUserAccount`)
-- [ ] 🟡 Validate `amount > 0` (`@DecimalMin` on `DepositDto`)
-- [ ] 🟡 Add idempotency (a double click currently deposits twice)
-- [ ] 🟡 Lock the account row (`findByAccountNumberForUpdate`)
-- [ ] 🟡 Use Spring's `org.springframework.transaction.annotation.Transactional`, not `jakarta.transaction.Transactional`
-- [ ] 🟡 `user` can be null (unknown email) → NPE
-- [ ] 🟡 Fix the injected constructor dependencies (`UserService` is injected twice and `UserAccountService` is unused)
-- [ ] 🟡 Write the admin ID to an audit log
+## Phase 3b — Back office deposit (`BackOfficeService.addMoneyToUserAccount`) — ✅ DONE 2026-11-12
+- [x] 🟡 Validate `amount > 0` (`@DecimalMin("0.01")` + `@Digits(fraction = 2)` on `DepositDto`)
+- [x] 🟡 Add idempotency: `idempotencyKey` (8–128 chars) is now **required**; key scoped to the admin + request hash, same as `/send` (retry → original deposit, other payload → 409 `idempotencykeyreused`, parallel double click → credited once)
+- [x] 🟡 Lock the account row (`findByAccountNumberForUpdate`), then the SYSTEM settlement account (lock order 2512… before 9999…)
+- [x] 🟡 Use Spring's `@Transactional`, not `jakarta.transaction.Transactional`
+- [x] 🟡 Unknown e-mail → 404 `usernotfound`; unknown or SYSTEM account → 404 `accountnotfound`; account of another user → 400 `accountusermismatch`; non-ACTIVE account → 400 `accountnotactive` (was NPE / 500 / 403). E-mail matched case-insensitively
+- [x] 🟡 Constructor cleaned up (no duplicate `UserService`, no unused beans)
+- [x] 🟡 Admin ID recorded: the deposit's idempotency record holds the admin's user id + transaction reference, and an `AUDIT deposit ...` INFO log line is written. A real audit-log table stays in Phase 5
+- [x] Balanced ledger: new SYSTEM **settlement** account `999900000002` (auto-created at startup): DEBIT settlement / CREDIT customer (the old code only credited the customer). `exchangeRate` is 1 (no more fake 2.81)
+- [x] Class-level `@PreAuthorize(ADMIN)` on `BackOfficeResource` (on top of the `/api/admin/**` URL rule)
+- [x] Tests: `BackOfficeDepositIT` (8): balanced ledger + admin recorded + customer view, retry/conflict, parallel double click, parallel deposits, invalid amounts/keys, 4xx targets, case-insensitive e-mail, customer gets 403
+- [ ] **Admin tooling (Postman) must now send `idempotencyKey`** (a new UUID per deposit; reuse it only to retry)
+- [ ] Note: the test pool has 1 connection, so the "parallel" ITs serialize at the pool; they prove idempotency and no lost update, but don't race two open transactions. A real lock-contention test needs a pool ≥ 2 (Phase 5)
+- [ ] Push notification is still sent inside the transaction (Phase 3 after-commit item)
 
 ---
 
 ## Phase 4 — Ledger / accounting integrity
 
-- [ ] 🔵 Create system accounts: fee revenue, cash/settlement, promo
+- [ ] 🔵 Create system accounts: fee revenue (promo `999900000001` and settlement `999900000002` already exist)
 - [ ] 🔵 Every transaction must produce balanced entries:
   - [ ] Transfer: debit the sender (amount + fee), credit the receiver (amount), credit fee revenue (fee)
   - [ ] Deposit: debit cash/settlement, credit the user
